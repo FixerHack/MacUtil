@@ -8,6 +8,7 @@
 # certificate in the keychain, else ad-hoc. With ad-hoc signing macOS forgets
 # Full Disk Access after every rebuild, because the signature changes.
 set -euo pipefail
+source "$(dirname "$0")/env.sh"
 
 CONFIG="${1:-debug}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

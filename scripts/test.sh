@@ -2,9 +2,10 @@
 # Runs the test suite. With only the Command Line Tools installed (no Xcode),
 # SwiftPM cannot find the Testing framework on its own, so we point it there.
 set -euo pipefail
+source "$(dirname "$0")/env.sh"
 cd "$(dirname "$0")/.."
 
-DEV="$(xcode-select -p)"
+DEV="${DEVELOPER_DIR:-$(xcode-select -p)}"
 if [[ "$DEV" == *CommandLineTools* ]]; then
     D="$DEV/Library/Developer"
     exec swift test \
