@@ -1,0 +1,76 @@
+/* Ukrainian interface strings. Keys are the English source text.
+   Run scripts/check-strings.sh to find missing translations. */
+
+/* Window */
+"MacCleaner" = "MacCleaner";
+
+/* Sidebar sections */
+"Overview" = "Огляд";
+"Cleanup" = "Очищення";
+"Disk Space" = "Місце на диску";
+"Search" = "Пошук";
+"Applications" = "Програми";
+"Security" = "Безпека";
+"Optimization" = "Оптимізація";
+
+/* Modules */
+"Dashboard" = "Головна";
+"System Junk" = "Системне сміття";
+"Developer Junk" = "Сміття розробника";
+"Trash Bins" = "Кошики";
+"Privacy" = "Приватність";
+"Space Lens" = "Карта диска";
+"Large & Old Files" = "Великі та старі файли";
+"Duplicates" = "Дублікати";
+"Deep Search" = "Глибинний пошук";
+"Uninstaller" = "Деінсталятор";
+"Leftovers" = "Залишки програм";
+"Updater" = "Оновлення програм";
+"Security Analyzer" = "Аналізатор безпеки";
+"Login Items" = "Автозапуск";
+"Maintenance" = "Обслуговування";
+"Processes" = "Процеси";
+"Hidden Settings" = "Приховані налаштування";
+
+/* Module descriptions */
+"Clean, optimize and protect your Mac." = "Очищення, оптимізація та захист вашого Mac.";
+"Caches, logs, crash reports and other system leftovers." = "Кеші, журнали, звіти про збої та інші системні залишки.";
+"Xcode data, package manager caches, Docker and old node_modules." = "Дані Xcode, кеші менеджерів пакетів, Docker і старі node_modules.";
+"Empty the Trash on all connected drives." = "Очищення Кошика на всіх підключених дисках.";
+"Browser history, cookies and recent items." = "Історія браузерів, cookies і нещодавні документи.";
+"An interactive map of what takes up your disk." = "Інтерактивна карта того, що займає ваш диск.";
+"Find big and long-unused files." = "Пошук великих файлів і тих, якими давно не користувалися.";
+"Find identical files and free up space." = "Пошук однакових файлів, щоб звільнити місце.";
+"Search everywhere by name, size, date or contents, including hidden files." = "Пошук усюди за назвою, розміром, датою чи вмістом, включно з прихованими файлами.";
+"Remove apps together with all their leftovers." = "Видалення програм разом з усіма їхніми слідами.";
+"Files left behind by apps that are already deleted." = "Файли, що лишилися від уже видалених програм.";
+"Check your apps for updates." = "Перевірка оновлень для ваших програм.";
+"Signatures, permissions, security settings and VirusTotal checks." = "Підписи, дозволи, налаштування безпеки та перевірка через VirusTotal.";
+"Everything that starts with your Mac." = "Усе, що запускається разом із Mac.";
+"Rebuild caches and indexes, flush DNS, verify the disk." = "Перебудова кешів та індексів, очищення DNS, перевірка диска.";
+"See what uses the processor and memory." = "Що навантажує процесор і пам'ять.";
+"macOS settings that are not in System Settings." = "Налаштування macOS, яких немає в Системних параметрах.";
+"Planned for phase %lld" = "Заплановано на фазу %lld";
+
+/* Dashboard */
+"Welcome to MacCleaner" = "Вітаємо в MacCleaner";
+"Smart Scan" = "Розумне сканування";
+"Coming soon" = "Незабаром";
+"Startup Disk" = "Завантажувальний диск";
+"%@ available" = "Доступно %@";
+"%@ used of %@" = "Використано %1$@ з %2$@";
+
+/* Full Disk Access */
+"Full Disk Access is not granted" = "Повний доступ до диска не надано";
+"Full Disk Access status is unknown" = "Не вдалося визначити повний доступ до диска";
+"MacCleaner needs Full Disk Access to scan caches, mail and browser data. Without it, some files will be skipped." = "MacCleaner потрібен повний доступ до диска, щоб сканувати кеші, пошту та дані браузерів. Без нього частину файлів буде пропущено.";
+"Turn on MacCleaner in the list. If it is not there, click + and add it, then come back here." = "Увімкніть MacCleaner у списку. Якщо його там немає, натисніть + і додайте програму, а потім поверніться сюди.";
+"Open System Settings" = "Відкрити Системні параметри";
+"Show MacCleaner in Finder" = "Показати MacCleaner у Finder";
+"Check Again" = "Перевірити ще раз";
+
+/* Settings */
+"Language" = "Мова";
+"System" = "Системна";
+"Restart MacCleaner to apply the new language." = "Перезапустіть MacCleaner, щоб застосувати нову мову.";
+"Restart Now" = "Перезапустити";
