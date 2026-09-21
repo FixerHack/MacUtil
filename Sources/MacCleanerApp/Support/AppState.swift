@@ -10,6 +10,7 @@ final class AppState {
     let systemJunk = JunkStore(group: .system)
     let developerJunk = JunkStore(group: .developer)
     let trash = TrashStore()
+    let security = SecurityStore()
     private(set) var fullDiskAccess: FullDiskAccess.Status = .unknown
     private(set) var startupDisk: VolumeInfo?
     /// The Full Disk Access guide; opens on launch while access is missing.
@@ -18,7 +19,11 @@ final class AppState {
     init() {
         refresh()
         showsPermissionsGuide = fullDiskAccess != .granted
-            && ProcessInfo.processInfo.environment["MACCLEANER_SNAPSHOT"] == nil
+        #if DEBUG
+            if DebugSnapshot.isActive {
+                showsPermissionsGuide = false
+            }
+        #endif
     }
 
     func refresh() {

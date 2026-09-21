@@ -2,6 +2,7 @@ import AppKit
 import ArgumentParser
 import CleanerCore
 import Foundation
+import SecurityCore
 
 // Command-line front end for testing the core without the UI.
 // Full Disk Access here is the terminal's, not MacCleaner.app's.
@@ -12,7 +13,7 @@ struct MCCLI: AsyncParsableCommand {
         commandName: "mccli",
         abstract: "MacCleaner command-line tools.",
         version: MacCleanerInfo.version,
-        subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self]
+        subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self, Security.self]
     )
 }
 
@@ -140,6 +141,45 @@ struct Junk: AsyncParsableCommand {
         }
         let total = categories.reduce(0) { $0 + $1.removableSize }
         print("\nRemovable: \(bytes(total))")
+    }
+}
+
+struct Security: AsyncParsableCommand {
+    static let configuration =
+        CommandConfiguration(abstract: "Check security settings, autostart items and app signatures.")
+
+    func run() async throws {
+        async let checksTask = SystemSecurityScanner.run()
+        async let persistenceTask = PersistenceScanner().scan()
+        async let appsTask = AppInventory.scan()
+        let (checks, persistence, apps) = await (checksTask, persistenceTask, appsTask)
+
+        print("Security score: \(SystemSecurityScanner.score(checks))/100\n")
+        for check in checks.sorted(by: { $0.status < $1.status }) {
+            let mark = switch check.status {
+            case .pass: "✓"
+            case .warning: "!"
+            case .fail: "✗"
+            case .info: "i"
+            }
+            print("\(mark) \(String(localized: check.title)): \(String(localized: check.summary))")
+        }
+
+        print("\nAutostart (\(persistence.count)):")
+        for item in persistence {
+            let findings = item.findings.map { "\($0)" }.joined(separator: ", ")
+            print(
+                "  [\(item.risk)] \(item.label)  \(item.executable ?? "-")\(findings.isEmpty ? "" : "  → \(findings)")"
+            )
+        }
+
+        let flagged = apps.filter { $0.signature.trust != .trusted }
+        print("\nApps: \(apps.count), not fully trusted: \(flagged.count)")
+        for app in flagged {
+            print(
+                "  [\(app.signature.trust)] \(app.name)  \(app.signature.signer)  notarized=\(app.signature.isNotarized)"
+            )
+        }
     }
 }
 

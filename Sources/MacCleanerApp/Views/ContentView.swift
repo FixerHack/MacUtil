@@ -33,6 +33,8 @@ struct ContentView: View {
                 JunkView(module: .developerJunk, store: state.developerJunk)
             case .trash:
                 TrashBinsView(store: state.trash)
+            case .securityAnalyzer:
+                SecurityView(store: state.security)
             case let module:
                 ModulePlaceholderView(module: module)
             }

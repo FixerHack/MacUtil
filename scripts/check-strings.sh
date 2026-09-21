@@ -28,11 +28,17 @@ for path in glob.glob(f"{out_dir}/*.stringsdata"):
 translated = set(json.loads(subprocess.check_output(
     ["plutil", "-convert", "json", "-o", "-", strings_path])).keys())
 
+import re
+keys = re.findall(r'^"((?:[^"\\]|\\.)*)"\s*=', open(strings_path, encoding="utf-8").read(), re.M)
+duplicates = sorted({key for key in keys if keys.count(key) > 1})
+for key in duplicates:
+    print(f"duplicate: {key!r}")
+
 missing, unused = sorted(used - translated), sorted(translated - used)
 for key in missing:
     print(f"missing: {key!r}")
 for key in unused:
     print(f"unused:  {key!r}")
 print(f"{len(used)} strings, {len(missing)} missing, {len(unused)} unused")
-sys.exit(1 if missing else 0)
+sys.exit(1 if missing or duplicates else 0)
 PY
