@@ -18,7 +18,7 @@ rm -f "$OUT"
 if [[ -n "${SNAPSHOT_SCAN:-}" ]]; then export MACUTIL_SNAPSHOT_SCAN="$SNAPSHOT_SCAN"; fi
 NAME="$(basename "$BINARY")"
 
-pkill -x "$NAME" 2>/dev/null || true
+pkill -f "$BINARY" 2>/dev/null || true
 MACUTIL_SNAPSHOT_MODULE="$MODULE" MACUTIL_WINDOW_ID_FILE="$ID_FILE" \
     "$BINARY" -AppleLanguages "($LANGUAGE)" >/dev/null 2>&1 &
 PID=$!

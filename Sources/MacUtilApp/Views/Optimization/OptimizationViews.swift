@@ -355,8 +355,7 @@ struct LoginItemsView: View {
                     "Background programs that start with your Mac. Turning one off stops it now and at the next login; turn it back on any time. Apps added under Login Items in System Settings are managed there."
                 )
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Button("Open Login Items Settings") { NSWorkspace.shared.open(SettingsPane.loginItems) }
             }
             .padding(.horizontal, 20)
