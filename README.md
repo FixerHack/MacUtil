@@ -51,6 +51,10 @@ Other scripts:
 MacUtil needs Full Disk Access to see caches, mail and browser data. On first launch a step-by-step guide
 opens it in System Settings, lets you drag the app into the list and notices when access is granted.
 Run the copy in /Applications: permissions belong to the app at that location.
+
+If `security find-identity -v -p codesigning` lists your certificate as not valid, the Apple WWDR G3
+intermediate certificate is missing. Download https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+and double-click it to add it to the login keychain.
 Builds signed ad-hoc get a new signature on every rebuild, so macOS forgets the permission. If you have
 an "Apple Development" certificate (free with an Apple ID in Xcode), the build script signs with it and
 the permission sticks.
