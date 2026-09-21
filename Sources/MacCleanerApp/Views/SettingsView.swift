@@ -2,6 +2,8 @@ import CleanerCore
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.openWindow) private var openWindow
     @State private var language = AppLanguage.current
     @State private var needsRestart = false
 
@@ -25,6 +27,18 @@ struct SettingsView: View {
                     Spacer()
                     Button("Restart Now") {
                         AppLanguage.relaunch()
+                    }
+                }
+            }
+
+            LabeledContent("Full Disk Access") {
+                if state.fullDiskAccess == .granted {
+                    Label("Granted", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Button("Set Up…") {
+                        openWindow(id: "main")
+                        state.showsPermissionsGuide = true
                     }
                 }
             }

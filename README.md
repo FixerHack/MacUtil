@@ -31,6 +31,7 @@ CleanMyMac, OnyX and the Objective-See tools. Native Swift and SwiftUI, no telem
 ## Build
 
 ```bash
+scripts/install.sh              # optimized build, installed to /Applications and opened
 scripts/build-app.sh            # debug build → build/MacCleaner.app
 scripts/build-app.sh release    # optimized build
 open build/MacCleaner.app
@@ -47,7 +48,9 @@ Other scripts:
 
 ### Full Disk Access
 
-MacCleaner needs Full Disk Access to see caches, mail and browser data. The app shows how to grant it.
+MacCleaner needs Full Disk Access to see caches, mail and browser data. On first launch a step-by-step guide
+opens it in System Settings, lets you drag the app into the list and notices when access is granted.
+Run the copy in /Applications: permissions belong to the app at that location.
 Builds signed ad-hoc get a new signature on every rebuild, so macOS forgets the permission. If you have
 an "Apple Development" certificate (free with an Apple ID in Xcode), the build script signs with it and
 the permission sticks.

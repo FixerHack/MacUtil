@@ -24,6 +24,7 @@ struct MacCleanerApp: App {
 
         Settings {
             SettingsView()
+                .environment(state)
         }
     }
 }

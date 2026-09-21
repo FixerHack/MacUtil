@@ -1,4 +1,5 @@
 import CleanerCore
+import Foundation
 import Observation
 
 @MainActor
@@ -11,9 +12,13 @@ final class AppState {
     let trash = TrashStore()
     private(set) var fullDiskAccess: FullDiskAccess.Status = .unknown
     private(set) var startupDisk: VolumeInfo?
+    /// The Full Disk Access guide; opens on launch while access is missing.
+    var showsPermissionsGuide = false
 
     init() {
         refresh()
+        showsPermissionsGuide = fullDiskAccess != .granted
+            && ProcessInfo.processInfo.environment["MACCLEANER_SNAPSHOT"] == nil
     }
 
     func refresh() {

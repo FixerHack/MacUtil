@@ -1,7 +1,7 @@
 import CleanerCore
 import SwiftUI
 
-/// Explains why Full Disk Access is needed and walks the user to System Settings.
+/// Explains why Full Disk Access is needed and opens the step-by-step guide.
 struct FullDiskAccessCard: View {
     let status: FullDiskAccess.Status
     @Environment(AppState.self) private var state
@@ -20,19 +20,11 @@ struct FullDiskAccessCard: View {
                     )
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    Text("Turn on MacCleaner in the list. If it is not there, click + and add it, then come back here.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                     HStack {
-                        Button("Open System Settings") {
-                            NSWorkspace.shared.open(FullDiskAccess.settingsURL)
+                        Button("Show Me How") {
+                            state.showsPermissionsGuide = true
                         }
                         .buttonStyle(.glassProminent)
-                        Button("Show MacCleaner in Finder") {
-                            NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
-                        }
-                        .buttonStyle(.glass)
                         Button("Check Again") {
                             state.refresh()
                         }

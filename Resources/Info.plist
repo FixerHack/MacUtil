@@ -8,6 +8,8 @@
 	<string>__BUNDLE_ID__</string>
 	<key>CFBundleName</key>
 	<string>MacCleaner</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleDisplayName</key>
 	<string>MacCleaner</string>
 	<key>CFBundlePackageType</key>

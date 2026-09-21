@@ -307,8 +307,8 @@ struct FullDiskAccessHint: View {
                 Text("Without Full Disk Access some locations are skipped.")
                     .font(.callout)
                 Spacer()
-                Button("Open System Settings") {
-                    NSWorkspace.shared.open(FullDiskAccess.settingsURL)
+                Button("Show Me How") {
+                    state.showsPermissionsGuide = true
                 }
                 .controlSize(.small)
             }

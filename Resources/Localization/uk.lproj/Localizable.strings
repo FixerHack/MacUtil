@@ -64,9 +64,7 @@
 "Full Disk Access is not granted" = "Повний доступ до диска не надано";
 "Full Disk Access status is unknown" = "Не вдалося визначити повний доступ до диска";
 "MacCleaner needs Full Disk Access to scan caches, mail and browser data. Without it, some files will be skipped." = "MacCleaner потрібен повний доступ до диска, щоб сканувати кеші, пошту та дані браузерів. Без нього частину файлів буде пропущено.";
-"Turn on MacCleaner in the list. If it is not there, click + and add it, then come back here." = "Увімкніть MacCleaner у списку. Якщо його там немає, натисніть + і додайте програму, а потім поверніться сюди.";
 "Open System Settings" = "Відкрити Системні параметри";
-"Show MacCleaner in Finder" = "Показати MacCleaner у Finder";
 "Check Again" = "Перевірити ще раз";
 
 /* Settings */
@@ -217,3 +215,21 @@
 "iPhone and iPad updates" = "Оновлення iPhone та iPad";
 "Downloaded iOS and iPadOS software updates." = "Завантажені оновлення iOS та iPadOS.";
 "Version" = "Версія";
+
+/* Permissions guide */
+"Allow MacCleaner to see your whole disk" = "Дозвольте MacCleaner бачити весь диск";
+"Caches, mail attachments, browser data and the Trash are protected by macOS. Without Full Disk Access MacCleaner cannot measure or clean them. Files never leave your Mac." = "Кеші, вкладення пошти, дані браузерів і Кошик захищені macOS. Без повного доступу до диска MacCleaner не може їх виміряти чи очистити. Файли ніколи не залишають ваш Mac.";
+"MacCleaner is not in the Applications folder. Move it there first, otherwise macOS may forget the permission." = "MacCleaner не в теці «Програми». Спершу перемістіть його туди, інакше macOS може забути дозвіл.";
+"Open the Full Disk Access settings." = "Відкрийте налаштування повного доступу до диска.";
+"Find MacCleaner in the list and turn on its switch. macOS asks for your password or Touch ID." = "Знайдіть MacCleaner у списку й увімкніть перемикач. macOS попросить пароль або Touch ID.";
+"Not in the list? Drag this icon into the list, or click + below the list and choose MacCleaner." = "Немає в списку? Перетягніть цю іконку в список або натисніть + під списком і виберіть MacCleaner.";
+"Drag into the Full Disk Access list" = "Перетягніть у список повного доступу до диска";
+"If macOS offers to quit and reopen MacCleaner, choose either option. MacCleaner notices the change by itself." = "Якщо macOS запропонує закрити й знову відкрити MacCleaner, виберіть будь-який варіант. MacCleaner сам помітить зміну.";
+"Full Disk Access is on. You're all set." = "Повний доступ до диска увімкнено. Усе готово.";
+"Waiting for access…" = "Чекаємо на доступ…";
+"Continue" = "Продовжити";
+"Later" = "Пізніше";
+"Show Me How" = "Показати як";
+"Full Disk Access" = "Повний доступ до диска";
+"Granted" = "Надано";
+"Set Up…" = "Налаштувати…";

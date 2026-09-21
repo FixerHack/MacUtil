@@ -37,5 +37,8 @@ struct ContentView: View {
                 ModulePlaceholderView(module: module)
             }
         }
+        .sheet(isPresented: $state.showsPermissionsGuide) {
+            PermissionsGuideView()
+        }
     }
 }
