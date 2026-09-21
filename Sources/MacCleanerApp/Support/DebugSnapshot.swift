@@ -3,7 +3,8 @@
 
     /// Development aid: `MACCLEANER_SNAPSHOT=/path/shot.png` makes the app save a PNG
     /// of its main window. `MACCLEANER_SNAPSHOT_MODULE` picks the sidebar item by its
-    /// case name and `MACCLEANER_SNAPSHOT_SCAN` starts a scan of that folder. Captures only our own window, so no
+    /// case name and `MACCLEANER_SNAPSHOT_SCAN` starts a scan of that folder
+    /// (or looks for junk when set to `junk`). Captures only our own window, so no
     /// Screen Recording permission.
     enum DebugSnapshot {
         @MainActor
@@ -15,7 +16,16 @@
             {
                 state.selection = module
             }
-            if let scanPath = environment["MACCLEANER_SNAPSHOT_SCAN"] {
+            if environment["MACCLEANER_SNAPSHOT_SCAN"] == "junk" {
+                // Read-only: finds junk but never cleans it.
+                Task {
+                    await state.systemJunk.scan()
+                    await state.developerJunk.scan()
+                    if let first = state.systemJunk.categories.first {
+                        state.systemJunk.expanded.insert(first.id)
+                    }
+                }
+            } else if let scanPath = environment["MACCLEANER_SNAPSHOT_SCAN"] {
                 state.scans.scan(URL(filePath: scanPath))
             }
             Task { @MainActor in

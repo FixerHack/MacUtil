@@ -1,3 +1,4 @@
+import AppKit
 import ArgumentParser
 import CleanerCore
 import Foundation
@@ -11,7 +12,7 @@ struct MCCLI: AsyncParsableCommand {
         commandName: "mccli",
         abstract: "MacCleaner command-line tools.",
         version: MacCleanerInfo.version,
-        subcommands: [FDA.self, Disk.self, Scan.self, Large.self]
+        subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self]
     )
 }
 
@@ -109,6 +110,36 @@ struct Large: AsyncParsableCommand {
             let opened = file.accessDate.formatted(date: .abbreviated, time: .omitted)
             print("\(bytes(file.allocatedSize).padding(10))  \(opened.padding(14))  \(file.path)")
         }
+    }
+}
+
+struct Junk: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "List junk MacCleaner would clean. Read-only: nothing is removed."
+    )
+
+    @Option(help: "Rule group: system or developer. Default: both.")
+    var group: String?
+
+    @Flag(help: "Print every item, not just category totals.")
+    var items = false
+
+    func run() async throws {
+        let rules = group.flatMap(JunkRule.Group.init(rawValue:)).map(JunkCatalog.rules(in:)) ?? JunkCatalog.all
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+        let categories = await JunkScanner.scan(rules, context: JunkContext(runningBundleIDs: running))
+
+        for category in categories {
+            let safety = category.rule.safety == .safe ? "" : "  (review)"
+            print("\(bytes(category.size).padding(10))  \(String(localized: category.rule.title))\(safety)")
+            guard items else { continue }
+            for item in category.items {
+                let lock = item.inUseBy.map { "  [in use by \($0)]" } ?? ""
+                print("\(bytes(item.size).padding(22))  \(item.path)\(lock)")
+            }
+        }
+        let total = categories.reduce(0) { $0 + $1.removableSize }
+        print("\nRemovable: \(bytes(total))")
     }
 }
 

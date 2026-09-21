@@ -136,3 +136,83 @@
 "Location" = "Розташування";
 "No files match these filters" = "Немає файлів, що відповідають фільтрам";
 "%@ selected · %@" = "Вибрано: %1$@ · %2$@";
+
+/* Cleaning screens */
+"Looking for junk…" = "Шукаємо сміття…";
+"Cleaning…" = "Очищення…";
+"Nothing to clean" = "Нічого очищати";
+"No junk found in this category." = "У цій категорії сміття не знайдено.";
+"Found %@" = "Знайдено %@";
+"Selected %@" = "Вибрано %@";
+"Clean…" = "Очистити…";
+"Clean %@?" = "Очистити %@?";
+"Move to Trash" = "Перемістити в Кошик";
+"Delete Permanently" = "Видалити назавжди";
+"Cancel" = "Скасувати";
+"Items moved to the Trash can be restored until you empty it. Deleting permanently frees the space right away and cannot be undone." = "Елементи з Кошика можна відновити, доки ви його не очистите. Остаточне видалення одразу звільняє місце, але його не можна скасувати.";
+"Review" = "Перевірте";
+"App is running" = "Програма запущена";
+"Quit the app to clean this item" = "Закрийте програму, щоб очистити цей елемент";
+"Freed %@" = "Звільнено %@";
+"The items are in the Trash. Empty it to get the space back." = "Елементи в Кошику. Очистіть його, щоб повернути місце.";
+"%lld items could not be removed" = "Не вдалося видалити елементів: %lld";
+"Undo" = "Скасувати дію";
+"Done" = "Готово";
+"Without Full Disk Access some locations are skipped." = "Без повного доступу до диска частину місць буде пропущено.";
+
+/* Trash bins */
+"Checking the Trash…" = "Перевіряємо Кошик…";
+"Emptying the Trash…" = "Очищуємо Кошик…";
+"Trash" = "Кошик";
+"Trash on %@" = "Кошик на «%@»";
+"%lld items" = "Елементів: %lld";
+"No access. Grant Full Disk Access to see what is inside." = "Немає доступу. Надайте повний доступ до диска, щоб побачити вміст.";
+"Show Trash in Finder" = "Показати Кошик у Finder";
+"Empty Trash…" = "Очистити Кошик…";
+"Empty Trash" = "Очистити Кошик";
+"Permanently delete %lld items?" = "Остаточно видалити елементи (%lld)?";
+"This frees %@ and cannot be undone." = "Це звільнить %@. Дію не можна скасувати.";
+
+/* Junk rules: developer */
+"Xcode build data" = "Дані збирання Xcode";
+"Intermediate build products in DerivedData. Xcode rebuilds them on the next build." = "Проміжні результати збирання в DerivedData. Xcode створить їх знову під час наступного збирання.";
+"Device support files" = "Файли підтримки пристроїв";
+"Debug symbols copied from connected iPhones and other devices. Xcode copies them again when a device connects." = "Налагоджувальні символи, скопійовані з підключених iPhone та інших пристроїв. Xcode скопіює їх знову під час підключення.";
+"Xcode archives" = "Архіви Xcode";
+"Archived app builds. You need them to symbolicate crash reports of released versions." = "Архіви збірок програм. Вони потрібні, щоб розшифровувати звіти про збої випущених версій.";
+"Xcode and simulator caches" = "Кеші Xcode і симулятора";
+"Caches of Xcode, SwiftUI previews and the iOS Simulator." = "Кеші Xcode, попереднього перегляду SwiftUI та симулятора iOS.";
+"JavaScript package caches" = "Кеші пакетів JavaScript";
+"Download caches of npm, Yarn, pnpm, Bun and node-gyp. Packages are downloaded again when needed." = "Кеші завантажень npm, Yarn, pnpm, Bun і node-gyp. Пакети завантажаться знову за потреби.";
+"Python package caches" = "Кеші пакетів Python";
+"Download caches of pip, uv and Poetry." = "Кеші завантажень pip, uv і Poetry.";
+"Homebrew downloads" = "Завантаження Homebrew";
+"Downloaded bottles and installers kept after installation." = "Завантажені пакети та інсталятори, що лишилися після встановлення.";
+"Other package caches" = "Інші кеші пакетів";
+"Caches of CocoaPods, Carthage, Swift Package Manager, Gradle, Maven, Cargo and Go builds." = "Кеші CocoaPods, Carthage, Swift Package Manager, Gradle, Maven, Cargo і збирання Go.";
+"Test browsers" = "Браузери для тестів";
+"Browsers downloaded by Playwright and Puppeteer for automated tests." = "Браузери, завантажені Playwright і Puppeteer для автоматичних тестів.";
+"VS Code caches" = "Кеші VS Code";
+"Caches and logs of Visual Studio Code and Cursor." = "Кеші та журнали Visual Studio Code і Cursor.";
+"JetBrains caches" = "Кеші JetBrains";
+"Indexes and caches of IntelliJ IDEA, PyCharm, WebStorm and other JetBrains IDEs." = "Індекси та кеші IntelliJ IDEA, PyCharm, WebStorm та інших середовищ JetBrains.";
+"Old node_modules" = "Старі node_modules";
+"Dependencies of JavaScript projects not changed for 30 days. Run npm install to restore them." = "Залежності JavaScript-проєктів, які не змінювалися 30 днів. Щоб відновити їх, виконайте npm install.";
+
+/* Junk rules: system */
+"User caches" = "Кеші користувача";
+"Temporary data apps keep to work faster. Apps recreate what they need." = "Тимчасові дані, які програми зберігають для швидшої роботи. Програми створять потрібне знову.";
+"User logs" = "Журнали користувача";
+"Diagnostic logs written by apps." = "Діагностичні журнали, які пишуть програми.";
+"Crash reports" = "Звіти про збої";
+"Reports about apps that quit unexpectedly." = "Звіти про програми, що несподівано завершилися.";
+"Saved window states" = "Збережені стани вікон";
+"Lets apps reopen their windows after a restart. Apps will open with new windows instead." = "Дозволяють програмам відновлювати вікна після перезапуску. Без них програми відкриються з новими вікнами.";
+"Broken preferences" = "Пошкоджені налаштування";
+"Settings files that are damaged and can no longer be read." = "Файли налаштувань, які пошкоджені й більше не читаються.";
+"Old installers" = "Старі інсталятори";
+"Disk images and installer packages in Downloads older than 2 weeks." = "Образи дисків та інсталяційні пакети в Завантаженнях, старші за 2 тижні.";
+"Mail attachments" = "Вкладення Пошти";
+"Copies of attachments you opened in Mail. The originals stay in your mailbox." = "Копії вкладень, які ви відкривали в Пошті. Оригінали лишаються в поштовій скриньці.";
+"iPhone and iPad updates" = "Оновлення iPhone та iPad";
+"Downloaded iOS and iPadOS software updates." = "Завантажені оновлення iOS та iPadOS.";

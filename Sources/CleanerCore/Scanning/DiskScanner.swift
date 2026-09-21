@@ -68,7 +68,9 @@ public final class DiskScanner: Sendable {
     }
 
     public func scan(_ url: URL) async throws -> ScanResult {
-        var path = url.standardizedFileURL.path(percentEncoded: false)
+        // Not standardizedFileURL: it rewrites /private/var to /var, and paths must
+        // match what other code (like SafetyGuard.resolve) produces.
+        var path = url.path(percentEncoded: false)
         if path.count > 1, path.hasSuffix("/") {
             path.removeLast()
         }

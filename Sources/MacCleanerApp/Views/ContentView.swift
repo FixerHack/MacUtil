@@ -34,6 +34,12 @@ struct ContentView: View {
                 SpaceLensView()
             case .largeFiles:
                 LargeFilesView()
+            case .systemJunk:
+                JunkView(module: .systemJunk, store: state.systemJunk)
+            case .developerJunk:
+                JunkView(module: .developerJunk, store: state.developerJunk)
+            case .trash:
+                TrashBinsView(store: state.trash)
             case let module:
                 ModulePlaceholderView(module: module)
             }
