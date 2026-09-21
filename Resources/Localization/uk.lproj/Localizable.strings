@@ -74,3 +74,65 @@
 "System" = "Системна";
 "Restart MacCleaner to apply the new language." = "Перезапустіть MacCleaner, щоб застосувати нову мову.";
 "Restart Now" = "Перезапустити";
+
+/* Scanning */
+"Home Folder" = "Домашня тека";
+"Choose Folder…" = "Вибрати теку…";
+"Choose what to scan" = "Виберіть, що сканувати";
+"Scan" = "Сканувати";
+"Rescan" = "Сканувати знову";
+"Stop" = "Зупинити";
+"Scanning…" = "Сканування…";
+"Scan Home Folder" = "Сканувати домашню теку";
+"Scan Failed" = "Не вдалося просканувати";
+"Try Again" = "Спробувати ще раз";
+"%@ files · %@" = "Файлів: %1$@ · %2$@";
+"%@ in %@ files" = "%1$@, файлів: %2$@";
+"%lld folders could not be read" = "Не вдалося прочитати тек: %lld";
+"Grant Full Disk Access to scan everything" = "Надайте повний доступ до диска, щоб сканувати все";
+
+/* Space Lens */
+"Up" = "Вгору";
+"Open" = "Відкрити";
+"Show in Finder" = "Показати у Finder";
+"Copy Path" = "Скопіювати шлях";
+"Other items" = "Інші елементи";
+"%lld smaller items" = "Дрібніші елементи: %lld";
+"%@ · %@ files" = "%1$@ · файлів: %2$@";
+"This folder is empty" = "Ця тека порожня";
+"Not scanned" = "Не проскановано";
+"No access" = "Немає доступу";
+"Unreadable" = "Не читається";
+"Other volume" = "Інший диск";
+"In iCloud" = "В iCloud";
+"Excluded" = "Виключено";
+
+/* File kinds */
+"Images" = "Зображення";
+"Videos" = "Відео";
+"Audio" = "Аудіо";
+"Archives" = "Архіви";
+"Disk Images" = "Образи дисків";
+"Apps & Installers" = "Програми та інсталятори";
+"Documents" = "Документи";
+"Code" = "Код";
+"Other" = "Інше";
+
+/* Large & Old Files */
+"Size" = "Розмір";
+"Over %@" = "Понад %@";
+"Last opened" = "Востаннє відкривали";
+"Any time" = "Будь-коли";
+"Not opened for a month" = "Не відкривали місяць";
+"Not opened for 3 months" = "Не відкривали 3 місяці";
+"Not opened for 6 months" = "Не відкривали 6 місяців";
+"Not opened for a year" = "Не відкривали рік";
+"Kind" = "Тип";
+"All kinds" = "Усі типи";
+"Filter by name" = "Фільтр за назвою";
+"Name" = "Назва";
+"Last Opened" = "Відкривали";
+"Modified" = "Змінено";
+"Location" = "Розташування";
+"No files match these filters" = "Немає файлів, що відповідають фільтрам";
+"%@ selected · %@" = "Вибрано: %1$@ · %2$@";

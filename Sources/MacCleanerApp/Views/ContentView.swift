@@ -30,6 +30,10 @@ struct ContentView: View {
             switch state.selection ?? .dashboard {
             case .dashboard:
                 DashboardView()
+            case .spaceLens:
+                SpaceLensView()
+            case .largeFiles:
+                LargeFilesView()
             case let module:
                 ModulePlaceholderView(module: module)
             }

@@ -3,7 +3,8 @@
 
     /// Development aid: `MACCLEANER_SNAPSHOT=/path/shot.png` makes the app save a PNG
     /// of its main window. `MACCLEANER_SNAPSHOT_MODULE` picks the sidebar item by its
-    /// case name. Captures only our own window, so no Screen Recording permission.
+    /// case name and `MACCLEANER_SNAPSHOT_SCAN` starts a scan of that folder. Captures only our own window, so no
+    /// Screen Recording permission.
     enum DebugSnapshot {
         @MainActor
         static func scheduleIfRequested(state: AppState) {
@@ -13,6 +14,9 @@
                let module = Module.allCases.first(where: { name == "\($0)" })
             {
                 state.selection = module
+            }
+            if let scanPath = environment["MACCLEANER_SNAPSHOT_SCAN"] {
+                state.scans.scan(URL(filePath: scanPath))
             }
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(Double(environment["MACCLEANER_SNAPSHOT_DELAY"] ?? "") ?? 2))

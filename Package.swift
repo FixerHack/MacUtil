@@ -10,10 +10,16 @@ let package = Package(
         .executable(name: "mccli", targets: ["mccli"]),
         .library(name: "CleanerCore", targets: ["CleanerCore"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
+    ],
     targets: [
         .target(name: "CleanerCore"),
         .executableTarget(name: "MacCleanerApp", dependencies: ["CleanerCore"]),
-        .executableTarget(name: "mccli", dependencies: ["CleanerCore"]),
+        .executableTarget(
+            name: "mccli",
+            dependencies: ["CleanerCore", .product(name: "ArgumentParser", package: "swift-argument-parser")]
+        ),
         .testTarget(name: "CleanerCoreTests", dependencies: ["CleanerCore"]),
     ]
 )

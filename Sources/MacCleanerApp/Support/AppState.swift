@@ -5,6 +5,7 @@ import Observation
 @Observable
 final class AppState {
     var selection: Module? = .dashboard
+    let scans = ScanStore()
     private(set) var fullDiskAccess: FullDiskAccess.Status = .unknown
     private(set) var startupDisk: VolumeInfo?
 

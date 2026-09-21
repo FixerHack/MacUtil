@@ -2,6 +2,7 @@
 # Saves a PNG of the app window for visual checks (debug builds only).
 #   scripts/snapshot.sh out.png [module] [language]
 #   scripts/snapshot.sh /tmp/lens.png spaceLens uk
+#   SNAPSHOT_SCAN=~/Downloads SNAPSHOT_DELAY=5 scripts/snapshot.sh /tmp/lens.png spaceLens
 #
 # Uses `screencapture -l` when the calling app has Screen Recording permission,
 # otherwise asks the app to draw its own window (Liquid Glass areas come out blank).
@@ -11,6 +12,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/build/MacCleaner.app/Contents/MacOS/MacCleaner"
 DELAY="${SNAPSHOT_DELAY:-2}"
 rm -f "$OUT"
+if [[ -n "${SNAPSHOT_SCAN:-}" ]]; then export MACCLEANER_SNAPSHOT_SCAN="$SNAPSHOT_SCAN"; fi
 
 pkill -x MacCleaner 2>/dev/null || true
 MACCLEANER_SNAPSHOT_MODULE="$MODULE" "$APP" -AppleLanguages "($LANGUAGE)" >/dev/null 2>&1 &
