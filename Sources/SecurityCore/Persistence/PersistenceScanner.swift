@@ -1,3 +1,4 @@
+import CleanerCore
 import Foundation
 
 /// Something that starts automatically: a launch agent or daemon, a cron job or a

@@ -28,6 +28,10 @@
                 Task { await state.security.scan() }
             case "duplicates":
                 Task { await state.duplicates.search() }
+            case let text? where text.hasPrefix("search:"):
+                state.search.query.text = String(text.dropFirst(7))
+                state.search.query.matching = .wildcard
+                Task { await state.search.run() }
             case let app? where app.hasPrefix("app:"):
                 Task {
                     await state.uninstaller.load()

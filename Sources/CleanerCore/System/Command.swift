@@ -1,14 +1,14 @@
 import Foundation
 
 /// Runs a system tool and captures its output (stdout and stderr together).
-enum Command {
-    struct Output: Sendable {
-        let status: Int32
-        let text: String
+public enum Command {
+    public struct Output: Sendable {
+        public let status: Int32
+        public let text: String
     }
 
     /// Returns nil if the tool could not start or ran longer than `timeout`.
-    static func run(
+    public static func run(
         _ executable: String,
         _ arguments: [String] = [],
         timeout: Duration = .seconds(15)

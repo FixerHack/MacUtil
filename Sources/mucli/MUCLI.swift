@@ -13,7 +13,7 @@ struct MUCLI: AsyncParsableCommand {
         commandName: "mucli",
         abstract: "MacUtil command-line tools.",
         version: MacUtilInfo.version,
-        subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self, Security.self]
+        subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self, Security.self, Search.self]
     )
 }
 
@@ -180,6 +180,39 @@ struct Security: AsyncParsableCommand {
                 "  [\(app.signature.trust)] \(app.name)  \(app.signature.signer)  notarized=\(app.signature.isNotarized)"
             )
         }
+    }
+}
+
+struct Search: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(abstract: "Find files by name or contents.")
+
+    @Argument(help: "Text to look for.")
+    var text: String
+
+    @Option(help: "Folder to search.")
+    var path = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
+
+    @Flag(help: "Walk the folder instead of asking Spotlight.")
+    var deep = false
+
+    @Flag(help: "Look inside files.")
+    var contents = false
+
+    @Flag(help: "Treat the text as a wildcard pattern such as *.log.")
+    var wildcard = false
+
+    func run() async throws {
+        var query = SearchQuery()
+        query.text = text
+        query.mode = deep ? .deep : .spotlight
+        query.searchContents = contents
+        query.matching = wildcard ? .wildcard : .contains
+        let start = ContinuousClock.now
+        let hits = try await DeepSearch().run(query, in: URL(filePath: path))
+        for hit in hits.prefix(30) {
+            print("\(bytes(hit.size).padding(10))  \(hit.path)")
+        }
+        print("\n\(hits.count) found in \(ContinuousClock.now - start)")
     }
 }
 

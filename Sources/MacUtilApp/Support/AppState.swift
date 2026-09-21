@@ -14,6 +14,7 @@ final class AppState {
     let uninstaller = UninstallerStore()
     let leftovers = JunkStore(group: .leftovers)
     let duplicates = DuplicatesStore()
+    let search = SearchStore()
     private(set) var fullDiskAccess: FullDiskAccess.Status = .unknown
     private(set) var startupDisk: VolumeInfo?
     /// The Full Disk Access guide; opens on launch while access is missing.

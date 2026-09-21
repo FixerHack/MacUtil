@@ -1,3 +1,4 @@
+import CleanerCore
 import Foundation
 
 /// Reads the Mac's security settings with the same tools an administrator would

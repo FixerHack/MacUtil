@@ -468,3 +468,33 @@
 "Modified %@" = "Змінено %@";
 "Shares space" = "Спільне місце";
 "An APFS clone: it shares disk space with another copy." = "Клон APFS: ділить місце на диску з іншою копією.";
+
+/* Deep Search */
+"File name" = "Назва файлу";
+"Text inside files" = "Текст у файлах";
+"Match" = "Збіг";
+"Contains" = "Містить";
+"Wildcard (*.log)" = "Шаблон (*.log)";
+"Regular expression" = "Регулярний вираз";
+"Mode" = "Режим";
+"Quick (Spotlight)" = "Швидкий (Spotlight)";
+"Deep (everything)" = "Глибокий (усе)";
+"Spotlight is instant but skips ~/Library, hidden and system files. Deep search reads every folder." = "Spotlight шукає миттєво, але пропускає ~/Library, приховані та системні файли. Глибокий пошук читає кожну теку.";
+"Today" = "Сьогодні";
+"This week" = "Цього тижня";
+"This month" = "Цього місяця";
+"This year" = "Цього року";
+"Inside files" = "Усередині файлів";
+"Look for the text in the contents of files instead of in their names" = "Шукати текст у вмісті файлів, а не в їхніх назвах";
+"Hidden files" = "Приховані файли";
+"Find files by name, pattern or text inside them, including places Spotlight does not look." = "Шукайте файли за назвою, шаблоном чи текстом усередині, навіть там, куди Spotlight не заглядає.";
+"Search failed" = "Пошук не вдався";
+"Looked at %@ items…" = "Переглянуто: %@…";
+"Nothing found" = "Нічого не знайдено";
+"Searching… %@ items looked at" = "Пошук… переглянуто: %@";
+"%@ found" = "Знайдено: %@";
+"· showing the first %@" = "· показано перші %@";
+"%lld selected" = "Вибрано: %lld";
+"Move %lld items to the Trash?" = "Перемістити в Кошик (%lld)?";
+"Some items could not be moved" = "Деякі елементи не вдалося перемістити";
+"The pattern is not valid: %@" = "Некоректний шаблон: %@";
