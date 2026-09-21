@@ -390,3 +390,54 @@
 "This Mac is managed by an organization, which can install apps and settings." = "Цим Mac керує організація, яка може встановлювати програми й налаштування.";
 "This Mac is not managed by an organization." = "Цим Mac не керує жодна організація.";
 "A document: code signing does not apply to it." = "Документ: цифровий підпис до нього не застосовується.";
+
+/* Uninstaller */
+"Looking for apps…" = "Шукаємо програми…";
+"Removing…" = "Видаляємо…";
+"Choose an app" = "Виберіть програму";
+"MacUtil shows the app together with the data it keeps in your Library." = "MacUtil покаже програму разом з даними, які вона зберігає у вашій бібліотеці.";
+"Search apps" = "Пошук програм";
+"Sort" = "Сортування";
+"Least used" = "Найменш використовувані";
+"Opened %@" = "Відкривали %@";
+"Never opened" = "Ніколи не відкривали";
+"The app is running" = "Програма запущена";
+"Quit App" = "Закрити програму";
+"No data outside the app" = "Поза програмою даних немає";
+"App %@ · data %@" = "Програма %1$@ · дані %2$@";
+"Reset…" = "Скинути…";
+"Remove the app's data but keep the app" = "Видалити дані програми, але залишити саму програму";
+"Uninstall…" = "Видалити…";
+"Reset %@?" = "Скинути %@?";
+"Uninstall %@?" = "Видалити %@?";
+"Remove Data" = "Видалити дані";
+"The selected data moves to the Trash. The app stays and starts fresh, as on first launch." = "Вибрані дані перемістяться в Кошик. Програма залишиться і запуститься з нуля, як уперше.";
+"The app and the selected data move to the Trash. You can restore them until you empty it." = "Програма і вибрані дані перемістяться в Кошик. Їх можна відновити, доки ви не очистите Кошик.";
+"Needs administrator rights" = "Потрібні права адміністратора";
+"Matched by name" = "Збіг за назвою";
+"Named like the app, not by its identifier. Check before removing." = "Названо як програму, а не за її ідентифікатором. Перевірте перед видаленням.";
+"Application data" = "Дані програми";
+"Caches" = "Кеші";
+"Preferences" = "Налаштування";
+"Containers" = "Контейнери";
+"Shared containers" = "Спільні контейнери";
+"Saved window state" = "Збережений стан вікон";
+"Web data and cookies" = "Вебдані й cookies";
+"Logs" = "Журнали";
+"Launch agents and helpers" = "Агенти запуску й помічники";
+
+/* Leftovers rules */
+"Caches of removed apps" = "Кеші видалених програм";
+"Cache folders of apps that are no longer installed." = "Теки кешів програм, яких уже немає.";
+"Data of removed apps" = "Дані видалених програм";
+"Application Support folders of apps that are no longer installed. They may hold documents or settings you want to keep." = "Теки Application Support програм, яких уже немає. Там можуть бути документи чи налаштування, які варто зберегти.";
+"Containers of removed apps" = "Контейнери видалених програм";
+"Sandbox containers of App Store and other sandboxed apps that are no longer installed." = "Контейнери програм з App Store та інших ізольованих програм, яких уже немає.";
+"Settings of removed apps" = "Налаштування видалених програм";
+"Preference files of apps that are no longer installed." = "Файли налаштувань програм, яких уже немає.";
+"Web data of removed apps" = "Вебдані видалених програм";
+"Cookies and website storage of apps that are no longer installed." = "Cookies і дані сайтів програм, яких уже немає.";
+"Logs of removed apps" = "Журнали видалених програм";
+"Log folders of apps that are no longer installed." = "Теки журналів програм, яких уже немає.";
+"Broken launch agents" = "Зламані агенти запуску";
+"Launch agents that try to start a program that no longer exists." = "Агенти запуску, що намагаються запустити програму, якої вже немає.";

@@ -3,7 +3,8 @@
 
     /// Development aid for scripts/snapshot.sh. Environment variables:
     /// - `MACUTIL_SNAPSHOT_MODULE`: sidebar item to show, by case name.
-    /// - `MACUTIL_SNAPSHOT_SCAN`: folder to scan first, or `junk` / `security` (all read-only).
+    /// - `MACUTIL_SNAPSHOT_SCAN`: folder to scan first, `junk`, `security`, or `app:Name` to
+    ///   open an app in the Uninstaller (all read-only).
     /// - `MACUTIL_WINDOW_ID_FILE`: where to write the window number for `screencapture -l`.
     /// - `MACUTIL_SNAPSHOT`: PNG path for a self-drawn capture, used without Screen
     ///   Recording permission (Liquid Glass areas come out blank).
@@ -25,6 +26,12 @@
             switch environment["MACUTIL_SNAPSHOT_SCAN"] {
             case "security":
                 Task { await state.security.scan() }
+            case let app? where app.hasPrefix("app:"):
+                Task {
+                    await state.uninstaller.load()
+                    state.uninstaller.selectedAppID = state.uninstaller.apps
+                        .first { $0.name.localizedCaseInsensitiveContains(app.dropFirst(4)) }?.id
+                }
             case "junk":
                 Task {
                     await state.systemJunk.scan()

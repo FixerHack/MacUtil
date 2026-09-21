@@ -91,6 +91,13 @@ struct SafetyGuardTests {
         }
     }
 
+    @Test func uninstallerRootAllowsAppsButNotTheFolder() {
+        let safety = SafetyGuard(home: URL(filePath: "/Users/tester"), extraAllowedRoots: ["/Applications"])
+        #expect(safety.check("/Applications/Some App.app") == .allowed)
+        #expect(safety.check("/Applications") != .allowed)
+        #expect(safety.check("/Applications/Utilities") != .allowed)
+    }
+
     @Test func blocksDotDotTricks() {
         #expect(safety.check("/Users/tester/Library/Caches/../../../../System") != .allowed)
         #expect(safety.check("/Users/tester/./Library") != .allowed)

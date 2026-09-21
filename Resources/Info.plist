@@ -29,6 +29,8 @@
 	<string>26.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>MacUtil asks Finder to move apps that belong to an administrator to the Trash. Finder then asks for your password.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

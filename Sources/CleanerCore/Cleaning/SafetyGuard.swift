@@ -33,6 +33,7 @@ public struct SafetyGuard: Sendable {
             "Applications", "Developer", ".Trash", ".cache", ".npm", ".gradle", ".cargo", "go",
         ]
         protectedExact = Set(wellKnownFolders.map { $0.isEmpty ? home : home + "/" + $0 })
+            .union(["/Applications", "/Applications/Utilities", "/Library", "/Users"])
 
         let protectedData = [
             "Library/Keychains", "Library/Mobile Documents", "Library/CloudStorage", "Library/Mail",

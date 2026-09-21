@@ -8,13 +8,17 @@ public struct JunkContext: Sendable {
     public var now: Date
     /// Folders claimed by specific rules, excluded from broad ones. Defaults to all catalog rules.
     public var claimingRules: [JunkRule]
+    /// Installed apps, to recognize leftovers of removed ones.
+    public var installed: InstalledApps
 
     public init(
         home: URL = FileManager.default.homeDirectoryForCurrentUser,
         runningBundleIDs: Set<String> = [],
         now: Date = Date(),
-        claimingRules: [JunkRule] = JunkCatalog.all
+        claimingRules: [JunkRule] = JunkCatalog.all,
+        installed: InstalledApps? = nil
     ) {
+        self.installed = installed ?? InstalledApps.current()
         self.home = SafetyGuard.resolve(home.path(percentEncoded: false))
         self.runningBundleIDs = runningBundleIDs
         self.now = now
@@ -70,6 +74,13 @@ public enum JunkScanner {
                 found += await staleNodeModules(
                     home: context.home, before: context.now.addingTimeInterval(-Double(days) * 86400)
                 )
+            case let .orphans(folder, naming):
+                found += await orphans(
+                    in: expand(folder, home: context.home), naming: naming,
+                    installed: context.installed, claimed: claimed
+                )
+            case let .brokenLaunchAgents(folder):
+                found += brokenLaunchAgents(in: expand(folder, home: context.home))
             }
         }
 
@@ -159,16 +170,45 @@ public enum JunkScanner {
         return found
     }
 
+    private static func orphans(
+        in folder: String, naming: JunkRule.OrphanNaming, installed: InstalledApps, claimed: [String]
+    ) async -> [Found] {
+        var result: [Found] = []
+        for name in (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? [] {
+            var identifier = name
+            if case let .bundleIDWithSuffix(suffix) = naming {
+                guard name.hasSuffix(suffix) else { continue }
+                identifier = String(name.dropLast(suffix.count))
+            }
+            guard InstalledApps.looksLikeBundleID(identifier), !installed.owns(identifier) else { continue }
+            let path = folder + "/" + name
+            // Data a more specific rule handles, such as the SwiftPM cache under Developer Junk.
+            guard !claimed.contains(where: { $0 == path || $0.hasPrefix(path + "/") }) else { continue }
+            if let size = await allocatedSize(of: path) {
+                result.append((path, size))
+            }
+        }
+        return result
+    }
+
+    private static func brokenLaunchAgents(in folder: String) -> [Found] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+        return names.filter { $0.hasSuffix(".plist") }.compactMap { name in
+            let path = folder + "/" + name
+            guard let plist = NSDictionary(contentsOfFile: path) as? [String: Any] else { return nil }
+            let program = plist["Program"] as? String ?? (plist["ProgramArguments"] as? [String])?.first
+            guard let program, program.hasPrefix("/"), !FileManager.default.fileExists(atPath: program) else {
+                return nil
+            }
+            var info = stat()
+            return lstat(path, &info) == 0 ? (path, max(Int64(info.st_blocks) * 512, 4096)) : nil
+        }
+    }
+
     // MARK: - Helpers
 
-    /// On-disk size of a file or folder, or nil if it does not exist.
     static func allocatedSize(of path: String) async -> Int64? {
-        var info = stat()
-        guard lstat(path, &info) == 0 else { return nil }
-        if info.st_mode & S_IFMT == S_IFDIR {
-            return try? await DiskScanner().scan(URL(filePath: path)).root.allocatedSize
-        }
-        return Int64(info.st_blocks) * 512
+        await DiskUsage.allocatedSize(of: path)
     }
 
     static func expand(_ path: String, home: String) -> String {

@@ -4,7 +4,15 @@ import Foundation
 /// and which running apps make it unsafe to touch.
 public struct JunkRule: Sendable, Identifiable {
     public enum Group: String, Sendable, CaseIterable {
-        case system, developer
+        case system, developer, leftovers
+    }
+
+    /// How an orphaned item's name maps to a bundle ID.
+    public enum OrphanNaming: Sendable {
+        /// The name is the bundle ID ("com.example.App").
+        case bundleID
+        /// The name is the bundle ID plus a suffix such as ".plist" or ".savedState".
+        case bundleIDWithSuffix(String)
     }
 
     public enum Safety: Sendable {
@@ -25,6 +33,10 @@ public struct JunkRule: Sendable, Identifiable {
         case brokenPreferences
         /// `node_modules` folders of projects nobody touched for a while.
         case staleNodeModules(olderThanDays: Int)
+        /// Items named after apps that are no longer installed.
+        case orphans(in: String, naming: OrphanNaming)
+        /// Launch agents whose program no longer exists.
+        case brokenLaunchAgents(in: String)
     }
 
     public let id: String
@@ -62,7 +74,7 @@ public struct JunkRule: Sendable, Identifiable {
             case let .contents(folder, _): [JunkScanner.expand(folder, home: home)]
             case let .paths(paths): paths.filter { !$0.contains("*") }.map { JunkScanner.expand($0, home: home) }
             case let .oldFiles(folder, _, _): [JunkScanner.expand(folder, home: home)]
-            case .brokenPreferences, .staleNodeModules: []
+            case .brokenPreferences, .staleNodeModules, .orphans, .brokenLaunchAgents: []
             }
         }
     }

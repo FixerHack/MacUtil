@@ -4,7 +4,7 @@ import Foundation
 /// home folder. More specific rules come first: their folders are excluded from
 /// the broad ones (for example the Homebrew cache from "User caches").
 public enum JunkCatalog {
-    public static let all: [JunkRule] = developer + system
+    public static let all: [JunkRule] = developer + system + leftovers
 
     public static func rules(in group: JunkRule.Group) -> [JunkRule] {
         all.filter { $0.group == group }
@@ -196,6 +196,65 @@ public enum JunkCatalog {
             sources: [.paths([
                 "~/Library/iTunes/iPhone Software Updates/*.ipsw", "~/Library/iTunes/iPad Software Updates/*.ipsw",
             ])]
+        ),
+    ]
+
+    // MARK: - Leftovers of removed apps
+
+    static let leftovers: [JunkRule] = [
+        JunkRule(
+            id: "leftovers.caches", group: .leftovers,
+            title: "Caches of removed apps",
+            details: "Cache folders of apps that are no longer installed.",
+            safety: .safe,
+            sources: [.orphans(in: "~/Library/Caches", naming: .bundleID)]
+        ),
+        JunkRule(
+            id: "leftovers.applicationSupport", group: .leftovers,
+            title: "Data of removed apps",
+            details: "Application Support folders of apps that are no longer installed. They may hold documents or settings you want to keep.",
+            safety: .review,
+            sources: [.orphans(in: "~/Library/Application Support", naming: .bundleID)]
+        ),
+        JunkRule(
+            id: "leftovers.containers", group: .leftovers,
+            title: "Containers of removed apps",
+            details: "Sandbox containers of App Store and other sandboxed apps that are no longer installed.",
+            safety: .review,
+            sources: [.orphans(in: "~/Library/Containers", naming: .bundleID)]
+        ),
+        JunkRule(
+            id: "leftovers.preferences", group: .leftovers,
+            title: "Settings of removed apps",
+            details: "Preference files of apps that are no longer installed.",
+            safety: .safe,
+            sources: [.orphans(in: "~/Library/Preferences", naming: .bundleIDWithSuffix(".plist"))]
+        ),
+        JunkRule(
+            id: "leftovers.webData", group: .leftovers,
+            title: "Web data of removed apps",
+            details: "Cookies and website storage of apps that are no longer installed.",
+            safety: .safe,
+            sources: [
+                .orphans(in: "~/Library/HTTPStorages", naming: .bundleID),
+                .orphans(in: "~/Library/HTTPStorages", naming: .bundleIDWithSuffix(".binarycookies")),
+                .orphans(in: "~/Library/WebKit", naming: .bundleID),
+                .orphans(in: "~/Library/Saved Application State", naming: .bundleIDWithSuffix(".savedState")),
+            ]
+        ),
+        JunkRule(
+            id: "leftovers.logs", group: .leftovers,
+            title: "Logs of removed apps",
+            details: "Log folders of apps that are no longer installed.",
+            safety: .safe,
+            sources: [.orphans(in: "~/Library/Logs", naming: .bundleID)]
+        ),
+        JunkRule(
+            id: "leftovers.launchAgents", group: .leftovers,
+            title: "Broken launch agents",
+            details: "Launch agents that try to start a program that no longer exists.",
+            safety: .safe,
+            sources: [.brokenLaunchAgents(in: "~/Library/LaunchAgents")]
         ),
     ]
 }
