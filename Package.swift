@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "MacUtil",
     defaultLocalization: "en",
-    platforms: [.macOS("26.0")],
+    platforms: [.macOS(.v14)],
     products: [
         .executable(name: "MacUtil", targets: ["MacUtilApp"]),
         .executable(name: "mucli", targets: ["mucli"]),

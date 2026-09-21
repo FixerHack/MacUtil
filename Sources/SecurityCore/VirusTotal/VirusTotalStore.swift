@@ -1,6 +1,6 @@
+import CleanerCore
 import Foundation
 import Security
-import Synchronization
 
 /// Stores the VirusTotal API key in the login keychain, never in files.
 public enum VirusTotalKey {
@@ -72,7 +72,7 @@ public final class VirusTotalCache: Sendable {
 
     private let url: URL
     private let maxAge: TimeInterval
-    private let entries: Mutex<[String: Entry]>
+    private let entries: Locked<[String: Entry]>
 
     public init(url: URL, maxAge: TimeInterval = 7 * 86400) {
         self.url = url
@@ -80,7 +80,7 @@ public final class VirusTotalCache: Sendable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let stored = (try? Data(contentsOf: url)).flatMap { try? decoder.decode([String: Entry].self, from: $0) }
-        entries = Mutex(stored ?? [:])
+        entries = Locked(stored ?? [:])
     }
 
     public func lookup(sha256: String, now: Date = Date()) -> VirusTotalLookup? {

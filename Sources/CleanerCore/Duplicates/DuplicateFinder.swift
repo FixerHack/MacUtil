@@ -1,7 +1,6 @@
 import CryptoKit
 import Darwin
 import Foundation
-import Synchronization
 
 public struct DuplicateFile: Sendable, Identifiable, Hashable {
     public let path: String
@@ -64,7 +63,7 @@ public struct DuplicateProgress: Sendable, Equatable {
 public final class DuplicateFinder: Sendable {
     public let minimumSize: Int64
     public let excludedPaths: Set<String>
-    private let state = Mutex(DuplicateProgress())
+    private let state = Locked(DuplicateProgress())
     private let scanner: DiskScanner
 
     public init(minimumSize: Int64 = 1_000_000, excludedPaths: Set<String> = []) {

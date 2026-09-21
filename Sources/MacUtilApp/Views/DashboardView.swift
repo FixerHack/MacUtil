@@ -43,7 +43,7 @@ struct DashboardView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
             }
-            .buttonStyle(.glassProminent)
+            .prominentButton()
             .controlSize(.large)
             .disabled(state.smartScan.isBusy)
             .help("Looks for junk, leftovers and security problems in one go")
@@ -165,7 +165,7 @@ private struct SmartScanSection: View {
                     Button("Clean \((junk + leftovers).formatted(.byteCount(style: .file)))") {
                         Task { await state.smartScan.cleanSafeJunk(state) }
                     }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
                     .controlSize(.large)
                 }
             }

@@ -51,7 +51,7 @@ struct SecurityView: View {
                     )
                 } actions: {
                     Button("Analyze") { Task { await store.scan() } }
-                        .buttonStyle(.glassProminent)
+                        .prominentButton()
                         .controlSize(.large)
                 }
             case .scanning:

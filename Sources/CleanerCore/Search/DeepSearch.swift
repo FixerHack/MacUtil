@@ -1,5 +1,4 @@
 import Foundation
-import Synchronization
 
 public struct SearchQuery: Sendable, Hashable {
     public enum Matching: String, Sendable, CaseIterable {
@@ -69,7 +68,7 @@ public final class DeepSearch: Sendable {
     public static let contentSizeLimit: Int64 = 20_000_000
 
     private let scanner = DiskScanner()
-    private let state = Mutex(SearchProgress())
+    private let state = Locked(SearchProgress())
 
     public init() {}
 
@@ -148,7 +147,7 @@ public final class DeepSearch: Sendable {
     }
 
     private func searchContents(of candidates: [SearchHit], matcher: Matcher) async throws -> [SearchHit] {
-        let found = Mutex([SearchHit]())
+        let found = Locked([SearchHit]())
         try await withThrowingTaskGroup(of: Void.self) { group in
             var iterator = candidates.makeIterator()
             func addNext() -> Bool {

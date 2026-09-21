@@ -9,6 +9,7 @@ struct TrashBinsView: View {
         VStack(spacing: 0) {
             FullDiskAccessHint()
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Trash Bins")
         .toolbar {
@@ -77,7 +78,7 @@ struct TrashBinsView: View {
                 }
                 Spacer()
                 Button("Empty Trash…", role: .destructive) { confirmingEmpty = true }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
                     .controlSize(.large)
                     .disabled(store.itemCount == 0)
             }

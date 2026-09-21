@@ -23,6 +23,7 @@ struct DeepSearchView: View {
                 .padding(.bottom, 12)
             Divider()
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider()
             statusBar
                 .padding(.horizontal, 20)
@@ -72,7 +73,7 @@ struct DeepSearchView: View {
                     .controlSize(.large)
             } else {
                 Button("Search", systemImage: "magnifyingglass") { Task { await store.run() } }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
                     .controlSize(.large)
                     .keyboardShortcut(.defaultAction)
             }

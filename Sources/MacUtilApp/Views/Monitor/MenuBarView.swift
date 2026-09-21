@@ -72,7 +72,7 @@ struct MenuBarView: View {
                     open(.dashboard)
                     Task { await state.smartScan.run(state) }
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
             }
             Button("Quit MacUtil") { NSApp.terminate(nil) }
                 .buttonStyle(.link)

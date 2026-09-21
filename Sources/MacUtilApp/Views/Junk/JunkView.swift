@@ -11,6 +11,7 @@ struct JunkView: View {
         VStack(spacing: 0) {
             FullDiskAccessHint()
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle(module.title)
         .toolbar {
@@ -32,7 +33,7 @@ struct JunkView: View {
                 Text(module.summary)
             } actions: {
                 Button("Scan") { Task { await store.scan() } }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
                     .controlSize(.large)
             }
         case .scanning:
@@ -67,7 +68,7 @@ struct JunkView: View {
                 .monospacedDigit()
                 .font(.headline)
             Button("Clean…") { confirmingClean = true }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
                 .controlSize(.large)
                 .disabled(store.selection.isEmpty)
                 .keyboardShortcut(.defaultAction)
@@ -282,10 +283,10 @@ struct CleanupResultView: View {
             HStack {
                 if result.canUndo, let undo {
                     Button("Undo", systemImage: "arrow.uturn.backward", action: undo)
-                        .buttonStyle(.glass)
+                        .glassButton()
                 }
                 Button("Done", action: done)
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
                     .keyboardShortcut(.defaultAction)
             }
             .controlSize(.large)

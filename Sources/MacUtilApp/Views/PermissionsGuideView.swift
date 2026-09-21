@@ -39,7 +39,7 @@ struct PermissionsGuideView: View {
                     Button("Open System Settings", systemImage: "gear") {
                         NSWorkspace.shared.open(FullDiskAccess.settingsURL)
                     }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
                 }
                 GuideStep(number: 2, isDone: isGranted) {
                     Text(
@@ -68,7 +68,7 @@ struct PermissionsGuideView: View {
                 Spacer()
                 if isGranted {
                     Button("Continue") { dismiss() }
-                        .buttonStyle(.glassProminent)
+                        .prominentButton()
                         .keyboardShortcut(.defaultAction)
                 } else {
                     Button("Later") { dismiss() }

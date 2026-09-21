@@ -31,7 +31,7 @@ struct MaintenanceView: View {
                 Button("Run \(store.selection.count) Tasks", systemImage: "play.fill") {
                     Task { await store.run() }
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
                 .disabled(store.selection.isEmpty || store.running)
             }
             .controlSize(.large)

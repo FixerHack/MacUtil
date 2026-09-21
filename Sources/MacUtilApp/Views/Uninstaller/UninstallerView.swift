@@ -229,7 +229,7 @@ private struct AppDetail: View {
                 .disabled(store.selectedLeftovers.isEmpty || isRunning)
                 .help("Remove the app's data but keep the app")
             Button("Uninstall…") { confirming = .uninstall }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
                 .disabled(isRunning)
         }
         .controlSize(.large)

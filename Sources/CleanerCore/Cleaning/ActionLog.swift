@@ -1,5 +1,4 @@
 import Foundation
-import Synchronization
 
 /// Append-only history of everything MacUtil removed or restored,
 /// one JSON object per line.
@@ -30,7 +29,7 @@ public final class ActionLog: Sendable {
     )
 
     public let url: URL
-    private let lock = Mutex(())
+    private let lock = Locked(())
 
     public init(url: URL) {
         self.url = url

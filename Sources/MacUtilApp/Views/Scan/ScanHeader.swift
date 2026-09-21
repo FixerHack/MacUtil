@@ -36,7 +36,7 @@ struct ScanHeader: View {
                 }
                 Spacer()
                 Button("Stop") { store.cancel() }
-                    .buttonStyle(.glass)
+                    .glassButton()
             } else {
                 if let result = store.result {
                     ScanSummary(result: result)
@@ -45,7 +45,7 @@ struct ScanHeader: View {
                 Button(store.result == nil ? "Scan" : "Rescan", systemImage: "arrow.clockwise") {
                     store.rescan()
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
             }
         }
         .padding(.horizontal, 20)
@@ -114,6 +114,7 @@ struct ScanPlaceholder: View {
             } actions: {
                 Button("Try Again") { state.scans.rescan() }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .idle, .finished:
             ContentUnavailableView {
                 Label(module.title, systemImage: module.symbol)
@@ -121,9 +122,11 @@ struct ScanPlaceholder: View {
                 Text(module.summary)
             } actions: {
                 Button("Scan Home Folder") { state.scans.scan(ScanStore.home) }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
                     .controlSize(.large)
             }
+            // Fill the height, or the scan header above slides to the middle of the window.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

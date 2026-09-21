@@ -24,11 +24,11 @@ struct FullDiskAccessCard: View {
                         Button("Show Me How") {
                             state.showsPermissionsGuide = true
                         }
-                        .buttonStyle(.glassProminent)
+                        .prominentButton()
                         Button("Check Again") {
                             state.refresh()
                         }
-                        .buttonStyle(.glass)
+                        .glassButton()
                     }
                     .padding(.top, 4)
                 }

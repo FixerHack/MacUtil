@@ -1,6 +1,5 @@
 import Darwin
 import Foundation
-import Synchronization
 
 public struct ScanOptions: Sendable {
     /// Descend into other volumes mounted inside the scanned folder.
@@ -49,7 +48,7 @@ public enum ScanError: LocalizedError {
 public final class DiskScanner: Sendable {
     public let options: ScanOptions
     private let counters = Counters()
-    private let hardLinks = Mutex(Set<HardLinkKey>())
+    private let hardLinks = Locked(Set<HardLinkKey>())
 
     public init(options: ScanOptions = ScanOptions()) {
         self.options = options
@@ -60,11 +59,11 @@ public final class DiskScanner: Sendable {
     }
 
     public func cancel() {
-        counters.cancelled.store(true, ordering: .relaxed)
+        counters.cancelled.withLock { $0 = true }
     }
 
     public var isCancelled: Bool {
-        counters.cancelled.load(ordering: .relaxed)
+        counters.cancelled.withLock { $0 }
     }
 
     public func scan(_ url: URL) async throws -> ScanResult {
@@ -85,7 +84,7 @@ public final class DiskScanner: Sendable {
         await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 let queue = WorkQueue(root: root, isCancelled: { [counters] in
-                    counters.cancelled.load(ordering: .relaxed)
+                    counters.cancelled.withLock { $0 }
                 })
                 let group = DispatchGroup()
                 for _ in 0 ..< max(options.workerCount, 1) {
@@ -181,11 +180,11 @@ public final class DiskScanner: Sendable {
             // EINTR comes from macOS's app data protection: without Full Disk Access,
             // opening another app's container blocks for a few seconds, then fails.
             directory.status = error == EPERM || error == EACCES || error == EINTR ? .denied : .unreadable
-            counters.inaccessible.add(1, ordering: .relaxed)
+            counters.inaccessible.withLock { $0 += 1 }
         }
-        counters.files.add(files.count, ordering: .relaxed)
-        counters.directories.add(1, ordering: .relaxed)
-        counters.bytes.add(bytes, ordering: .relaxed)
+        counters.files.withLock { $0 += files.count }
+        counters.directories.withLock { $0 += 1 }
+        counters.bytes.withLock { $0 += bytes }
         counters.currentPath.withLock { $0 = directory.path }
         return pending
     }
@@ -197,19 +196,19 @@ private struct HardLinkKey: Hashable {
 }
 
 private final class Counters: Sendable {
-    let files = Atomic<Int>(0)
-    let directories = Atomic<Int>(0)
-    let bytes = Atomic<Int64>(0)
-    let inaccessible = Atomic<Int>(0)
-    let cancelled = Atomic<Bool>(false)
-    let currentPath = Mutex("")
+    let files = Locked<Int>(0)
+    let directories = Locked<Int>(0)
+    let bytes = Locked<Int64>(0)
+    let inaccessible = Locked<Int>(0)
+    let cancelled = Locked<Bool>(false)
+    let currentPath = Locked("")
 
     func snapshot() -> ScanProgress {
         var progress = ScanProgress()
-        progress.files = files.load(ordering: .relaxed)
-        progress.directories = directories.load(ordering: .relaxed)
-        progress.bytes = bytes.load(ordering: .relaxed)
-        progress.inaccessible = inaccessible.load(ordering: .relaxed)
+        progress.files = files.withLock { $0 }
+        progress.directories = directories.withLock { $0 }
+        progress.bytes = bytes.withLock { $0 }
+        progress.inaccessible = inaccessible.withLock { $0 }
         progress.currentPath = currentPath.withLock { $0 }
         return progress
     }

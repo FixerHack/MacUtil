@@ -16,7 +16,7 @@ struct UpdaterView: View {
                     )
                 } actions: {
                     Button("Check for Updates") { Task { await store.check() } }
-                        .buttonStyle(.glassProminent)
+                        .prominentButton()
                         .controlSize(.large)
                 }
             case .checking:
@@ -81,7 +81,7 @@ private struct UpdateRow: View {
                 ProgressView().controlSize(.small)
             } else {
                 Button(buttonTitle) { Task { await store.update(update) } }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
             }
         }
         .padding(.vertical, 4)

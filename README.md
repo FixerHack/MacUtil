@@ -5,9 +5,9 @@
 A free, open-source Mac cleaner, optimizer and security analyzer, in the spirit of
 CleanMyMac, OnyX and the Objective-See tools. Native Swift and SwiftUI, no telemetry.
 
-> **Status:** early development. See [PLAN.md](PLAN.md) for the roadmap (in Ukrainian).
+> **Status:** all planned modules work; the app is being polished. See [PLAN.md](PLAN.md) (in Ukrainian).
 
-## Planned features
+## Features
 
 - **Cleanup:** system junk, developer junk (Xcode, npm, pip, Homebrew, Docker…), Trash bins, privacy traces
 - **Disk space:** Space Lens map, large and old files, duplicates
@@ -25,7 +25,7 @@ CleanMyMac, OnyX and the Objective-See tools. Native Swift and SwiftUI, no telem
 
 ## Requirements
 
-- macOS 26 Tahoe or later (older versions are planned)
+- macOS 14 Sonoma or later (Liquid Glass design on macOS 26)
 - Swift 6 toolchain: Xcode 26 or just the Command Line Tools
 
 ## Build

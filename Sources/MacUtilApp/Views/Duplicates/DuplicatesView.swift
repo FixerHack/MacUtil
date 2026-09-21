@@ -12,6 +12,7 @@ struct DuplicatesView: View {
                 .padding(.vertical, 12)
             Divider()
             content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Duplicates")
     }
@@ -42,7 +43,7 @@ struct DuplicatesView: View {
                 Button("Find Duplicates", systemImage: "magnifyingglass") {
                     Task { await store.search() }
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
             }
         }
     }
@@ -58,7 +59,7 @@ struct DuplicatesView: View {
                 )
             } actions: {
                 Button("Find Duplicates") { Task { await store.search() } }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
                     .controlSize(.large)
             }
         case .searching:
@@ -149,7 +150,7 @@ struct DuplicatesView: View {
             .monospacedDigit()
             .font(.headline)
             Button("Move to Trash…") { confirming = true }
-                .buttonStyle(.glassProminent)
+                .prominentButton()
                 .disabled(store.selection.isEmpty)
         }
         .controlSize(.large)

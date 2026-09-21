@@ -34,7 +34,7 @@ struct PermissionsList: View {
                 Text("macOS keeps app permissions in a protected database. Grant Full Disk Access to see them.")
             } actions: {
                 Button("Show Me How") { state.showsPermissionsGuide = true }
-                    .buttonStyle(.glassProminent)
+                    .prominentButton()
             }
         }
     }
