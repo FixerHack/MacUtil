@@ -4,7 +4,7 @@ import Foundation
 /// and which running apps make it unsafe to touch.
 public struct JunkRule: Sendable, Identifiable {
     public enum Group: String, Sendable, CaseIterable {
-        case system, developer, leftovers
+        case system, developer, leftovers, privacy
     }
 
     /// How an orphaned item's name maps to a bundle ID.

@@ -22,6 +22,19 @@ public enum VirusTotalKey {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Whether a key is stored. Reads only the item's attributes, so unlike `load()`
+    /// it never makes macOS ask for Keychain access.
+    public static func exists() -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
+    }
+
     @discardableResult
     public static func save(_ key: String) -> Bool {
         delete()

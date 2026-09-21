@@ -4,7 +4,7 @@ import Foundation
 /// home folder. More specific rules come first: their folders are excluded from
 /// the broad ones (for example the Homebrew cache from "User caches").
 public enum JunkCatalog {
-    public static let all: [JunkRule] = developer + system + leftovers
+    public static let all: [JunkRule] = developer + system + leftovers + privacy
 
     public static func rules(in group: JunkRule.Group) -> [JunkRule] {
         all.filter { $0.group == group }
@@ -255,6 +255,61 @@ public enum JunkCatalog {
             details: "Launch agents that try to start a program that no longer exists.",
             safety: .safe,
             sources: [.brokenLaunchAgents(in: "~/Library/LaunchAgents")]
+        ),
+    ]
+
+    // MARK: - Privacy
+
+    /// Profile folders of Chromium-based browsers under Application Support.
+    static let chromiumProfiles = [
+        "Google/Chrome/*", "BraveSoftware/Brave-Browser/*", "Microsoft Edge/*", "Arc/User Data/*", "Vivaldi/*",
+    ].map { "~/Library/Application Support/" + $0 }
+
+    static let privacy: [JunkRule] = [
+        JunkRule(
+            id: "privacy.browserHistory", group: .privacy,
+            title: "Browsing history",
+            details: "Visited pages and search suggestions in Chrome, Brave, Edge, Arc and Vivaldi. Bookmarks and passwords stay.",
+            safety: .review,
+            sources: [.paths(chromiumProfiles.flatMap { profile in
+                ["History", "History-journal", "Visited Links", "Top Sites", "Top Sites-journal", "Shortcuts"]
+                    .map { profile + "/" + $0 }
+            })]
+        ),
+        JunkRule(
+            id: "privacy.cookies", group: .privacy,
+            title: "Cookies",
+            details: "Website cookies of Chrome, Brave, Edge, Arc, Vivaldi and Firefox. Removing them signs you out of websites.",
+            safety: .review,
+            sources: [.paths(chromiumProfiles.flatMap { ["\($0)/Cookies", "\($0)/Cookies-journal"] }
+                    + ["~/Library/Application Support/Firefox/Profiles/*/cookies.sqlite"])]
+        ),
+        JunkRule(
+            id: "privacy.recentItems", group: .privacy,
+            title: "Recent items",
+            details: "Lists of recently opened documents, apps and servers in the Apple menu and in apps.",
+            safety: .safe,
+            sources: [.paths([
+                "~/Library/Application Support/com.apple.sharedfilelist/*.sfl*",
+                "~/Library/Application Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments/*.sfl*",
+            ])]
+        ),
+        JunkRule(
+            id: "privacy.downloadHistory", group: .privacy,
+            title: "Download history",
+            details: "macOS remembers the address of every file you ever downloaded. This removes that list.",
+            safety: .safe,
+            sources: [.paths(["~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2"])]
+        ),
+        JunkRule(
+            id: "privacy.terminalHistory", group: .privacy,
+            title: "Terminal history",
+            details: "Commands typed in Terminal, Python and Node. Handy to keep if you reuse old commands.",
+            safety: .review,
+            sources: [.paths([
+                "~/.zsh_history", "~/.bash_history", "~/.python_history", "~/.node_repl_history", "~/.lesshst",
+                "~/.zsh_sessions/*",
+            ])]
         ),
     ]
 }

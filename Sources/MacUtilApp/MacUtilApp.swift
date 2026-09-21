@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct MacUtilApp: App {
     @State private var state = AppState()
+    @AppStorage(Preferences.showsMenuBar) private var showsMenuBar = true
 
     var body: some Scene {
         Window("MacUtil", id: "main") {
@@ -26,5 +27,13 @@ struct MacUtilApp: App {
             SettingsView()
                 .environment(state)
         }
+
+        MenuBarExtra(isInserted: $showsMenuBar) {
+            MenuBarView(monitor: state.monitor)
+                .environment(state)
+        } label: {
+            MenuBarLabel(monitor: state.monitor)
+        }
+        .menuBarExtraStyle(.window)
     }
 }

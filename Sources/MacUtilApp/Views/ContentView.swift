@@ -33,6 +33,18 @@ struct ContentView: View {
                 JunkView(module: .developerJunk, store: state.developerJunk)
             case .trash:
                 TrashBinsView(store: state.trash)
+            case .updater:
+                UpdaterView(store: state.updater)
+            case .privacy:
+                JunkView(module: .privacy, store: state.privacy)
+            case .maintenance:
+                MaintenanceView(store: state.maintenance)
+            case .hiddenSettings:
+                HiddenSettingsView(store: state.hiddenSettings)
+            case .processes:
+                ProcessesView(store: state.processes)
+            case .loginItems:
+                LoginItemsView(store: state.loginItems)
             case .deepSearch:
                 DeepSearchView(store: state.search)
             case .duplicates:

@@ -5,6 +5,9 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppState.self) private var state
     @Environment(\.openWindow) private var openWindow
+    @AppStorage(Preferences.showsMenuBar) private var showsMenuBar = true
+    @AppStorage(Preferences.lowDiskWarning) private var lowDiskWarning = false
+    @AppStorage(Preferences.reminder) private var reminder = Notifications.Reminder.never.rawValue
     @State private var language = AppLanguage.current
     @State private var needsRestart = false
 
@@ -44,6 +47,35 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Menu bar and notifications") {
+                Toggle("Show system monitor in the menu bar", isOn: $showsMenuBar)
+                Toggle("Warn when disk space is low", isOn: Binding(
+                    get: { lowDiskWarning },
+                    set: { enabled in
+                        lowDiskWarning = enabled
+                        if enabled {
+                            Task { _ = await Notifications.requestPermission() }
+                        }
+                    }
+                ))
+                Picker("Remind me to clean up", selection: Binding(
+                    get: { Notifications.Reminder(rawValue: reminder) ?? .never },
+                    set: { value in
+                        reminder = value.rawValue
+                        Task {
+                            if value != .never {
+                                _ = await Notifications.requestPermission()
+                            }
+                            Notifications.schedule(value)
+                        }
+                    }
+                )) {
+                    Text("Never").tag(Notifications.Reminder.never)
+                    Text("Every week").tag(Notifications.Reminder.weekly)
+                    Text("Every month").tag(Notifications.Reminder.monthly)
+                }
+            }
+
             Section("VirusTotal") {
                 VirusTotalKeySettings()
             }
@@ -61,7 +93,7 @@ struct SettingsView: View {
 private struct VirusTotalKeySettings: View {
     @Environment(AppState.self) private var state
     @State private var key = ""
-    @State private var hasKey = VirusTotalKey.load() != nil
+    @State private var hasKey = VirusTotalKey.exists()
 
     var body: some View {
         if hasKey {

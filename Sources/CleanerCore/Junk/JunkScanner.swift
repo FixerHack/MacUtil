@@ -242,8 +242,11 @@ public enum JunkScanner {
         if running.contains(name) {
             return name
         }
-        if let bundleID = vendorFolders[name], running.contains(bundleID) {
-            return bundleID
+        // Any folder on the way can name the owner: ".../BraveSoftware/Brave-Browser/Default/History".
+        for component in path.split(separator: "/").map(String.init) {
+            if let bundleID = vendorFolders[component], running.contains(bundleID) {
+                return bundleID
+            }
         }
         return nil
     }

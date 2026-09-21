@@ -49,7 +49,7 @@ final class SecurityStore {
     private(set) var extensions: [BrowserExtension] = []
     private(set) var secrets: [SecretFinding] = []
     private(set) var virusTotal: [String: VirusTotalState] = [:]
-    private(set) var hasAPIKey = VirusTotalKey.load() != nil
+    private(set) var hasAPIKey = VirusTotalKey.exists()
     /// Checked and total items of a bulk VirusTotal run.
     private(set) var bulkProgress: (done: Int, total: Int)?
     private var client: VirusTotalClient?
@@ -152,7 +152,7 @@ final class SecurityStore {
     // MARK: - VirusTotal
 
     func refreshKey() {
-        hasAPIKey = VirusTotalKey.load() != nil
+        hasAPIKey = VirusTotalKey.exists()
         client = nil
     }
 
