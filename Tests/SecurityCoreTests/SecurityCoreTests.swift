@@ -34,6 +34,19 @@ struct CodeSignatureTests {
         #expect(PersistenceScanner.signatureFindings(signature) == [.cannotInspect])
     }
 
+    @Test func signingAppliesOnlyToCode() throws {
+        let photo = FileManager.default.temporaryDirectory.appending(path: "mc-\(UUID().uuidString).jpg")
+        try Data([0xFF, 0xD8, 0xFF, 0xE0]).write(to: photo)
+        defer { try? FileManager.default.removeItem(at: photo) }
+        #expect(!CodeSignature.appliesTo(photo.path(percentEncoded: false)))
+        #expect(CodeSignature.appliesTo("/bin/ls"))
+        #expect(CodeSignature.appliesTo("/System/Applications/Calculator.app"))
+        let script = FileManager.default.temporaryDirectory.appending(path: "mc-\(UUID().uuidString).sh")
+        try Data("#!/bin/sh\n".utf8).write(to: script)
+        defer { try? FileManager.default.removeItem(at: script) }
+        #expect(CodeSignature.appliesTo(script.path(percentEncoded: false)))
+    }
+
     @Test func extractsOrganizationFromCertificateName() {
         #expect(CodeSignature
             .organization(from: "Developer ID Application: Brave Software, Inc. (KL8N8XSYF4)") ==

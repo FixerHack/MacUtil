@@ -389,3 +389,4 @@
 "Device management" = "Керування пристроєм";
 "This Mac is managed by an organization, which can install apps and settings." = "Цим Mac керує організація, яка може встановлювати програми й налаштування.";
 "This Mac is not managed by an organization." = "Цим Mac не керує жодна організація.";
+"A document: code signing does not apply to it." = "Документ: цифровий підпис до нього не застосовується.";

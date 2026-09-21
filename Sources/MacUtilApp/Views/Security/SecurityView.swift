@@ -198,7 +198,8 @@ private struct IssueRow: View {
 private struct FileDropChecker: View {
     let store: SecurityStore
     @State private var path: String?
-    @State private var signature: CodeSignature?
+    /// Nil while checking; `.some(nil)` for documents, where signing does not apply.
+    @State private var signature: CodeSignature??
     @State private var isTargeted = false
 
     var body: some View {
@@ -210,9 +211,14 @@ private struct FileDropChecker: View {
                         .frame(width: 40, height: 40)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(verbatim: (path as NSString).lastPathComponent).font(.headline)
-                        HStack(spacing: 6) {
-                            TrustBadge(trust: signature.trust)
-                            Text(signature.summary).foregroundStyle(.secondary)
+                        if let signature {
+                            HStack(spacing: 6) {
+                                TrustBadge(trust: signature.trust)
+                                Text(signature.summary).foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text("A document: code signing does not apply to it.")
+                                .foregroundStyle(.secondary)
                         }
                         if let quarantine = QuarantineInfo.read(path) {
                             Text("Downloaded with \(quarantine.agent)")
@@ -254,7 +260,9 @@ private struct FileDropChecker: View {
             path = droppedPath
             signature = nil
             Task {
-                signature = await Task.detached { CodeSignature.inspect(droppedPath) }.value
+                signature = await Task.detached {
+                    CodeSignature.appliesTo(droppedPath) ? CodeSignature.inspect(droppedPath) : nil
+                }.value
             }
             return true
         } isTargeted: { isTargeted = $0 }

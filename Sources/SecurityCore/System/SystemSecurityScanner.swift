@@ -12,8 +12,12 @@ public enum SystemSecurityScanner {
         async let screenLock = Command.run("/usr/sbin/sysadminctl", ["-screenLock", "status"])
         async let disabledServices = Command.run("/bin/launchctl", ["print-disabled", "system"])
         async let enrollment = Command.run("/usr/bin/profiles", ["status", "-type", "enrollment"])
+        // The loginwindow flag can stay on after the Guest user was removed; only
+        // an existing Guest record means guests can actually log in.
+        async let guestRecord = Command.run("/usr/bin/dscl", [".", "-read", "/Users/Guest", "UniqueID"])
 
         let services = await parseDisabledServices(disabledServices?.text ?? "")
+        let guestExists = await guestRecord?.status == 0
         let updates = UserDefaults(suiteName: "/Library/Preferences/com.apple.SoftwareUpdate")
         let loginWindow = UserDefaults(suiteName: "/Library/Preferences/com.apple.loginwindow")
         let sharing = UserDefaults(suiteName: "com.apple.sharingd")
@@ -30,7 +34,7 @@ public enum SystemSecurityScanner {
                 protectionData: updates?.object(forKey: "ConfigDataInstall") as? Bool
             ),
             autoLoginCheck(user: loginWindow?.string(forKey: "autoLoginUser")),
-            guestCheck(enabled: loginWindow?.bool(forKey: "GuestEnabled") ?? false),
+            guestCheck(enabled: (loginWindow?.bool(forKey: "GuestEnabled") ?? false) && guestExists),
             screenLockCheck(screenLock?.text),
             serviceCheck(
                 id: "remoteLogin", title: "Remote Login (SSH)",

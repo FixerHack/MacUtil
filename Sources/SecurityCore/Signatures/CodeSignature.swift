@@ -150,6 +150,32 @@ public struct CodeSignature: Sendable, Hashable {
         return SecStaticCodeCheckValidity(code, flags, requirement) == errSecSuccess
     }
 
+    /// Whether code signing applies to the item at all. Photos and documents are
+    /// never signed, so "unsigned" says nothing about them.
+    public static func appliesTo(_ path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else { return false }
+        if isDirectory.boolValue {
+            return FileManager.default.fileExists(atPath: path + "/Contents/Info.plist")
+                || FileManager.default.fileExists(atPath: path + "/Contents/_CodeSignature")
+        }
+        if ["dmg", "pkg", "mpkg"].contains((path as NSString).pathExtension.lowercased()) {
+            return true
+        }
+        guard let handle = FileHandle(forReadingAtPath: path) else { return false }
+        defer { try? handle.close() }
+        let header = [UInt8]((try? handle.read(upToCount: 4)) ?? Data())
+        guard header.count >= 2 else { return false }
+        if header.starts(with: [0x23, 0x21]) {
+            return true
+        } // "#!" script
+        let machOMagics: [[UInt8]] = [
+            [0xCF, 0xFA, 0xED, 0xFE], [0xCE, 0xFA, 0xED, 0xFE], // 64/32-bit, little endian
+            [0xCA, 0xFE, 0xBA, 0xBE], // universal binary
+        ]
+        return machOMagics.contains(header)
+    }
+
     /// "Developer ID Application: Brave Software, Inc. (KL8N8XSYF4)" → "Brave Software, Inc."
     static func organization(from certificateName: String) -> String {
         var name = certificateName
