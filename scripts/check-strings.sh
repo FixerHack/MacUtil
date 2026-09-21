@@ -9,7 +9,7 @@ OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 # A clean build, so every source file is compiled and no stale output is counted.
 rm -rf .build/strings
-swift build --product MacCleaner --scratch-path .build/strings \
+swift build --product MacUtil --scratch-path .build/strings \
     -Xswiftc -emit-localized-strings -Xswiftc -emit-localized-strings-path -Xswiftc "$OUT" >/dev/null
 # The Command Line Tools write .stringsdata to $OUT; Xcode's build system keeps
 # them next to the object files.

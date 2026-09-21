@@ -1,11 +1,11 @@
 import SwiftUI
 
 @main
-struct MacCleanerApp: App {
+struct MacUtilApp: App {
     @State private var state = AppState()
 
     var body: some Scene {
-        Window("MacCleaner", id: "main") {
+        Window("MacUtil", id: "main") {
             ContentView()
                 .environment(state)
                 .frame(minWidth: 860, minHeight: 560)

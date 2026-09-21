@@ -2,14 +2,14 @@
     import AppKit
 
     /// Development aid for scripts/snapshot.sh. Environment variables:
-    /// - `MACCLEANER_SNAPSHOT_MODULE`: sidebar item to show, by case name.
-    /// - `MACCLEANER_SNAPSHOT_SCAN`: folder to scan first, or `junk` / `security` (all read-only).
-    /// - `MACCLEANER_WINDOW_ID_FILE`: where to write the window number for `screencapture -l`.
-    /// - `MACCLEANER_SNAPSHOT`: PNG path for a self-drawn capture, used without Screen
+    /// - `MACUTIL_SNAPSHOT_MODULE`: sidebar item to show, by case name.
+    /// - `MACUTIL_SNAPSHOT_SCAN`: folder to scan first, or `junk` / `security` (all read-only).
+    /// - `MACUTIL_WINDOW_ID_FILE`: where to write the window number for `screencapture -l`.
+    /// - `MACUTIL_SNAPSHOT`: PNG path for a self-drawn capture, used without Screen
     ///   Recording permission (Liquid Glass areas come out blank).
     enum DebugSnapshot {
         static var isActive: Bool {
-            ProcessInfo.processInfo.environment["MACCLEANER_SNAPSHOT_MODULE"] != nil
+            ProcessInfo.processInfo.environment["MACUTIL_SNAPSHOT_MODULE"] != nil
         }
 
         @MainActor
@@ -17,12 +17,12 @@
             let environment = ProcessInfo.processInfo.environment
             guard isActive else { return }
 
-            if let name = environment["MACCLEANER_SNAPSHOT_MODULE"],
+            if let name = environment["MACUTIL_SNAPSHOT_MODULE"],
                let module = Module.allCases.first(where: { name == "\($0)" })
             {
                 state.selection = module
             }
-            switch environment["MACCLEANER_SNAPSHOT_SCAN"] {
+            switch environment["MACUTIL_SNAPSHOT_SCAN"] {
             case "security":
                 Task { await state.security.scan() }
             case "junk":
@@ -39,7 +39,7 @@
                 break
             }
 
-            if let file = environment["MACCLEANER_WINDOW_ID_FILE"] {
+            if let file = environment["MACUTIL_WINDOW_ID_FILE"] {
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(1))
                     let window = NSApp.windows.filter(\.isVisible).max { $0.frame.width < $1.frame.width }
@@ -47,16 +47,16 @@
                 }
             }
 
-            if let path = environment["MACCLEANER_SNAPSHOT"] {
+            if let path = environment["MACUTIL_SNAPSHOT"] {
                 Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(Double(environment["MACCLEANER_SNAPSHOT_DELAY"] ?? "") ?? 2))
+                    try? await Task.sleep(for: .seconds(Double(environment["MACUTIL_SNAPSHOT_DELAY"] ?? "") ?? 2))
                     guard let view = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil })?
                         .contentView?.superview,
                         let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds)
                     else { return }
                     view.cacheDisplay(in: view.bounds, to: bitmap)
                     try? bitmap.representation(using: .png, properties: [:])?.write(to: URL(filePath: path))
-                    if environment["MACCLEANER_SNAPSHOT_QUIT"] != nil {
+                    if environment["MACUTIL_SNAPSHOT_QUIT"] != nil {
                         NSApp.terminate(nil)
                     }
                 }

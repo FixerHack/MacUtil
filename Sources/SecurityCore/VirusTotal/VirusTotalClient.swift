@@ -81,7 +81,7 @@ public actor VirusTotalClient {
         let file = try Data(contentsOf: url, options: .mappedIfSafe)
         guard file.count <= Self.uploadLimit else { throw VirusTotalError.fileTooLarge }
 
-        let boundary = "MacCleaner-\(UUID().uuidString)"
+        let boundary = "MacUtil-\(UUID().uuidString)"
         var body = Data()
         body
             .append(

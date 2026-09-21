@@ -15,11 +15,11 @@ DELAY="${SNAPSHOT_DELAY:-2}"
 ID_FILE="$(mktemp)"
 trap 'rm -f "$ID_FILE"' EXIT
 rm -f "$OUT"
-if [[ -n "${SNAPSHOT_SCAN:-}" ]]; then export MACCLEANER_SNAPSHOT_SCAN="$SNAPSHOT_SCAN"; fi
+if [[ -n "${SNAPSHOT_SCAN:-}" ]]; then export MACUTIL_SNAPSHOT_SCAN="$SNAPSHOT_SCAN"; fi
 NAME="$(basename "$BINARY")"
 
 pkill -x "$NAME" 2>/dev/null || true
-MACCLEANER_SNAPSHOT_MODULE="$MODULE" MACCLEANER_WINDOW_ID_FILE="$ID_FILE" \
+MACUTIL_SNAPSHOT_MODULE="$MODULE" MACUTIL_WINDOW_ID_FILE="$ID_FILE" \
     "$BINARY" -AppleLanguages "($LANGUAGE)" >/dev/null 2>&1 &
 PID=$!
 sleep "$DELAY"
@@ -33,8 +33,8 @@ fi
 kill $PID 2>/dev/null || true
 wait $PID 2>/dev/null || true
 
-MACCLEANER_SNAPSHOT="$OUT" MACCLEANER_SNAPSHOT_MODULE="$MODULE" MACCLEANER_SNAPSHOT_QUIT=1 \
-MACCLEANER_SNAPSHOT_DELAY="$DELAY" "$BINARY" -AppleLanguages "($LANGUAGE)" >/dev/null 2>&1 &
+MACUTIL_SNAPSHOT="$OUT" MACUTIL_SNAPSHOT_MODULE="$MODULE" MACUTIL_SNAPSHOT_QUIT=1 \
+MACUTIL_SNAPSHOT_DELAY="$DELAY" "$BINARY" -AppleLanguages "($LANGUAGE)" >/dev/null 2>&1 &
 PID=$!
 for _ in $(seq 1 60); do kill -0 $PID 2>/dev/null || break; sleep 0.5; done
 kill $PID 2>/dev/null || true

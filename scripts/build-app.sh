@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds build/MacCleaner.app from the Swift package.
+# Builds build/MacUtil.app from the Swift package.
 #
 #   scripts/build-app.sh            # debug build
 #   scripts/build-app.sh release    # optimized build
 #
-# Signing: uses $MACCLEANER_SIGN_IDENTITY, else the first "Apple Development"
+# Signing: uses $MACUTIL_SIGN_IDENTITY, else the first "Apple Development"
 # certificate in the keychain, else ad-hoc. With ad-hoc signing macOS forgets
 # Full Disk Access after every rebuild, because the signature changes.
 set -euo pipefail
@@ -14,25 +14,25 @@ CONFIG="${1:-debug}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/CleanerCore/MacCleanerInfo.swift)"
-BUNDLE_ID="$(sed -n 's/.*bundleIdentifier = "\(.*\)".*/\1/p' Sources/CleanerCore/MacCleanerInfo.swift)"
+VERSION="$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInfo.swift)"
+BUNDLE_ID="$(sed -n 's/.*bundleIdentifier = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInfo.swift)"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
-swift build -c "$CONFIG" --product MacCleaner
+swift build -c "$CONFIG" --product MacUtil
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
-APP="$ROOT/build/MacCleaner.app"
+APP="$ROOT/build/MacUtil.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$BIN_DIR/MacCleaner" "$APP/Contents/MacOS/MacCleaner"
+cp "$BIN_DIR/MacUtil" "$APP/Contents/MacOS/MacUtil"
 cp -R Resources/Localization/*.lproj "$APP/Contents/Resources/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \
     Resources/Info.plist > "$APP/Contents/Info.plist"
 plutil -lint -s "$APP/Contents/Info.plist"
 
-IDENTITY="${MACCLEANER_SIGN_IDENTITY:-}"
+IDENTITY="${MACUTIL_SIGN_IDENTITY:-}"
 if [[ -z "$IDENTITY" ]]; then
     IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
         | sed -n 's/.*"\(Apple Development[^"]*\)".*/\1/p' | head -1)"

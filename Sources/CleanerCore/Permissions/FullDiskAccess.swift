@@ -4,7 +4,7 @@ import Foundation
 ///
 /// macOS has no public API for this, so we try to open files that TCC protects
 /// and that exist on practically every Mac. The permission belongs to the
-/// responsible process: for `mccli` that is the terminal app it runs in.
+/// responsible process: for `mucli` that is the terminal app it runs in.
 public enum FullDiskAccess {
     public enum Status: Sendable, Equatable {
         case granted

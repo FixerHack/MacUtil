@@ -23,7 +23,7 @@ struct SettingsView: View {
 
             if needsRestart {
                 HStack {
-                    Text("Restart MacCleaner to apply the new language.")
+                    Text("Restart MacUtil to apply the new language.")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button("Restart Now") {
@@ -49,7 +49,7 @@ struct SettingsView: View {
             }
 
             LabeledContent("Version") {
-                Text(verbatim: MacCleanerInfo.version)
+                Text(verbatim: MacUtilInfo.version)
             }
         }
         .formStyle(.grouped)

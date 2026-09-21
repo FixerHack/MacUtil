@@ -1,7 +1,7 @@
 import Foundation
 import Synchronization
 
-/// Append-only history of everything MacCleaner removed or restored,
+/// Append-only history of everything MacUtil removed or restored,
 /// one JSON object per line.
 public final class ActionLog: Sendable {
     public struct Entry: Codable, Sendable {
@@ -26,7 +26,7 @@ public final class ActionLog: Sendable {
 
     public static let standard = ActionLog(
         url: FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Application Support/MacCleaner/History.jsonl")
+            .appending(path: "Library/Application Support/MacUtil/History.jsonl")
     )
 
     public let url: URL

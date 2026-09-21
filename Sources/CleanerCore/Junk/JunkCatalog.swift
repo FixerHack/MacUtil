@@ -1,6 +1,6 @@
 import Foundation
 
-/// Every junk rule MacCleaner knows. Paths starting with `~` are relative to the
+/// Every junk rule MacUtil knows. Paths starting with `~` are relative to the
 /// home folder. More specific rules come first: their folders are excluded from
 /// the broad ones (for example the Homebrew cache from "User caches").
 public enum JunkCatalog {
@@ -139,7 +139,7 @@ public enum JunkCatalog {
                 // Accounts and Wallet: rebuilding these can ask the user to sign in again.
                 "com.apple.passd", "PassKit", "com.apple.accountsd", "com.apple.appleaccountd",
                 "com.apple.amsaccountsd", "com.apple.iCloudNotificationAgent",
-                "com.fixerhack.MacCleaner",
+                "com.fixerhack.MacUtil",
             ])]
         ),
         JunkRule(
@@ -147,7 +147,7 @@ public enum JunkCatalog {
             title: "User logs",
             details: "Diagnostic logs written by apps.",
             safety: .safe,
-            sources: [.contents(of: "~/Library/Logs", excluding: ["DiagnosticReports", "CrashReporter", "MacCleaner"])]
+            sources: [.contents(of: "~/Library/Logs", excluding: ["DiagnosticReports", "CrashReporter", "MacUtil"])]
         ),
         JunkRule(
             id: "system.crashReports", group: .system,

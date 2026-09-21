@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "MacCleaner",
+    name: "MacUtil",
     defaultLocalization: "en",
     platforms: [.macOS("26.0")],
     products: [
-        .executable(name: "MacCleaner", targets: ["MacCleanerApp"]),
-        .executable(name: "mccli", targets: ["mccli"]),
+        .executable(name: "MacUtil", targets: ["MacUtilApp"]),
+        .executable(name: "mucli", targets: ["mucli"]),
         .library(name: "CleanerCore", targets: ["CleanerCore"]),
         .library(name: "SecurityCore", targets: ["SecurityCore"]),
     ],
@@ -17,9 +17,9 @@ let package = Package(
     targets: [
         .target(name: "CleanerCore"),
         .target(name: "SecurityCore", dependencies: ["CleanerCore"]),
-        .executableTarget(name: "MacCleanerApp", dependencies: ["CleanerCore", "SecurityCore"]),
+        .executableTarget(name: "MacUtilApp", dependencies: ["CleanerCore", "SecurityCore"]),
         .executableTarget(
-            name: "mccli",
+            name: "mucli",
             dependencies: [
                 "CleanerCore", "SecurityCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),

@@ -27,7 +27,7 @@ struct DashboardView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Welcome to MacCleaner")
+                Text("Welcome to MacUtil")
                     .font(.largeTitle.bold())
                 Text("Clean, optimize and protect your Mac.")
                     .font(.title3)

@@ -4,7 +4,7 @@ import Synchronization
 
 /// Stores the VirusTotal API key in the login keychain, never in files.
 public enum VirusTotalKey {
-    private static let service = "com.fixerhack.MacCleaner.virustotal"
+    private static let service = "com.fixerhack.MacUtil.virustotal"
     private static let account = "api-key"
 
     public static func load() -> String? {
@@ -29,7 +29,7 @@ public enum VirusTotalKey {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecAttrLabel as String: "MacCleaner VirusTotal API key",
+            kSecAttrLabel as String: "MacUtil VirusTotal API key",
             kSecValueData as String: Data(key.trimmingCharacters(in: .whitespacesAndNewlines).utf8),
         ]
         return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
@@ -54,7 +54,7 @@ public final class VirusTotalCache: Sendable {
 
     public static let standard = VirusTotalCache(
         url: FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Application Support/MacCleaner/VirusTotalCache.json")
+            .appending(path: "Library/Application Support/MacUtil/VirusTotalCache.json")
     )
 
     private let url: URL

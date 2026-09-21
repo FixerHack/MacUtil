@@ -1,4 +1,4 @@
-# MacCleaner
+# MacUtil
 
 **English** · [Українська](README.uk.md)
 
@@ -32,9 +32,9 @@ CleanMyMac, OnyX and the Objective-See tools. Native Swift and SwiftUI, no telem
 
 ```bash
 scripts/install.sh              # optimized build, installed to /Applications and opened
-scripts/build-app.sh            # debug build → build/MacCleaner.app
+scripts/build-app.sh            # debug build → build/MacUtil.app
 scripts/build-app.sh release    # optimized build
-open build/MacCleaner.app
+open build/MacUtil.app
 ```
 
 Other scripts:
@@ -44,11 +44,11 @@ Other scripts:
 | `scripts/test.sh` | Runs the tests (works without Xcode) |
 | `scripts/check-strings.sh` | Lists interface strings missing a Ukrainian translation |
 | `scripts/snapshot.sh` | Saves a PNG of the app window (debug builds) |
-| `swift run mccli` | Command-line interface to the core |
+| `swift run mucli` | Command-line interface to the core |
 
 ### Full Disk Access
 
-MacCleaner needs Full Disk Access to see caches, mail and browser data. On first launch a step-by-step guide
+MacUtil needs Full Disk Access to see caches, mail and browser data. On first launch a step-by-step guide
 opens it in System Settings, lets you drag the app into the list and notices when access is granted.
 Run the copy in /Applications: permissions belong to the app at that location.
 Builds signed ad-hoc get a new signature on every rebuild, so macOS forgets the permission. If you have
@@ -61,7 +61,7 @@ Release builds are not notarized. After unzipping, either open System Settings �
 click **Open Anyway**, or run:
 
 ```bash
-xattr -dr com.apple.quarantine MacCleaner.app
+xattr -dr com.apple.quarantine MacUtil.app
 ```
 
 ## License

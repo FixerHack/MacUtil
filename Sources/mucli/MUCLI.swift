@@ -5,14 +5,14 @@ import Foundation
 import SecurityCore
 
 // Command-line front end for testing the core without the UI.
-// Full Disk Access here is the terminal's, not MacCleaner.app's.
+// Full Disk Access here is the terminal's, not MacUtil.app's.
 
 @main
-struct MCCLI: AsyncParsableCommand {
+struct MUCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "mccli",
-        abstract: "MacCleaner command-line tools.",
-        version: MacCleanerInfo.version,
+        commandName: "mucli",
+        abstract: "MacUtil command-line tools.",
+        version: MacUtilInfo.version,
         subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self, Security.self]
     )
 }
@@ -116,7 +116,7 @@ struct Large: AsyncParsableCommand {
 
 struct Junk: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "List junk MacCleaner would clean. Read-only: nothing is removed."
+        abstract: "List junk MacUtil would clean. Read-only: nothing is removed."
     )
 
     @Option(help: "Rule group: system or developer. Default: both.")

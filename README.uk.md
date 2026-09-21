@@ -1,4 +1,4 @@
-# MacCleaner
+# MacUtil
 
 [English](README.md) · **Українська**
 
@@ -32,9 +32,9 @@
 
 ```bash
 scripts/install.sh              # оптимізована збірка, встановлення в /Applications і запуск
-scripts/build-app.sh            # налагоджувальна збірка → build/MacCleaner.app
+scripts/build-app.sh            # налагоджувальна збірка → build/MacUtil.app
 scripts/build-app.sh release    # оптимізована збірка
-open build/MacCleaner.app
+open build/MacUtil.app
 ```
 
 Інші скрипти:
@@ -44,11 +44,11 @@ open build/MacCleaner.app
 | `scripts/test.sh` | Запускає тести (працює без Xcode) |
 | `scripts/check-strings.sh` | Показує рядки інтерфейсу без українського перекладу |
 | `scripts/snapshot.sh` | Зберігає знімок вікна програми (налагоджувальні збірки) |
-| `swift run mccli` | Консольний інтерфейс до ядра |
+| `swift run mucli` | Консольний інтерфейс до ядра |
 
 ### Повний доступ до диска
 
-MacCleaner потрібен повний доступ до диска, щоб бачити кеші, пошту та дані браузерів. Під час першого
+MacUtil потрібен повний доступ до диска, щоб бачити кеші, пошту та дані браузерів. Під час першого
 запуску відкривається покроковий майстер: він відкриває потрібні налаштування, дозволяє перетягнути програму
 в список і сам помічає, коли доступ надано. Запускайте копію з /Applications: дозволи прив'язані до програми
 в цьому місці. Збірки з підписом ad-hoc після кожного перезбирання мають новий підпис, і macOS
@@ -61,7 +61,7 @@ MacCleaner потрібен повний доступ до диска, щоб б
 та натисніть **Усе одно відкрити**, або виконайте:
 
 ```bash
-xattr -dr com.apple.quarantine MacCleaner.app
+xattr -dr com.apple.quarantine MacUtil.app
 ```
 
 ## Ліцензія
