@@ -1,3 +1,4 @@
+import CleanerCore
 import SwiftUI
 
 struct SettingsView: View {
@@ -26,6 +27,10 @@ struct SettingsView: View {
                         AppLanguage.relaunch()
                     }
                 }
+            }
+
+            LabeledContent("Version") {
+                Text(verbatim: MacCleanerInfo.version)
             }
         }
         .formStyle(.grouped)

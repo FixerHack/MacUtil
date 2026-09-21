@@ -19,13 +19,6 @@ struct ContentView: View {
                 }
             }
             .navigationSplitViewColumnWidth(min: 210, ideal: 230)
-            .safeAreaInset(edge: .bottom) {
-                Text(verbatim: "MacCleaner \(MacCleanerInfo.version)")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-            }
         } detail: {
             switch state.selection ?? .dashboard {
             case .dashboard:
