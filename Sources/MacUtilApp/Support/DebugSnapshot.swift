@@ -24,8 +24,13 @@
                 state.selection = module
             }
             switch environment["MACUTIL_SNAPSHOT_SCAN"] {
-            case "security":
-                Task { await state.security.scan() }
+            case let value? where value.hasPrefix("security"):
+                Task {
+                    await state.security.scan()
+                    if let section = value.split(separator: ":").last, section != "security" {
+                        state.securitySection = String(section)
+                    }
+                }
             case "duplicates":
                 Task { await state.duplicates.search() }
             case let text? where text.hasPrefix("search:"):

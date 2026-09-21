@@ -203,16 +203,9 @@ public struct PersistenceScanner: Sendable {
         }
         // A hidden folder anywhere in the path, other than the usual tool homes.
         let allowedHidden: Set = [
-            ".local",
-            ".cargo",
-            ".nvm",
-            ".pyenv",
-            ".rbenv",
-            ".bun",
-            ".deno",
-            ".volta",
-            ".docker",
-            ".orbstack",
+            ".local", ".cargo", ".rustup", ".nvm", ".pyenv", ".rbenv", ".bun", ".deno", ".volta", ".docker",
+            ".orbstack", ".cache", ".vscode", ".cursor", ".build", ".npm", ".gradle", ".m2", ".sdkman", ".codex",
+            ".claude",
         ]
         let components = path.split(separator: "/").dropLast()
         if let hidden = components.first(where: { $0.hasPrefix(".") && !allowedHidden.contains(String($0)) }) {

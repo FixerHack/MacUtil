@@ -239,7 +239,6 @@
 "Checks macOS security settings, app signatures and everything that starts automatically. Suspicious files can be looked up on VirusTotal." = "Перевіряє налаштування безпеки macOS, підписи програм і все, що запускається автоматично. Підозрілі файли можна перевірити на VirusTotal.";
 "Analyze" = "Аналізувати";
 "Analyzing security…" = "Аналізуємо безпеку…";
-"Section" = "Розділ";
 "Settings" = "Налаштування";
 "Apps" = "Програми";
 "Autostart" = "Автозапуск";
@@ -498,3 +497,91 @@
 "Move %lld items to the Trash?" = "Перемістити в Кошик (%lld)?";
 "Some items could not be moved" = "Деякі елементи не вдалося перемістити";
 "The pattern is not valid: %@" = "Некоректний шаблон: %@";
+
+/* Security Analyzer, part 2: sections */
+"App Permissions" = "Дозволи програм";
+"Network" = "Мережа";
+"Running Programs" = "Запущені програми";
+"Browser Extensions" = "Розширення браузерів";
+"Keys and Secrets" = "Ключі та секрети";
+
+/* App permissions */
+"Apps you allowed to use the camera, microphone, screen, files and more. Permissions of removed or unsigned apps deserve a look." = "Програми, яким ви дозволили камеру, мікрофон, екран, файли тощо. Варто перевірити дозволи видалених і непідписаних програм.";
+"Needs Full Disk Access" = "Потрібен повний доступ до диска";
+"macOS keeps app permissions in a protected database. Grant Full Disk Access to see them." = "macOS зберігає дозволи програм у захищеній базі. Надайте повний доступ до диска, щоб їх побачити.";
+"controls %@" = "керує %@";
+"Revoke" = "Відкликати";
+"Remove the permission. The app asks again next time it needs it." = "Прибрати дозвіл. Програма запитає знову, коли він знадобиться.";
+"This permission is changed in System Settings" = "Цей дозвіл змінюється в Системних параметрах";
+"App no longer installed" = "Програму видалено";
+"Camera" = "Камера";
+"Microphone" = "Мікрофон";
+"Screen Recording" = "Запис екрана";
+"Accessibility (control the Mac)" = "Універсальний доступ (керування Mac)";
+"Input Monitoring (keystrokes)" = "Моніторинг введення (натискання клавіш)";
+"Automation (control other apps)" = "Автоматизація (керування іншими програмами)";
+"Photos" = "Фотографії";
+"Contacts" = "Контакти";
+"Calendars" = "Календарі";
+"Reminders" = "Нагадування";
+"Files and Folders" = "Файли й теки";
+"Bluetooth" = "Bluetooth";
+
+/* Network */
+"A proxy server routes your traffic" = "Проксі-сервер пропускає ваш трафік";
+"The hosts file redirects websites" = "Файл hosts перенаправляє сайти";
+"Certificates were trusted by hand" = "Сертифікатам довірено вручну";
+"Accepts connections from the network" = "Приймає з'єднання з мережі";
+"Programs accepting connections" = "Програми, що приймають з'єднання";
+"None" = "Немає";
+"Open to the network" = "Відкрито для мережі";
+"Only this Mac" = "Лише цей Mac";
+"DNS servers" = "DNS-сервери";
+"Your router's address or a known provider (1.1.1.1, 8.8.8.8, 9.9.9.9) is normal. An unknown address can mean the DNS was changed to redirect you." = "Адреса вашого роутера або відомого провайдера (1.1.1.1, 8.8.8.8, 9.9.9.9) — це нормально. Невідома адреса може означати, що DNS змінили, щоб вас перенаправляти.";
+"Proxy servers" = "Проксі-сервери";
+"No proxy is set." = "Проксі не налаштовано.";
+"Unless your company set this up, a proxy can read unencrypted traffic. Check Network settings → Details → Proxies." = "Якщо це налаштувала не ваша компанія, проксі може читати незашифрований трафік. Перевірте Мережа → Детальніше → Проксі.";
+"Custom hosts entries" = "Власні записи hosts";
+"/etc/hosts has only the macOS defaults." = "У /etc/hosts лише стандартні записи macOS.";
+"These lines send websites to other addresses. Malware uses this to block updates or fake sites." = "Ці рядки відправляють сайти на інші адреси. Шкідливе ПЗ так блокує оновлення або підробляє сайти.";
+"Manually trusted certificates" = "Сертифікати з ручною довірою";
+"No certificates were trusted by hand." = "Жодному сертифікату не довіряли вручну.";
+"A trusted root certificate lets its owner read your encrypted (HTTPS) traffic. Remove it in Keychain Access unless you know why it is there." = "Довірений кореневий сертифікат дозволяє його власнику читати ваш зашифрований (HTTPS) трафік. Видаліть його в «Доступі до ключів», якщо не знаєте, звідки він.";
+
+/* Running programs */
+"Nothing suspicious is running" = "Нічого підозрілого не запущено";
+"Every running program outside macOS is properly signed and runs from a normal place." = "Кожна запущена програма поза macOS правильно підписана і працює зі звичайного місця.";
+"Running programs that are not signed, run from unusual places or whose file was deleted." = "Запущені програми без підпису, зі незвичних місць або чий файл видалено.";
+
+/* Browser extensions */
+"No browser extensions found" = "Розширень браузерів не знайдено";
+"Extensions of Chrome, Brave, Edge, Arc, Vivaldi, Opera and Firefox are checked. Reading them needs Full Disk Access." = "Перевіряються розширення Chrome, Brave, Edge, Arc, Vivaldi, Opera і Firefox. Для їх читання потрібен повний доступ до диска.";
+"An extension that can read every website sees your passwords, messages and banking pages. Keep only the ones you trust." = "Розширення, що читає всі сайти, бачить ваші паролі, листування і банківські сторінки. Залишайте лише ті, яким довіряєте.";
+"Reads all websites" = "Читає всі сайти";
+"Can read every website and use sensitive browser features" = "Може читати всі сайти й використовувати чутливі функції браузера";
+"To remove an extension, open the browser's extensions page." = "Щоб видалити розширення, відкрийте сторінку розширень у браузері.";
+
+/* Keys and secrets */
+"No exposed keys found" = "Відкритих ключів не знайдено";
+"SSH keys, shell startup files and credential files in your home folder were checked." = "Перевірено SSH-ключі, файли запуску оболонки й файли з обліковими даними в домашній теці.";
+"Only the first and last characters of each key are shown. MacUtil never sends them anywhere." = "Показано лише перші й останні символи кожного ключа. MacUtil нікуди їх не надсилає.";
+"SSH key without a passphrase" = "SSH-ключ без пароля";
+"SSH key readable by other users" = "SSH-ключ доступний іншим користувачам";
+"Keys that may log in over SSH" = "Ключі, що можуть входити через SSH";
+"AWS access key" = "Ключ доступу AWS";
+"GitHub token" = "Токен GitHub";
+"AI service API key" = "API-ключ сервісу ШІ";
+"Slack token" = "Токен Slack";
+"Google API key" = "API-ключ Google";
+"Stripe live key" = "Робочий ключ Stripe";
+"npm token" = "Токен npm";
+"Private key in a file" = "Приватний ключ у файлі";
+"Shell runs a script from the internet" = "Оболонка запускає скрипт з інтернету";
+"Shell runs a hidden (encoded) command" = "Оболонка запускає приховану (закодовану) команду";
+"Shell injects a library into every program" = "Оболонка вбудовує бібліотеку в кожну програму";
+"Shell opens a remote connection" = "Оболонка відкриває віддалене з'єднання";
+"Anyone who copies the file can use the key. Add a passphrase with ssh-keygen -p." = "Будь-хто, хто скопіює файл, зможе використати ключ. Додайте пароль командою ssh-keygen -p.";
+"Restrict it with chmod 600 on the file." = "Обмежте доступ командою chmod 600 для файлу.";
+"Whoever holds these keys can log in when Remote Login is on. Remove keys you do not recognize." = "Власники цих ключів можуть увійти, коли віддалений вхід увімкнено. Видаліть ключі, яких не впізнаєте.";
+"This runs every time you open Terminal. Remove the line unless you added it yourself." = "Це виконується щоразу, коли ви відкриваєте Термінал. Видаліть рядок, якщо додали його не ви.";
+"Anyone who reads this file can use the key. Move it to the Keychain or a password manager and rotate it." = "Будь-хто, хто прочитає файл, зможе використати ключ. Перенесіть його у Зв'язку ключів чи менеджер паролів і замініть.";

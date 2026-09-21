@@ -19,6 +19,10 @@ final class AppState {
     private(set) var startupDisk: VolumeInfo?
     /// The Full Disk Access guide; opens on launch while access is missing.
     var showsPermissionsGuide = false
+    #if DEBUG
+        /// Security Analyzer section to open, for snapshots ("permissions", "network"…).
+        var securitySection: String?
+    #endif
 
     init() {
         refresh()

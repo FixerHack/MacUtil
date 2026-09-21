@@ -173,6 +173,14 @@ struct Security: AsyncParsableCommand {
             )
         }
 
+        let processes = await ProcessInspector.inspect()
+        print("\nSuspicious processes (\(processes.count)):")
+        for process in processes {
+            print(
+                "  [\(process.risk)] \(process.name) ×\(process.pids.count)  \(process.executable)  → \(process.findings.map { "\($0)" }.joined(separator: ", "))"
+            )
+        }
+
         let flagged = apps.filter { $0.signature.trust != .trusted }
         print("\nApps: \(apps.count), not fully trusted: \(flagged.count)")
         for app in flagged {

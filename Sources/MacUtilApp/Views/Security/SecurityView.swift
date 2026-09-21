@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct SecurityView: View {
     enum Section: Hashable, CaseIterable {
-        case overview, system, apps, autostart
+        case overview, system, apps, autostart, permissions, network, processes, extensions, secrets
 
         var title: LocalizedStringKey {
             switch self {
@@ -12,11 +12,31 @@ struct SecurityView: View {
             case .system: "Settings"
             case .apps: "Apps"
             case .autostart: "Autostart"
+            case .permissions: "App Permissions"
+            case .network: "Network"
+            case .processes: "Running Programs"
+            case .extensions: "Browser Extensions"
+            case .secrets: "Keys and Secrets"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .overview: "gauge.with.dots.needle.67percent"
+            case .system: "gearshape"
+            case .apps: "app.badge.checkmark"
+            case .autostart: "power"
+            case .permissions: "hand.raised"
+            case .network: "network"
+            case .processes: "cpu"
+            case .extensions: "puzzlepiece.extension"
+            case .secrets: "key"
             }
         }
     }
 
     let store: SecurityStore
+    @Environment(AppState.self) private var state
     @State private var section = Section.overview
 
     var body: some View {
@@ -37,31 +57,75 @@ struct SecurityView: View {
             case .scanning:
                 BusyView(title: "Analyzing security…")
             case .ready:
-                switch section {
-                case .overview: SecurityOverview(store: store, section: $section)
-                case .system: SystemChecksList(checks: store.checks)
-                case .apps: AppsSignatureList(store: store)
-                case .autostart: AutostartList(store: store)
+                HStack(spacing: 0) {
+                    List(Section.allCases, id: \.self, selection: $section) { item in
+                        HStack {
+                            Label(item.title, systemImage: item.symbol)
+                            Spacer()
+                            if let count = attentionCount(item), count > 0 {
+                                Text(verbatim: "\(count)")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 6)
+                                    .background(.orange.opacity(0.2), in: .capsule)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        .tag(item)
+                    }
+                    .listStyle(.sidebar)
+                    .frame(width: 220)
+                    Divider()
+                    detail
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
         .navigationTitle("Security Analyzer")
-        .toolbar {
-            if case .ready = store.phase {
-                ToolbarItem(placement: .principal) {
-                    Picker("Section", selection: $section) {
-                        ForEach(Section.allCases, id: \.self) { Text($0.title).tag($0) }
+        #if DEBUG
+            .onChange(of: state.securitySection) { _, name in
+                if let match = Section.allCases.first(where: { name == "\($0)" }) {
+                    section = match
+                }
+            }
+        #endif
+            .toolbar {
+                ToolbarItem {
+                    Button("Rescan", systemImage: "arrow.clockwise") {
+                        Task { await store.scan() }
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
+                    .disabled(store.phase == .scanning)
                 }
             }
-            ToolbarItem {
-                Button("Rescan", systemImage: "arrow.clockwise") {
-                    Task { await store.scan() }
-                }
-                .disabled(store.phase == .scanning)
-            }
+    }
+
+    @ViewBuilder private var detail: some View {
+        switch section {
+        case .overview: SecurityOverview(store: store, section: $section)
+        case .system: SystemChecksList(checks: store.checks)
+        case .apps: AppsSignatureList(store: store)
+        case .autostart: AutostartList(store: store)
+        case .permissions: PermissionsList(store: store)
+        case .network: NetworkReportView(store: store)
+        case .processes: SuspiciousProcessList(store: store)
+        case .extensions: ExtensionsList(store: store)
+        case .secrets: SecretsList(store: store)
+        }
+    }
+
+    /// Items worth a look in each section, shown as a badge.
+    private func attentionCount(_ section: Section) -> Int? {
+        switch section {
+        case .overview: nil
+        case .system: store.checks.filter { $0.status == .fail || $0.status == .warning }.count
+        case .apps: store.apps.filter { $0.signature.trust == .untrusted }.count
+        case .autostart: store.persistence.filter { $0.risk >= .medium }.count
+        case .permissions: (store.permissions ?? []).filter { $0.risk >= .medium }.count
+        case .network:
+            store.network.ports.filter { $0.risk >= .medium }.count + store.network.proxies.count
+                + store.network.hostsEntries.count + store.network.trustedCertificates.count
+        case .processes: store.processes.filter { $0.risk >= .medium }.count
+        case .extensions: store.extensions.filter { $0.risk >= .medium }.count
+        case .secrets: store.secrets.filter { $0.risk >= .medium }.count
         }
     }
 }
@@ -177,6 +241,25 @@ private struct IssueRow: View {
                 case let .app(app):
                     Text(verbatim: app.name).font(.headline)
                     Text(app.signature.summary).foregroundStyle(.secondary)
+                case let .permission(grant):
+                    Text(verbatim: PermissionsList.displayName(of: grant)).font(.headline)
+                    Text(grant.service.title).foregroundStyle(.secondary)
+                    ForEach(grant.findings, id: \.self) { Text($0.description).font(.callout) }
+                case let .port(port):
+                    Text(verbatim: "\(port.command) · \(port.address):\(port.port)").font(.headline)
+                    Text("Accepts connections from the network").foregroundStyle(.secondary)
+                case let .process(process):
+                    Text(verbatim: process.name).font(.headline)
+                    ForEach(process.findings, id: \.self) { Text($0.description).foregroundStyle(.secondary) }
+                case let .browserExtension(item):
+                    Text(verbatim: "\(item.name) · \(item.browser)").font(.headline)
+                    Text("Can read every website and use sensitive browser features").foregroundStyle(.secondary)
+                case let .secret(secret):
+                    Text(secret.kind.title).font(.headline)
+                    Text(verbatim: FinderActions.abbreviate(secret.path)).foregroundStyle(.secondary)
+                case let .network(title, details):
+                    Text(NetworkReportView.issueTitle(title)).font(.headline)
+                    Text(verbatim: details.prefix(3).joined(separator: ", ")).foregroundStyle(.secondary)
                 }
             }
             Spacer()
@@ -189,6 +272,16 @@ private struct IssueRow: View {
                 Button("Show") { section = .autostart }
             case .app:
                 Button("Show") { section = .apps }
+            case .permission:
+                Button("Show") { section = .permissions }
+            case .port, .network:
+                Button("Show") { section = .network }
+            case .process:
+                Button("Show") { section = .processes }
+            case .browserExtension:
+                Button("Show") { section = .extensions }
+            case .secret:
+                Button("Show") { section = .secrets }
             }
         }
     }

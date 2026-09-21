@@ -25,6 +25,12 @@ final class SecurityStore {
             case check(SecurityCheck)
             case persistence(PersistenceItem)
             case app(InstalledApp)
+            case permission(PermissionGrant)
+            case port(ListeningPort)
+            case process(SuspiciousProcess)
+            case browserExtension(BrowserExtension)
+            case secret(SecretFinding)
+            case network(title: String, details: [String])
         }
 
         let id: String
@@ -36,6 +42,12 @@ final class SecurityStore {
     private(set) var checks: [SecurityCheck] = []
     private(set) var persistence: [PersistenceItem] = []
     private(set) var apps: [InstalledApp] = []
+    /// Nil when the TCC databases cannot be read without Full Disk Access.
+    private(set) var permissions: [PermissionGrant]?
+    private(set) var network = NetworkReport()
+    private(set) var processes: [SuspiciousProcess] = []
+    private(set) var extensions: [BrowserExtension] = []
+    private(set) var secrets: [SecretFinding] = []
     private(set) var virusTotal: [String: VirusTotalState] = [:]
     private(set) var hasAPIKey = VirusTotalKey.load() != nil
     /// Checked and total items of a bulk VirusTotal run.
@@ -48,8 +60,20 @@ final class SecurityStore {
         async let checks = SystemSecurityScanner.run()
         async let persistence = PersistenceScanner().scan()
         async let apps = AppInventory.scan()
+        async let network = NetworkInspector.inspect()
+        async let processes = ProcessInspector.inspect()
+        async let secrets = SecretScanner.scan()
+        async let extensions = Task.detached { BrowserExtensions.scan() }.value
+        permissions = try? PrivacyPermissions.load()
         (self.checks, self.persistence, self.apps) = await (checks, persistence, apps)
+        (self.network, self.processes, self.secrets, self.extensions) = await (network, processes, secrets, extensions)
         phase = .ready
+    }
+
+    func resetPermission(_ grant: PermissionGrant) async {
+        if await PrivacyPermissions.reset(grant) {
+            permissions = try? PrivacyPermissions.load()
+        }
     }
 
     /// Settings score, lowered by risky autostart items and untrusted apps.
@@ -57,7 +81,17 @@ final class SecurityStore {
         let high = persistence.filter { $0.risk == .high }.count
         let medium = persistence.filter { $0.risk == .medium }.count
         let untrusted = apps.filter { $0.signature.trust == .untrusted }.count
-        let penalty = min(40, high * 10 + medium * 4 + untrusted * 2)
+        let others: [PersistenceItem.Risk] = issues.compactMap { issue in
+            switch issue.target {
+            case .check, .persistence, .app: nil
+            default: issue.severity
+            }
+        }
+        let penalty = min(
+            50,
+            high * 10 + medium * 4 + untrusted * 2
+                + others.filter { $0 == .high }.count * 10 + others.filter { $0 == .medium }.count * 3
+        )
         return max(0, SystemSecurityScanner.score(checks) - penalty)
     }
 
@@ -75,6 +109,42 @@ final class SecurityStore {
         }
         for app in apps where app.signature.trust == .untrusted {
             issues.append(Issue(id: "app." + app.id, severity: .medium, target: .app(app)))
+        }
+        for grant in permissions ?? [] where grant.risk >= .medium {
+            issues.append(Issue(id: "tcc." + grant.id, severity: grant.risk, target: .permission(grant)))
+        }
+        for port in network.ports where port.risk >= .medium {
+            issues.append(Issue(id: "port." + port.id, severity: port.risk, target: .port(port)))
+        }
+        for process in processes where process.risk >= .medium {
+            issues.append(Issue(id: "proc." + process.id, severity: process.risk, target: .process(process)))
+        }
+        for item in extensions where item.risk >= .medium {
+            issues.append(Issue(id: "ext." + item.id, severity: item.risk, target: .browserExtension(item)))
+        }
+        for secret in secrets where secret.risk >= .medium {
+            issues.append(Issue(id: "secret." + secret.id, severity: secret.risk, target: .secret(secret)))
+        }
+        if !network.proxies.isEmpty {
+            issues.append(Issue(
+                id: "net.proxy",
+                severity: .medium,
+                target: .network(title: "proxy", details: network.proxies)
+            ))
+        }
+        if !network.hostsEntries.isEmpty {
+            issues.append(Issue(
+                id: "net.hosts",
+                severity: .medium,
+                target: .network(title: "hosts", details: network.hostsEntries)
+            ))
+        }
+        if !network.trustedCertificates.isEmpty {
+            issues.append(Issue(
+                id: "net.certs",
+                severity: .high,
+                target: .network(title: "certificates", details: network.trustedCertificates)
+            ))
         }
         return issues.sorted { $0.severity > $1.severity }
     }
