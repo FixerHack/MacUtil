@@ -441,3 +441,30 @@
 "Log folders of apps that are no longer installed." = "Теки журналів програм, яких уже немає.";
 "Broken launch agents" = "Зламані агенти запуску";
 "Launch agents that try to start a program that no longer exists." = "Агенти запуску, що намагаються запустити програму, якої вже немає.";
+
+/* Duplicates */
+"Choose a folder to search" = "Виберіть теку для пошуку";
+"Minimum size" = "Мінімальний розмір";
+"Find Duplicates" = "Знайти дублікати";
+"Finds files with exactly the same contents. Copies made by Finder on APFS share disk space, so MacUtil shows how much you really free." = "Знаходить файли з однаковим вмістом. Копії, зроблені Finder на APFS, ділять місце на диску, тому MacUtil показує, скільки ви справді звільните.";
+"Looking at %@ files…" = "Переглянуто файлів: %@…";
+"Comparing %@ of %@ candidates…" = "Порівнюємо кандидатів: %1$@ з %2$@…";
+"Moving to Trash…" = "Переміщуємо в Кошик…";
+"No duplicates found" = "Дублікатів не знайдено";
+"%lld copies × %@" = "Копій: %1$lld × %2$@";
+"Frees %@" = "Звільнить %@";
+"%lld groups · up to %@ can be freed" = "Груп: %1$lld · можна звільнити до %2$@";
+"Auto-select" = "Автовибір";
+"Keep the oldest copy" = "Залишити найстарішу копію";
+"Keep the newest copy" = "Залишити найновішу копію";
+"Keep the copy with the shortest path" = "Залишити копію з найкоротшим шляхом";
+"Deselect All" = "Зняти весь вибір";
+"Selected %lld · frees %@" = "Вибрано: %1$lld · звільнить %2$@";
+"Move to Trash…" = "Перемістити в Кошик…";
+"Move %lld duplicates to the Trash?" = "Перемістити дублікати в Кошик (%lld)?";
+"At least one copy of every file stays. You can restore the removed copies from the Trash." = "Щонайменше одна копія кожного файлу залишиться. Видалені копії можна відновити з Кошика.";
+"Select this copy for removal" = "Вибрати цю копію для видалення";
+"The last copy always stays" = "Остання копія завжди залишається";
+"Modified %@" = "Змінено %@";
+"Shares space" = "Спільне місце";
+"An APFS clone: it shares disk space with another copy." = "Клон APFS: ділить місце на диску з іншою копією.";

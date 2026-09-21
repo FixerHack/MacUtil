@@ -3,7 +3,7 @@
 
     /// Development aid for scripts/snapshot.sh. Environment variables:
     /// - `MACUTIL_SNAPSHOT_MODULE`: sidebar item to show, by case name.
-    /// - `MACUTIL_SNAPSHOT_SCAN`: folder to scan first, `junk`, `security`, or `app:Name` to
+    /// - `MACUTIL_SNAPSHOT_SCAN`: folder to scan first, `junk`, `security`, `duplicates`, or `app:Name` to
     ///   open an app in the Uninstaller (all read-only).
     /// - `MACUTIL_WINDOW_ID_FILE`: where to write the window number for `screencapture -l`.
     /// - `MACUTIL_SNAPSHOT`: PNG path for a self-drawn capture, used without Screen
@@ -26,6 +26,8 @@
             switch environment["MACUTIL_SNAPSHOT_SCAN"] {
             case "security":
                 Task { await state.security.scan() }
+            case "duplicates":
+                Task { await state.duplicates.search() }
             case let app? where app.hasPrefix("app:"):
                 Task {
                     await state.uninstaller.load()
