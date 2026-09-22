@@ -42,9 +42,12 @@ hdiutil attach -nobrowse -readonly -quiet "$DMG" -mountpoint "$MOUNT"
 codesign --verify --strict --deep "$MOUNT/MacUtil.app" || { hdiutil detach -quiet "$MOUNT"; exit 1; }
 hdiutil detach -quiet "$MOUNT"
 
-SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
-echo "$DMG  sha256 $SHA"
-echo "$ZIP  sha256 $(shasum -a 256 "$ZIP" | cut -d' ' -f1)"
+DMG_SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
+# The cask installs the zip: macOS checks a downloaded DMG on its own, which would
+# ask people about Gatekeeper twice instead of once.
+SHA="$(shasum -a 256 "$ZIP" | cut -d' ' -f1)"
+echo "$DMG  sha256 $DMG_SHA"
+echo "$ZIP  sha256 $SHA"
 
 [[ "${1:-}" == "publish" ]] || exit 0
 
@@ -71,12 +74,16 @@ cat > "$NOTES" <<NOTES
 > MacUtil не нотаризований Apple, тому macOS блокує перший запуск. Відкрийте MacUtil один раз, потім
 > **Системні параметри → Приватність і безпека → Все одно відкрити**.
 >
+> Later updates install themselves from inside MacUtil, without this step.
+> Наступні оновлення MacUtil встановлює сам, уже без цього кроку.
+>
 > [Step-by-step guide](https://github.com/$REPO#first-launch) · [Покрокова інструкція](https://github.com/$REPO/blob/main/README.uk.md#перший-запуск)
 
 ### Install / Встановлення
 
-**DMG:** download **MacUtil-$VERSION.dmg** below, open it and drag MacUtil to Applications.
-Завантажте **MacUtil-$VERSION.dmg** нижче, відкрийте його й перетягніть MacUtil у Програми.
+**Download:** **MacUtil-$VERSION.zip** below, unpack it and move MacUtil to Applications.
+Завантажте **MacUtil-$VERSION.zip** нижче, розпакуйте й перенесіть MacUtil у «Програми».
+The DMG is there too; macOS checks a disk image separately, so it asks about Gatekeeper twice.
 
 **Homebrew:**
 
@@ -89,8 +96,8 @@ macOS 14 Sonoma or later · Apple Silicon and Intel
 
 | File | sha256 |
 |---|---|
-| MacUtil-$VERSION.dmg | \`$SHA\` |
-| MacUtil-$VERSION.zip | \`$(shasum -a 256 "$ZIP" | cut -d' ' -f1)\` |
+| MacUtil-$VERSION.zip | \`$SHA\` |
+| MacUtil-$VERSION.dmg | \`$DMG_SHA\` |
 NOTES
 
 gh release create "v$VERSION" "$DMG" "$ZIP" --repo "$REPO" --target "$(git rev-parse HEAD)" \

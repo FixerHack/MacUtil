@@ -15,7 +15,7 @@ In the spirit of CleanMyMac, OnyX and the Objective-See tools. Native Swift and 
 
 **English** · [Українська](README.uk.md)
 
-[Install](#install) · [First launch](#first-launch) · [Features](#features) · [Safety](#safety-and-privacy) · [Build from source](#build-from-source)
+[Install](#install) · [First launch](#first-launch) · [Updates](#updates) · [Features](#features) · [Safety](#safety-and-privacy) · [Build from source](#build-from-source)
 
 <img src="docs/screenshots/lens-en.png" alt="Space Lens: a map of what takes up the disk" width="820">
 
@@ -23,7 +23,8 @@ In the spirit of CleanMyMac, OnyX and the Objective-See tools. Native Swift and 
 
 > [!IMPORTANT]
 > **First launch:** MacUtil is not notarized by Apple, so macOS blocks it the first time you open it.
-> Open it once, then go to **System Settings → Privacy & Security → Open Anyway**. After an update macOS may ask again.
+> Open it once, then go to **System Settings → Privacy & Security → Open Anyway**.
+> You do this once: [later updates install themselves](#updates) from inside MacUtil, without the prompt.
 > [Step by step ↓](#first-launch)
 
 ## Install
@@ -39,15 +40,17 @@ The first command adds the MacUtil tap once; after that `brew install`, `brew up
 
 Or in one line, without adding the tap first: `brew install --cask fixerhack/macutil/macutil`.
 
-### Download the DMG
+### Download
 
-1. Open the [latest release](https://github.com/FixerHack/MacUtil/releases/latest) and download **MacUtil-x.y.z.dmg**.
-2. Open the DMG and drag **MacUtil** onto **Applications**.
-3. Follow [First launch](#first-launch) below. The DMG window shows the same steps.
+1. Open the [latest release](https://github.com/FixerHack/MacUtil/releases/latest) and download **MacUtil-x.y.z.zip**.
+2. Double-click the zip and drag **MacUtil** into your **Applications** folder.
+3. Follow [First launch](#first-launch) below.
+
+A **DMG** with the same app is attached to every release, with the first-launch steps drawn in its
+window. macOS checks a downloaded disk image on its own, so the DMG asks about Gatekeeper twice:
+once for the image and once for the app. The zip asks once.
 
 <p align="center"><img src="docs/dmg.png" alt="The MacUtil DMG window" width="560"></p>
-
-A zip of the app is attached to each release too, if you prefer it.
 
 Run MacUtil from Applications. Its permissions are tied to that copy.
 
@@ -60,13 +63,26 @@ MacUtil is signed but not notarized by Apple (notarization needs a paid develope
 > 2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
 > 3. Next to "“MacUtil” was blocked to protect your Mac", click **Open Anyway** and confirm with your password.
 
-You do this once after installing; after an update macOS may ask again. If you prefer the Terminal, this does the same:
+You do this once. If you prefer the Terminal, this does the same:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/MacUtil.app
 ```
 
 After that, MacUtil walks you through granting **Full Disk Access**. Without it, macOS hides caches, mail and browser data. The guide opens the right settings page, shows where to drag the app and notices by itself when access is granted.
+
+## Updates
+
+MacUtil checks its own GitHub releases once a day and shows a card on the dashboard when a new
+version is out. Press **Update Now** and it downloads the release, replaces itself and restarts.
+You can turn the check off, or run it by hand, in **Settings → Updates**.
+
+Because MacUtil downloads the update itself instead of a browser, the new version carries no
+quarantine flag, so it opens without the Gatekeeper prompt from the first install.
+
+Two things are checked before anything is installed: the download must match the sha256 GitHub
+publishes for it, and the new app must satisfy this copy's own code signature requirement. A build
+signed by anyone else is refused, so a tampered download cannot replace your MacUtil.
 
 ## Features
 
