@@ -19,9 +19,13 @@ if [[ -n "${SNAPSHOT_SCAN:-}" ]]; then export MACUTIL_SNAPSHOT_SCAN="$SNAPSHOT_S
 NAME="$(basename "$BINARY")"
 
 pkill -f "$BINARY" 2>/dev/null || true
-MACUTIL_SNAPSHOT_MODULE="$MODULE" MACUTIL_WINDOW_ID_FILE="$ID_FILE" \
-    "$BINARY" -AppleLanguages "($LANGUAGE)" >/dev/null 2>&1 &
-PID=$!
+# Launched through LaunchServices, the app is responsible for itself, so it gets
+# its own Full Disk Access instead of the terminal's.
+ENV_ARGS=(--env "MACUTIL_SNAPSHOT_MODULE=$MODULE" --env "MACUTIL_WINDOW_ID_FILE=$ID_FILE")
+if [[ -n "${SNAPSHOT_SCAN:-}" ]]; then ENV_ARGS+=(--env "MACUTIL_SNAPSHOT_SCAN=$SNAPSHOT_SCAN"); fi
+open -n -g "${ENV_ARGS[@]}" "$APP" --args -AppleLanguages "($LANGUAGE)"
+sleep 1
+PID="$(pgrep -n -f "$BINARY" || echo 0)"
 sleep "$DELAY"
 WINDOW="$(cat "$ID_FILE" 2>/dev/null || true)"
 if [[ -n "$WINDOW" && "$WINDOW" != 0 ]] && screencapture -x -o -l "$WINDOW" "$OUT" 2>/dev/null; then

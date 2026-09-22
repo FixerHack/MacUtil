@@ -3,6 +3,7 @@
 #
 #   scripts/build-app.sh            # debug build
 #   scripts/build-app.sh release    # optimized build
+#   UNIVERSAL=1 scripts/build-app.sh release   # Apple Silicon + Intel
 #
 # Signing: uses $MACUTIL_SIGN_IDENTITY, else the first "Apple Development"
 # certificate in the keychain, else ad-hoc. With ad-hoc signing macOS forgets
@@ -18,8 +19,10 @@ VERSION="$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInf
 BUNDLE_ID="$(sed -n 's/.*bundleIdentifier = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInfo.swift)"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
-swift build -c "$CONFIG" --product MacUtil
-BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
+ARCH_FLAGS=()
+if [[ -n "${UNIVERSAL:-}" ]]; then ARCH_FLAGS=(--arch arm64 --arch x86_64); fi
+swift build -c "$CONFIG" --product MacUtil ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
+BIN_DIR="$(swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)"
 
 APP="$ROOT/build/MacUtil.app"
 rm -rf "$APP"
