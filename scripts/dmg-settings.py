@@ -32,4 +32,5 @@ icon_locations = {
     ".background.tiff": (1000, 1000),
     ".VolumeIcon.icns": (1000, 1000),
 }
-hide_extensions = [app_name]
+# No hide_extensions: it writes Finder info onto the app bundle, which breaks strict
+# signature checks and can make Gatekeeper call the app damaged.

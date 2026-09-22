@@ -36,6 +36,11 @@ fi
     | grep -v "is deprecated" || true
 if [[ -n "$IDENTITY" ]]; then codesign --sign "$IDENTITY" --timestamp=none "$DMG"; fi
 hdiutil verify -quiet "$DMG"
+# The copy people drag out of the DMG must still pass a strict signature check.
+MOUNT="$(mktemp -d)"
+hdiutil attach -nobrowse -readonly -quiet "$DMG" -mountpoint "$MOUNT"
+codesign --verify --strict --deep "$MOUNT/MacUtil.app" || { hdiutil detach -quiet "$MOUNT"; exit 1; }
+hdiutil detach -quiet "$MOUNT"
 
 SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
 echo "$DMG  sha256 $SHA"
