@@ -22,6 +22,7 @@ final class AppState {
     let loginItems = LoginItemsStore()
     let smartScan = SmartScanStore()
     let updater = UpdaterStore()
+    let selfUpdate = SelfUpdateStore()
     let monitor = MenuBarMonitor()
     private(set) var fullDiskAccess: FullDiskAccess.Status = .unknown
     private(set) var startupDisk: VolumeInfo?
@@ -33,6 +34,7 @@ final class AppState {
     #endif
 
     init() {
+        UserDefaults.standard.register(defaults: [Preferences.automaticUpdateCheck: true])
         refresh()
         showsPermissionsGuide = fullDiskAccess != .granted
         #if DEBUG

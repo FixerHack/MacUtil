@@ -9,6 +9,8 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 24) {
                 header
 
+                UpdateCard()
+
                 if state.fullDiskAccess != .granted {
                     FullDiskAccessCard(status: state.fullDiskAccess)
                 }

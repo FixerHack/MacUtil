@@ -80,8 +80,8 @@ struct SettingsView: View {
                 VirusTotalKeySettings()
             }
 
-            LabeledContent("Version") {
-                Text(verbatim: MacUtilInfo.version)
+            Section("Updates") {
+                UpdateSettings()
             }
         }
         .formStyle(.grouped)

@@ -4,7 +4,8 @@
     /// Development aid for scripts/snapshot.sh. Environment variables:
     /// - `MACUTIL_SNAPSHOT_MODULE`: sidebar item to show, by case name.
     /// - `MACUTIL_SNAPSHOT_SCAN`: folder to scan first, `junk`, `security`, `duplicates`, or `app:Name` to
-    ///   open an app in the Uninstaller (all read-only).
+    ///   open an app in the Uninstaller (all read-only). `update` checks GitHub for a new MacUtil and
+    ///   `update:install` also installs it over this build, for testing the updater end to end.
     /// - `MACUTIL_WINDOW_ID_FILE`: where to write the window number for `screencapture -l`.
     /// - `MACUTIL_SNAPSHOT`: PNG path for a self-drawn capture, used without Screen
     ///   Recording permission (Liquid Glass areas come out blank).
@@ -42,6 +43,13 @@
                     await state.uninstaller.load()
                     state.uninstaller.selectedAppID = state.uninstaller.apps
                         .first { $0.name.localizedCaseInsensitiveContains(app.dropFirst(4)) }?.id
+                }
+            case "update":
+                Task { await state.selfUpdate.check(manual: true) }
+            case "update:install":
+                Task {
+                    await state.selfUpdate.check(manual: true)
+                    await state.selfUpdate.install()
                 }
             case "junk":
                 Task {

@@ -213,7 +213,6 @@
 "Copies of attachments you opened in Mail. The originals stay in your mailbox." = "Копії вкладень, які ви відкривали в Пошті. Оригінали лишаються в поштовій скриньці.";
 "iPhone and iPad updates" = "Оновлення iPhone та iPad";
 "Downloaded iOS and iPadOS software updates." = "Завантажені оновлення iOS та iPadOS.";
-"Version" = "Версія";
 
 /* Permissions guide */
 "Allow MacUtil to see your whole disk" = "Дозвольте MacUtil бачити весь диск";
@@ -772,3 +771,30 @@
 "Open App" = "Відкрити програму";
 "Open App Store" = "Відкрити App Store";
 "Update failed" = "Оновлення не вдалося";
+
+/* Updating MacUtil itself */
+"Updates" = "Оновлення";
+"MacUtil %@" = "MacUtil %@";
+"MacUtil %@ is available" = "Доступна MacUtil %@";
+"You have %@. The update is %@." = "У вас %@. Розмір оновлення: %@.";
+"Update Now" = "Оновити зараз";
+"What's New" = "Що нового";
+"Hide Changes" = "Сховати зміни";
+"Release page" = "Сторінка релізу";
+"Downloading the update…" = "Завантаження оновлення…";
+"Installing…" = "Встановлення…";
+"MacUtil is updated" = "MacUtil оновлено";
+"Restart MacUtil to start using the new version." = "Перезапустіть MacUtil, щоб почати користуватися новою версією.";
+"Check for updates automatically" = "Перевіряти оновлення автоматично";
+"Check Now" = "Перевірити зараз";
+"Up to date" = "Версія найновіша";
+"Version %@ is available" = "Доступна версія %@";
+"Updating…" = "Оновлення…";
+"MacUtil downloads updates from its GitHub releases and installs only files signed with the same certificate as this copy. Updates installed this way open without the Gatekeeper prompt you saw the first time." = "MacUtil завантажує оновлення зі своїх релізів на GitHub і встановлює лише файли, підписані тим самим сертифікатом, що й ця копія. Оновлення, встановлені так, відкриваються без запиту безпеки, який ви бачили під час першого запуску.";
+"Could not reach GitHub." = "Не вдалося зʼєднатися з GitHub.";
+"The downloaded file is not a working MacUtil disk image." = "Завантажений файл не є робочим образом MacUtil.";
+"The downloaded file does not match what GitHub published. Nothing was installed." = "Завантажений файл не збігається з тим, що опубліковано на GitHub. Нічого не встановлено.";
+"The downloaded MacUtil is signed by someone else, so it was not installed. Download MacUtil from the releases page instead." = "Завантажений MacUtil підписаний кимось іншим, тому його не встановлено. Завантажте MacUtil зі сторінки релізів.";
+"MacUtil cannot update itself at %@. Move it to your Applications folder and try again." = "MacUtil не може оновити себе в %@. Перемістіть програму в теку «Програми» і спробуйте ще раз.";
+"The update could not be copied." = "Не вдалося скопіювати оновлення.";
+"MacUtil cannot read its own signature." = "MacUtil не може прочитати власний підпис.";

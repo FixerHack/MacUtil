@@ -52,6 +52,8 @@ enum Preferences {
     static let showsMenuBar = "showsMenuBar"
     static let lowDiskWarning = "lowDiskWarning"
     static let reminder = "cleanupReminder"
+    static let automaticUpdateCheck = "automaticUpdateCheck"
+    static let lastUpdateCheck = "lastUpdateCheck"
 }
 
 enum Notifications {

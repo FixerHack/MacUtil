@@ -10,6 +10,7 @@ struct MacUtilApp: App {
             ContentView()
                 .environment(state)
                 .frame(minWidth: 860, minHeight: 560)
+                .task { await state.selfUpdate.check() }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     // The user may have just granted Full Disk Access or freed space elsewhere.
                     state.refresh()
