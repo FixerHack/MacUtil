@@ -3,7 +3,7 @@
 # release and points the Homebrew cask in FixerHack/homebrew-macutil at the DMG.
 #
 #   scripts/release.sh           # build only: build/MacUtil-<version>.dmg and .zip
-#   scripts/release.sh publish   # also create (or refresh) the GitHub release and update the cask
+#   scripts/release.sh publish   # also create the GitHub release and update the cask
 #
 # Bump MacUtilInfo.version before publishing a new release. The DMG window is laid out by
 # scripts/dmg-settings.py; its background comes from scripts/make-dmg-background.swift.
@@ -48,6 +48,13 @@ echo "$ZIP  sha256 $(shasum -a 256 "$ZIP" | cut -d' ' -f1)"
 
 [[ "${1:-}" == "publish" ]] || exit 0
 
+# GitHub's CDN keeps serving a replaced asset under the same name for a while, and the
+# cask checksum would then fail. Every published build gets a new version instead.
+if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+    echo "error: v$VERSION is already released; bump MacUtilInfo.version" >&2
+    exit 1
+fi
+
 if [[ -n "$(git status --porcelain)" ]]; then
     echo "error: commit your changes first" >&2
     exit 1
@@ -85,13 +92,8 @@ macOS 14 Sonoma or later · Apple Silicon and Intel
 | MacUtil-$VERSION.zip | \`$(shasum -a 256 "$ZIP" | cut -d' ' -f1)\` |
 NOTES
 
-if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
-    gh release upload "v$VERSION" "$DMG" "$ZIP" --repo "$REPO" --clobber
-    gh release edit "v$VERSION" --repo "$REPO" --notes-file "$NOTES"
-else
-    gh release create "v$VERSION" "$DMG" "$ZIP" --repo "$REPO" --target "$(git rev-parse HEAD)" \
-        --title "MacUtil $VERSION" --notes-file "$NOTES"
-fi
+gh release create "v$VERSION" "$DMG" "$ZIP" --repo "$REPO" --target "$(git rev-parse HEAD)" \
+    --title "MacUtil $VERSION" --notes-file "$NOTES"
 
 TAP_DIR="$(mktemp -d)"
 trap 'rm -f "$NOTES"; rm -rf "$TAP_DIR"' EXIT
