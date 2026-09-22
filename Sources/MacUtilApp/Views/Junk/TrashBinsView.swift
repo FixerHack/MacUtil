@@ -8,7 +8,9 @@ struct TrashBinsView: View {
     var body: some View {
         VStack(spacing: 0) {
             FullDiskAccessHint()
-            content
+            // One container, so the frame fills it instead of splitting it between
+            // the list, divider and footer of a case.
+            VStack(spacing: 0) { content }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Trash Bins")

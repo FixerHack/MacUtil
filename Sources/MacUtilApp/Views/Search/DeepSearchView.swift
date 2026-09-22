@@ -22,7 +22,9 @@ struct DeepSearchView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
             Divider()
-            content
+            // One container, so the frame fills it instead of splitting it between
+            // the list, divider and footer of a case.
+            VStack(spacing: 0) { content }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider()
             statusBar
