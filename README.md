@@ -21,6 +21,11 @@ In the spirit of CleanMyMac, OnyX and the Objective-See tools. Native Swift and 
 
 </div>
 
+> [!IMPORTANT]
+> **First launch:** MacUtil is not notarized by Apple, so macOS blocks it the first time you open it.
+> Open it once, then go to **System Settings → Privacy & Security → Open Anyway**. After an update macOS may ask again.
+> [Step by step ↓](#first-launch)
+
 ## Install
 
 ### Homebrew (recommended)
@@ -31,12 +36,15 @@ brew install --cask fixerhack/macutil/macutil
 
 Update with `brew upgrade --cask macutil`. To remove it, run `brew uninstall --cask macutil`; add `--zap` to also delete its settings and history.
 
-### Download
+### Download the DMG
 
-1. Open the [latest release](https://github.com/FixerHack/MacUtil/releases/latest) and download **MacUtil-x.y.z.zip**.
-2. Double-click the zip to unpack it.
-3. Drag **MacUtil** into your **Applications** folder.
-4. Follow [First launch](#first-launch) below.
+1. Open the [latest release](https://github.com/FixerHack/MacUtil/releases/latest) and download **MacUtil-x.y.z.dmg**.
+2. Open the DMG and drag **MacUtil** onto **Applications**.
+3. Follow [First launch](#first-launch) below. The DMG window shows the same steps.
+
+<p align="center"><img src="docs/dmg.png" alt="The MacUtil DMG window" width="560"></p>
+
+A zip of the app is attached to each release too, if you prefer it.
 
 Run MacUtil from Applications. Its permissions are tied to that copy.
 
@@ -44,11 +52,12 @@ Run MacUtil from Applications. Its permissions are tied to that copy.
 
 MacUtil is signed but not notarized by Apple (notarization needs a paid developer account), so macOS blocks it the first time:
 
-1. Open MacUtil. macOS says it cannot verify the app. Click **Done**.
-2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
-3. Next to "MacUtil was blocked", click **Open Anyway** and confirm with your password.
+> [!WARNING]
+> 1. Open MacUtil. macOS says it cannot verify the app. Click **Done**, not Move to Trash.
+> 2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
+> 3. Next to "“MacUtil” was blocked to protect your Mac", click **Open Anyway** and confirm with your password.
 
-You only do this once. If you prefer the Terminal, this does the same:
+You do this once after installing; after an update macOS may ask again. If you prefer the Terminal, this does the same:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/MacUtil.app
@@ -141,7 +150,7 @@ scripts/install.sh      # optimized build, installed to /Applications and opened
 | `scripts/test.sh` | Runs the tests (works without Xcode) |
 | `scripts/check-strings.sh` | Lists interface strings missing a Ukrainian translation |
 | `scripts/snapshot.sh` | Saves a PNG of the app window (debug builds) |
-| `scripts/release.sh [publish]` | Zips a universal build and publishes a release and the Homebrew cask |
+| `scripts/release.sh [publish]` | Packs a universal build as DMG and zip, publishes a release and the Homebrew cask |
 
 ### Signing
 
