@@ -1,73 +1,176 @@
+<div align="center">
+
+<img src="docs/icon.png" width="128" height="128" alt="MacUtil icon">
+
 # MacUtil
+
+**A free, open-source cleaner, optimizer and security analyzer for macOS**
+
+In the spirit of CleanMyMac, OnyX and the Objective-See tools. Native Swift and SwiftUI, no telemetry, no subscription.
+
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)](#requirements)
+[![Apple Silicon and Intel](https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-555)](#requirements)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/FixerHack/MacUtil?label=release)](https://github.com/FixerHack/MacUtil/releases/latest)
 
 **English** · [Українська](README.uk.md)
 
-A free, open-source Mac cleaner, optimizer and security analyzer, in the spirit of
-CleanMyMac, OnyX and the Objective-See tools. Native Swift and SwiftUI, no telemetry.
+[Install](#install) · [First launch](#first-launch) · [Features](#features) · [Safety](#safety-and-privacy) · [Build from source](#build-from-source)
 
-> **Status:** all planned modules work; the app is being polished. See [PLAN.md](PLAN.md) (in Ukrainian).
+<img src="docs/screenshots/lens-en.png" alt="Space Lens: a map of what takes up the disk" width="820">
+
+</div>
+
+## Install
+
+### Homebrew (recommended)
+
+```bash
+brew install --cask fixerhack/macutil/macutil
+```
+
+Update with `brew upgrade --cask macutil`. To remove it, run `brew uninstall --cask macutil`; add `--zap` to also delete its settings and history.
+
+### Download
+
+1. Open the [latest release](https://github.com/FixerHack/MacUtil/releases/latest) and download **MacUtil-x.y.z.zip**.
+2. Double-click the zip to unpack it.
+3. Drag **MacUtil** into your **Applications** folder.
+4. Follow [First launch](#first-launch) below.
+
+Run MacUtil from Applications. Its permissions are tied to that copy.
+
+## First launch
+
+MacUtil is signed but not notarized by Apple (notarization needs a paid developer account), so macOS blocks it the first time:
+
+1. Open MacUtil. macOS says it cannot verify the app. Click **Done**.
+2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
+3. Next to "MacUtil was blocked", click **Open Anyway** and confirm with your password.
+
+You only do this once. If you prefer the Terminal, this does the same:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/MacUtil.app
+```
+
+After that, MacUtil walks you through granting **Full Disk Access**. Without it, macOS hides caches, mail and browser data. The guide opens the right settings page, shows where to drag the app and notices by itself when access is granted.
 
 ## Features
 
-- **Cleanup:** system junk, developer junk (Xcode, npm, pip, Homebrew, Docker…), Trash bins, privacy traces
-- **Disk space:** Space Lens map, large and old files, duplicates
-- **Deep search:** by name, size, date or contents, including hidden and system files
-- **Applications:** uninstaller with leftovers, orphaned files, updates
-- **Security analyzer:** code signatures and notarization, app permissions, system security settings,
-  persistence items, network, VirusTotal hash lookups
-- **Optimization:** login items, maintenance scripts, processes, hidden macOS settings
+<table>
+<tr><td width="50%">
 
-## Safety
+**🧹 Cleanup**
+- System junk: caches, logs, temporary files
+- Developer junk: Xcode, Simulators, npm, pip, Homebrew, Docker…
+- Trash bins on every disk
+- Privacy: browser history, recent items
 
-- Files go to the Trash by default; nothing is deleted permanently without confirmation.
-- Protected locations (system folders, keychains, iCloud Drive, Photos library, `.git`) are never touched.
-- Only file hashes are sent to VirusTotal. A file is uploaded only when you explicitly ask.
+**💽 Disk space**
+- Space Lens: an interactive map of the disk
+- Large and old files
+- Duplicates, counting what APFS clones really free
+
+**🔍 Deep search**
+- By name, pattern, size, date or text inside files
+- Covers hidden and system folders that Spotlight skips
+
+</td><td width="50%">
+
+**📦 Applications**
+- Uninstaller that also removes leftover files
+- Leftovers from apps that are already gone
+- Updates from Sparkle feeds, Homebrew and the App Store
+
+**🛡 Security analyzer**
+- Code signatures and notarization of every app
+- Autostart items, app permissions, network, running programs
+- System security settings: FileVault, firewall, SIP, Gatekeeper…
+- Browser extensions and keys left in plain text
+- VirusTotal verdicts by file hash
+
+**⚡ Optimization**
+- Login items with on/off switches
+- Maintenance scripts, DNS cache, Spotlight rebuild
+- Hidden macOS settings and a process list
+- Menu bar monitor for CPU, memory, disk, network and battery
+- Smart Scan to run everything at once
+
+</td></tr>
+</table>
+
+<p align="center">
+<img src="docs/screenshots/junk-en.png" alt="System Junk" width="49%">
+<img src="docs/screenshots/security-en.png" alt="Security Analyzer" width="49%">
+</p>
+
+The interface is available in English and Ukrainian and follows the macOS language setting.
+
+## Safety and privacy
+
+- **Nothing is deleted without asking.** Cleanup goes to the Trash by default, and you can undo it from the result screen. Deleting permanently is a separate choice that asks again.
+- **Protected places are never touched:** system folders, keychains, iCloud Drive, the Photos library, `.git` folders.
+- **Caches of running apps are locked** until you quit the app.
+- **VirusTotal gets only file hashes.** A file is uploaded only when you explicitly ask. Your API key stays in the macOS Keychain.
+- **No telemetry, no accounts, no network calls** except VirusTotal and update checks, both of which you start yourself.
+- Every action is recorded in `~/Library/Application Support/MacUtil/History.jsonl`.
+
+### VirusTotal
+
+The security analyzer can check apps against VirusTotal. To enable it, create a free account at [virustotal.com](https://www.virustotal.com), copy your API key from your profile and paste it into **MacUtil → Settings**.
 
 ## Requirements
 
-- macOS 14 Sonoma or later (Liquid Glass design on macOS 26)
-- Swift 6 toolchain: Xcode 26 or just the Command Line Tools
+- macOS 14 Sonoma or later. On macOS 26 and later it uses the Liquid Glass design.
+- A Mac with Apple Silicon or Intel.
 
-## Build
+## Build from source
+
+You need Xcode 26 or later, or just the Command Line Tools with Swift 6.
 
 ```bash
-scripts/install.sh              # optimized build, installed to /Applications and opened
-scripts/build-app.sh            # debug build → build/MacUtil.app
-scripts/build-app.sh release    # optimized build
-open build/MacUtil.app
+git clone https://github.com/FixerHack/MacUtil.git
+cd MacUtil
+scripts/install.sh      # optimized build, installed to /Applications and opened
 ```
-
-Other scripts:
 
 | Script | What it does |
 |---|---|
+| `scripts/build-app.sh [release]` | Builds `build/MacUtil.app` (`UNIVERSAL=1` for Apple Silicon + Intel) |
 | `scripts/test.sh` | Runs the tests (works without Xcode) |
 | `scripts/check-strings.sh` | Lists interface strings missing a Ukrainian translation |
 | `scripts/snapshot.sh` | Saves a PNG of the app window (debug builds) |
-| `swift run mucli` | Command-line interface to the core |
+| `scripts/release.sh [publish]` | Zips a universal build and publishes a release and the Homebrew cask |
 
-### Full Disk Access
+### Signing
 
-MacUtil needs Full Disk Access to see caches, mail and browser data. On first launch a step-by-step guide
-opens it in System Settings, lets you drag the app into the list and notices when access is granted.
-Run the copy in /Applications: permissions belong to the app at that location.
+The build script signs with the first **Apple Development** certificate in your keychain. You can get one for free by signing in with your Apple ID in Xcode → Settings → Accounts. Without a certificate the app is signed ad-hoc. That works too, but macOS forgets Full Disk Access after every rebuild because the signature changes.
 
-If `security find-identity -v -p codesigning` lists your certificate as not valid, the Apple WWDR G3
-intermediate certificate is missing. Download https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
-and double-click it to add it to the login keychain.
-Builds signed ad-hoc get a new signature on every rebuild, so macOS forgets the permission. If you have
-an "Apple Development" certificate (free with an Apple ID in Xcode), the build script signs with it and
-the permission sticks.
+If `security find-identity -v -p codesigning` lists your certificate as not valid, the Apple WWDR G3 intermediate certificate is missing. Download [AppleWWDRCAG3.cer](https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer) and double-click it.
 
-### Running a downloaded build
+### Command line
 
-Release builds are not notarized. After unzipping, either open System Settings → Privacy & Security and
-click **Open Anyway**, or run:
+`mucli` exposes the core for the Terminal. Every command is read-only:
 
 ```bash
-xattr -dr com.apple.quarantine MacUtil.app
+swift run mucli junk          # what MacUtil would clean
+swift run mucli security      # security settings, autostart items, signatures
+swift run mucli large ~       # large and old files
+swift run mucli --help
+```
+
+## Project layout
+
+```
+Sources/
+  CleanerCore/    scanning, junk rules, cleaning, duplicates, search, apps
+  SecurityCore/   signatures, permissions, persistence, VirusTotal, settings audit
+  MacUtilApp/     SwiftUI app
+  mucli/          command-line tool
+Tests/            unit tests for both cores
 ```
 
 ## License
 
-[GPL-3.0](LICENSE)
+[GPL-3.0](LICENSE). You may use, study, change and share MacUtil. Changed versions you distribute must stay open under the same license.
