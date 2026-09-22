@@ -31,10 +31,13 @@ In the spirit of CleanMyMac, OnyX and the Objective-See tools. Native Swift and 
 ### Homebrew (recommended)
 
 ```bash
-brew install --cask fixerhack/macutil/macutil
+brew tap fixerhack/macutil
+brew install macutil
 ```
 
-Update with `brew upgrade --cask macutil`. To remove it, run `brew uninstall --cask macutil`; add `--zap` to also delete its settings and history.
+The first command adds the MacUtil tap once; after that `brew install`, `brew upgrade` and `brew uninstall` work with the short name. To remove MacUtil, run `brew uninstall macutil`; add `--zap` to also delete its settings and history.
+
+Or in one line, without adding the tap first: `brew install --cask fixerhack/macutil/macutil`.
 
 ### Download the DMG
 

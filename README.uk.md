@@ -31,10 +31,13 @@
 ### Homebrew (рекомендовано)
 
 ```bash
-brew install --cask fixerhack/macutil/macutil
+brew tap fixerhack/macutil
+brew install macutil
 ```
 
-Оновити: `brew upgrade --cask macutil`. Видалити: `brew uninstall --cask macutil`. Додайте `--zap`, щоб прибрати також налаштування та історію.
+Перша команда один раз додає tap MacUtil. Після цього `brew install`, `brew upgrade` і `brew uninstall` працюють з коротким іменем. Видалити: `brew uninstall macutil`. Додайте `--zap`, щоб прибрати також налаштування та історію.
+
+Або одним рядком, без окремого додавання tap: `brew install --cask fixerhack/macutil/macutil`.
 
 ### Завантаження DMG
 

@@ -81,7 +81,8 @@ cat > "$NOTES" <<NOTES
 **Homebrew:**
 
 \`\`\`bash
-brew install --cask fixerhack/macutil/macutil
+brew tap fixerhack/macutil
+brew install macutil
 \`\`\`
 
 macOS 14 Sonoma or later · Apple Silicon and Intel
