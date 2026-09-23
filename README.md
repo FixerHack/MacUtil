@@ -117,6 +117,8 @@ signed by anyone else is refused, so a tampered download cannot replace your Mac
 - System security settings: FileVault, firewall, SIP, Gatekeeper…
 - Browser extensions and keys left in plain text
 - VirusTotal verdicts by file hash
+- Settle a finding: a clean VirusTotal verdict or your own "I trust this" takes it out of the
+  list and the score, and it returns if the file changes
 
 **⚡ Optimization**
 - Login items with on/off switches

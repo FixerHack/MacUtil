@@ -25,6 +25,20 @@
                 state.selection = module
             }
             switch environment["MACUTIL_SNAPSHOT_SCAN"] {
+            case "security:trust":
+                Task {
+                    await state.security.scan()
+                    if let issue = state.security.issues.first(where: { $0.path != nil }) {
+                        await state.security.trust(issue)
+                    }
+                }
+            case "security:virustotal":
+                Task {
+                    await state.security.scan()
+                    if let path = state.security.issues.compactMap(\.path).first {
+                        await state.security.checkVirusTotal(path)
+                    }
+                }
             case let value? where value.hasPrefix("security"):
                 Task {
                     await state.security.scan()

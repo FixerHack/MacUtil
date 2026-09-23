@@ -798,3 +798,17 @@
 "MacUtil cannot update itself at %@. Move it to your Applications folder and try again." = "MacUtil не може оновити себе в %@. Перемістіть програму в теку «Програми» і спробуйте ще раз.";
 "The update could not be copied." = "Не вдалося скопіювати оновлення.";
 "MacUtil cannot read its own signature." = "MacUtil не може прочитати власний підпис.";
+
+/* Settling security findings */
+"Resolved: %lld" = "Вирішено: %lld";
+"I Trust This" = "Довіряю";
+"Leaves this out of the list and the score until the file changes." = "Прибирає це зі списку та з оцінки, доки файл не зміниться.";
+"Send the file's hash to VirusTotal. The file itself stays on your Mac." = "Надсилає до VirusTotal лише хеш файлу. Сам файл лишається на вашому Mac.";
+"Checking with VirusTotal…" = "Перевірка у VirusTotal…";
+"VirusTotal: clean, %lld engines found nothing" = "VirusTotal: чисто, %lld антивірусів не знайшли нічого";
+"VirusTotal: %lld of %lld engines flag this file" = "VirusTotal: %lld з %lld антивірусів вважають файл небезпечним";
+"VirusTotal has never seen this file." = "VirusTotal ніколи не бачив цього файлу.";
+"VirusTotal found nothing: %lld engines, %@" = "VirusTotal не знайшов нічого: антивірусів %lld, %@";
+"You marked this as trusted on %@" = "Ви позначили як довірене %@";
+"Bring Back" = "Повернути";
+"A settled file is checked again when it changes, so a replaced program comes back to the list." = "Вирішений файл перевіряється знову, щойно він зміниться, тож підмінена програма повернеться до списку.";

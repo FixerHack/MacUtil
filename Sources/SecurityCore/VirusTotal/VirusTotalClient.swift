@@ -18,6 +18,12 @@ public struct VirusTotalReport: Codable, Sendable, Hashable {
         malicious + suspicious
     }
 
+    /// True when no engine flagged the file and enough engines looked at it for that to mean
+    /// something. A file only a couple of engines know is not evidence of anything.
+    public func isClean(minimumEngines: Int = 10) -> Bool {
+        detections == 0 && engines >= minimumEngines
+    }
+
     public var permalink: URL {
         URL(string: "https://www.virustotal.com/gui/file/\(sha256)")!
     }

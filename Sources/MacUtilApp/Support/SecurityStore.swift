@@ -36,6 +36,31 @@ final class SecurityStore {
         let id: String
         let severity: PersistenceItem.Risk
         let target: Target
+
+        /// The file this finding is about, when there is one to check or hash.
+        var path: String? {
+            switch target {
+            case let .persistence(item): item.executable
+            case let .app(app): app.path
+            case let .process(process): process.executable
+            case let .permission(grant): grant.clientIsPath ? grant.client : nil
+            default: nil
+            }
+        }
+
+        var title: String {
+            switch target {
+            case let .check(check): String(localized: check.title)
+            case let .persistence(item): item.label
+            case let .app(app): app.name
+            case let .permission(grant): grant.client
+            case let .port(port): "\(port.command):\(port.port)"
+            case let .process(process): process.name
+            case let .browserExtension(item): item.name
+            case let .secret(secret): secret.path
+            case let .network(title, _): title
+            }
+        }
     }
 
     private(set) var phase = Phase.idle
@@ -54,6 +79,14 @@ final class SecurityStore {
     private(set) var bulkProgress: (done: Int, total: Int)?
     private var client: VirusTotalClient?
     private let cache = VirusTotalCache.standard
+    private let decisions: SecurityDecisions
+    /// Findings settled earlier, so they stay out of the list and out of the score.
+    private(set) var resolved: [SecurityDecision] = []
+
+    init(decisions: SecurityDecisions = .standard) {
+        self.decisions = decisions
+        resolved = decisions.all
+    }
 
     func scan() async {
         phase = .scanning
@@ -68,6 +101,18 @@ final class SecurityStore {
         (self.checks, self.persistence, self.apps) = await (checks, persistence, apps)
         (self.network, self.processes, self.secrets, self.extensions) = await (network, processes, secrets, extensions)
         phase = .ready
+        await dropDecisionsForChangedFiles()
+    }
+
+    /// A settled file that has changed since is a different file, so its finding comes back.
+    private func dropDecisionsForChangedFiles() async {
+        var paths: [String: String] = [:]
+        for issue in allIssues {
+            if let path = issue.path { paths[issue.id] = path }
+        }
+        let store = decisions
+        let stale = await Task.detached { store.revalidate(paths: paths) }.value
+        if !stale.isEmpty { resolved = decisions.all }
     }
 
     func resetPermission(_ grant: PermissionGrant) async {
@@ -78,24 +123,37 @@ final class SecurityStore {
 
     /// Settings score, lowered by risky autostart items and untrusted apps.
     var score: Int {
-        let high = persistence.filter { $0.risk == .high }.count
-        let medium = persistence.filter { $0.risk == .medium }.count
-        let untrusted = apps.filter { $0.signature.trust == .untrusted }.count
-        let others: [PersistenceItem.Risk] = issues.compactMap { issue in
+        // Settled findings are left out: a file VirusTotal cleared is not a threat.
+        let open = issues
+        var high = 0, medium = 0, untrusted = 0, otherHigh = 0, otherMedium = 0
+        for issue in open {
             switch issue.target {
-            case .check, .persistence, .app: nil
-            default: issue.severity
+            case .persistence:
+                if issue.severity == .high { high += 1 } else { medium += 1 }
+            case .app:
+                untrusted += 1
+            case .check:
+                continue
+            default:
+                if issue.severity == .high { otherHigh += 1 } else if issue.severity == .medium { otherMedium += 1 }
             }
         }
-        let penalty = min(
-            50,
-            high * 10 + medium * 4 + untrusted * 2
-                + others.filter { $0 == .high }.count * 10 + others.filter { $0 == .medium }.count * 3
-        )
-        return max(0, SystemSecurityScanner.score(checks) - penalty)
+        let penalty = min(50, high * 10 + medium * 4 + untrusted * 2 + otherHigh * 10 + otherMedium * 3)
+        let openChecks = Set(open.compactMap { issue -> String? in
+            if case let .check(check) = issue.target { return check.id }
+            return nil
+        })
+        let counted = checks.filter { $0.status == .pass || $0.status == .info || openChecks.contains($0.id) }
+        return max(0, SystemSecurityScanner.score(counted) - penalty)
     }
 
+    /// Findings still asking for attention.
     var issues: [Issue] {
+        allIssues.filter { !decisions.isResolved($0.id) }
+    }
+
+    /// Every finding, including the settled ones.
+    var allIssues: [Issue] {
         var issues: [Issue] = []
         for check in checks where check.status == .fail || check.status == .warning {
             issues.append(Issue(
@@ -149,6 +207,42 @@ final class SecurityStore {
         return issues.sorted { $0.severity > $1.severity }
     }
 
+    // MARK: - Settling findings
+
+    func isResolved(_ issue: Issue) -> Bool {
+        decisions.isResolved(issue.id)
+    }
+
+    /// Marks a finding as known and trusted by the person.
+    func trust(_ issue: Issue) async {
+        var sha256: String?
+        if let path = issue.path {
+            sha256 = await Task.detached { try? FileHasher.sha256(of: path) }.value
+        }
+        decisions.resolve(SecurityDecision(
+            issueID: issue.id, reason: .trusted, title: issue.title, sha256: sha256
+        ))
+        resolved = decisions.all
+    }
+
+    /// Brings a settled finding back into the list.
+    func unresolve(_ issueID: String) {
+        decisions.clear(issueID)
+        resolved = decisions.all
+    }
+
+    /// Settles every finding about a file VirusTotal found clean.
+    private func resolveCleanVirusTotal(path: String, report: VirusTotalReport) {
+        guard report.isClean() else { return }
+        for issue in allIssues where issue.path == path {
+            decisions.resolve(SecurityDecision(
+                issueID: issue.id, reason: .virusTotalClean, title: issue.title,
+                sha256: report.sha256, engines: report.engines
+            ))
+        }
+        resolved = decisions.all
+    }
+
     // MARK: - VirusTotal
 
     func refreshKey() {
@@ -176,11 +270,13 @@ final class SecurityStore {
             let sha256 = try await Task.detached { try FileHasher.sha256(of: path) }.value
             if let cached = cache.lookup(sha256: sha256) {
                 virusTotal[path] = .done(cached)
+                if case let .found(report) = cached { resolveCleanVirusTotal(path: path, report: report) }
                 return
             }
             let lookup = try await client.lookup(sha256: sha256)
             cache.store(lookup, sha256: sha256)
             virusTotal[path] = .done(lookup)
+            if case let .found(report) = lookup { resolveCleanVirusTotal(path: path, report: report) }
         } catch {
             virusTotal[path] = .failed(error.localizedDescription)
         }
@@ -218,6 +314,7 @@ final class SecurityStore {
             let report = try await client.upload(fileAt: URL(filePath: target), sha256: sha256)
             cache.store(.found(report), sha256: sha256)
             virusTotal[path] = .done(.found(report))
+            resolveCleanVirusTotal(path: path, report: report)
         } catch {
             virusTotal[path] = .failed(error.localizedDescription)
         }

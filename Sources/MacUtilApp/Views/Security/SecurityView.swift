@@ -112,21 +112,22 @@ struct SecurityView: View {
         }
     }
 
-    /// Items worth a look in each section, shown as a badge.
+    /// Items worth a look in each section, shown as a badge. Settled findings are not counted.
     private func attentionCount(_ section: Section) -> Int? {
-        switch section {
-        case .overview: nil
-        case .system: store.checks.filter { $0.status == .fail || $0.status == .warning }.count
-        case .apps: store.apps.filter { $0.signature.trust == .untrusted }.count
-        case .autostart: store.persistence.filter { $0.risk >= .medium }.count
-        case .permissions: (store.permissions ?? []).filter { $0.risk >= .medium }.count
-        case .network:
-            store.network.ports.filter { $0.risk >= .medium }.count + store.network.proxies.count
-                + store.network.hostsEntries.count + store.network.trustedCertificates.count
-        case .processes: store.processes.filter { $0.risk >= .medium }.count
-        case .extensions: store.extensions.filter { $0.risk >= .medium }.count
-        case .secrets: store.secrets.filter { $0.risk >= .medium }.count
+        guard section != .overview else { return nil }
+        let count = store.issues.count { issue in
+            switch issue.target {
+            case .check: section == .system
+            case .app: section == .apps
+            case .persistence: section == .autostart
+            case .permission: section == .permissions
+            case .port, .network: section == .network
+            case .process: section == .processes
+            case .browserExtension: section == .extensions
+            case .secret: section == .secrets
+            }
         }
+        return count
     }
 }
 
@@ -169,10 +170,14 @@ private struct SecurityOverview: View {
                         Text("Needs attention")
                             .font(.title3.bold())
                         ForEach(store.issues) { issue in
-                            IssueRow(issue: issue, section: $section)
+                            IssueRow(issue: issue, store: store, section: $section)
                             Divider()
                         }
                     }
+                }
+
+                if !store.resolved.isEmpty {
+                    ResolvedList(store: store)
                 }
             }
             .padding(28)
@@ -219,7 +224,9 @@ private struct ScoreRing: View {
 
 private struct IssueRow: View {
     let issue: SecurityStore.Issue
+    let store: SecurityStore
     @Binding var section: SecurityView.Section
+    @State private var confirmingUpload = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -261,8 +268,84 @@ private struct IssueRow: View {
                     Text(NetworkReportView.issueTitle(title)).font(.headline)
                     Text(verbatim: details.prefix(3).joined(separator: ", ")).foregroundStyle(.secondary)
                 }
+                verdict
             }
             Spacer()
+            HStack(spacing: 8) {
+                settle
+                showButton
+            }
+            .font(.callout)
+            .fixedSize()
+        }
+    }
+
+    /// What VirusTotal said about this file, once it has been asked.
+    @ViewBuilder private var verdict: some View {
+        if let path = issue.path, let state = store.virusTotal[path] {
+            switch state {
+            case .working, .uploading:
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Checking with VirusTotal…")
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            case let .done(lookup):
+                switch lookup {
+                case let .found(report) where report.detections == 0:
+                    Label(
+                        "VirusTotal: clean, \(report.engines) engines found nothing",
+                        systemImage: "checkmark.seal.fill"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.green)
+                case let .found(report):
+                    Label(
+                        "VirusTotal: \(report.detections) of \(report.engines) engines flag this file",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                case .unknown:
+                    Text("VirusTotal has never seen this file.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            case let .failed(message):
+                Text(verbatim: message).font(.callout).foregroundStyle(.orange)
+            }
+        }
+    }
+
+    /// Ways to settle the finding: ask VirusTotal, or say you trust it.
+    @ViewBuilder private var settle: some View {
+        if let path = issue.path, store.hasAPIKey, !isChecking {
+            Button("Check") { Task { await store.checkVirusTotal(path) } }
+                .help("Send the file's hash to VirusTotal. The file itself stays on your Mac.")
+        }
+        if let path = issue.path, store.hasAPIKey, case .done(.unknown) = store.virusTotal[path] {
+            Button("Upload…") { confirmingUpload = true }
+                .confirmationDialog("Upload this file to VirusTotal?", isPresented: $confirmingUpload) {
+                    Button("Upload") { Task { await store.upload(path) } }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text(
+                        "The file will be scanned by about 70 antivirus engines. Uploaded files become available to VirusTotal's security partners, so never upload personal documents."
+                    )
+                }
+        }
+        Button("I Trust This") { Task { await store.trust(issue) } }
+            .help("Leaves this out of the list and the score until the file changes.")
+    }
+
+    private var isChecking: Bool {
+        guard let path = issue.path, let state = store.virusTotal[path] else { return false }
+        return state == .working || state == .uploading
+    }
+
+    @ViewBuilder private var showButton: some View {
+        Group {
             switch issue.target {
             case let .check(check):
                 if let url = check.settingsURL {
@@ -283,6 +366,48 @@ private struct IssueRow: View {
             case .secret:
                 Button("Show") { section = .secrets }
             }
+        }
+    }
+}
+
+/// Findings that are settled: VirusTotal found nothing, or the person trusts them.
+private struct ResolvedList: View {
+    let store: SecurityStore
+    @State private var expanded = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(store.resolved) { decision in
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: decision.reason == .virusTotalClean ? "checkmark.seal.fill" : "hand.thumbsup.fill")
+                            .foregroundStyle(decision.reason == .virusTotalClean ? .green : .secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: decision.title).font(.headline)
+                            switch decision.reason {
+                            case .virusTotalClean:
+                                Text("VirusTotal found nothing: \(decision.engines ?? 0) engines, \(decision.date.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            case .trusted:
+                                Text("You marked this as trusted on \(decision.date.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Button("Bring Back") { store.unresolve(decision.issueID) }
+                    }
+                    Divider()
+                }
+                Text("A settled file is checked again when it changes, so a replaced program comes back to the list.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 8)
+        } label: {
+            Text("Resolved: \(store.resolved.count)")
+                .font(.title3.bold())
         }
     }
 }
