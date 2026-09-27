@@ -190,7 +190,8 @@ public enum DiskInventory {
         )]
     }
 
-    static func fileSystemName(_ content: String) -> String {
+    /// A file system name people recognise, instead of the partition type code.
+    public static func fileSystemName(_ content: String) -> String {
         switch content {
         case "Apple_HFS": "Mac OS Extended"
         case "Apple_APFS": "APFS"

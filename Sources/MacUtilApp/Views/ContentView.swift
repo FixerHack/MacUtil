@@ -42,8 +42,12 @@ struct ContentView: View {
                     MaintenanceView(store: state.maintenance)
                 case .hiddenSettings:
                     HiddenSettingsView(store: state.hiddenSettings)
-                case .processes:
-                    ProcessesView(store: state.processes)
+                case .taskManager:
+                    TaskManagerView(store: state.taskManager)
+                case .disks:
+                    DisksView(store: state.disks)
+                case .fileRecovery:
+                    RecoveryView(store: state.recovery)
                 case .loginItems:
                     LoginItemsView(store: state.loginItems)
                 case .deepSearch:

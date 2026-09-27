@@ -60,45 +60,6 @@ final class HiddenSettingsStore {
 
 @MainActor
 @Observable
-final class ProcessesStore {
-    private(set) var processes: [RunningProcess] = []
-    private(set) var memory: MemoryStats?
-    private var timer: Task<Void, Never>?
-
-    func start() {
-        guard timer == nil else { return }
-        timer = Task {
-            while !Task.isCancelled {
-                await refresh()
-                try? await Task.sleep(for: .seconds(2))
-            }
-        }
-    }
-
-    func stop() {
-        timer?.cancel()
-        timer = nil
-    }
-
-    func refresh() async {
-        processes = await ProcessMonitor.processes()
-        memory = ProcessMonitor.memory()
-    }
-
-    func quit(_ process: RunningProcess, force: Bool) async {
-        // Apps get a proper quit request so they can save their work.
-        if !force, let app = NSRunningApplication(processIdentifier: process.pid) {
-            app.terminate()
-        } else {
-            _ = ProcessMonitor.terminate(process.pid, force: force)
-        }
-        try? await Task.sleep(for: .milliseconds(500))
-        await refresh()
-    }
-}
-
-@MainActor
-@Observable
 final class LoginItemsStore {
     private(set) var items: [PersistenceItem] = []
     private(set) var loading = false

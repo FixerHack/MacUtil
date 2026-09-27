@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SidebarSection: CaseIterable, Identifiable {
-    case overview, cleanup, space, search, applications, security, optimization
+    case overview, cleanup, space, recovery, search, applications, security, optimization
 
     var id: Self { self }
 
@@ -10,6 +10,7 @@ enum SidebarSection: CaseIterable, Identifiable {
         case .overview: "Overview"
         case .cleanup: "Cleanup"
         case .space: "Disk Space"
+        case .recovery: "Recovery"
         case .search: "Search"
         case .applications: "Applications"
         case .security: "Security"
@@ -25,11 +26,12 @@ enum SidebarSection: CaseIterable, Identifiable {
 enum Module: CaseIterable, Identifiable, Hashable {
     case dashboard
     case systemJunk, developerJunk, trash, privacy
-    case spaceLens, largeFiles, duplicates
+    case spaceLens, largeFiles, duplicates, disks
+    case fileRecovery
     case deepSearch
     case uninstaller, leftovers, updater
     case securityAnalyzer
-    case loginItems, maintenance, processes, hiddenSettings
+    case loginItems, maintenance, taskManager, hiddenSettings
 
     var id: Self { self }
 
@@ -37,11 +39,12 @@ enum Module: CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: .overview
         case .systemJunk, .developerJunk, .trash, .privacy: .cleanup
-        case .spaceLens, .largeFiles, .duplicates: .space
+        case .spaceLens, .largeFiles, .duplicates, .disks: .space
+        case .fileRecovery: .recovery
         case .deepSearch: .search
         case .uninstaller, .leftovers, .updater: .applications
         case .securityAnalyzer: .security
-        case .loginItems, .maintenance, .processes, .hiddenSettings: .optimization
+        case .loginItems, .maintenance, .taskManager, .hiddenSettings: .optimization
         }
     }
 
@@ -55,6 +58,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .spaceLens: "Space Lens"
         case .largeFiles: "Large & Old Files"
         case .duplicates: "Duplicates"
+        case .disks: "Disk Utilities"
+        case .fileRecovery: "File Recovery"
         case .deepSearch: "Deep Search"
         case .uninstaller: "Uninstaller"
         case .leftovers: "Leftovers"
@@ -62,7 +67,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .securityAnalyzer: "Security Analyzer"
         case .loginItems: "Login Items"
         case .maintenance: "Maintenance"
-        case .processes: "Processes"
+        case .taskManager: "Task Manager"
         case .hiddenSettings: "Hidden Settings"
         }
     }
@@ -77,6 +82,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .spaceLens: "An interactive map of what takes up your disk."
         case .largeFiles: "Find big and long-unused files."
         case .duplicates: "Find identical files and free up space."
+        case .disks: "Disks, volumes, partitions, first aid, disk images and speed tests."
+        case .fileRecovery: "Bring back deleted files from the Trash, a snapshot, a backup or the disk itself."
         case .deepSearch: "Search everywhere by name, size, date or contents, including hidden files."
         case .uninstaller: "Remove apps together with all their leftovers."
         case .leftovers: "Files left behind by apps that are already deleted."
@@ -84,7 +91,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .securityAnalyzer: "Signatures, permissions, security settings and VirusTotal checks."
         case .loginItems: "Everything that starts with your Mac."
         case .maintenance: "Rebuild caches and indexes, flush DNS, verify the disk."
-        case .processes: "See what uses the processor and memory."
+        case .taskManager: "Everything running now, with what it costs and what you can do about it."
         case .hiddenSettings: "macOS settings that are not in System Settings."
         }
     }
@@ -99,6 +106,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .spaceLens: "chart.pie"
         case .largeFiles: "doc.badge.clock"
         case .duplicates: "doc.on.doc"
+        case .disks: "internaldrive"
+        case .fileRecovery: "clock.arrow.circlepath"
         case .deepSearch: "magnifyingglass"
         case .uninstaller: "trash.square"
         case .leftovers: "shippingbox"
@@ -106,7 +115,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .securityAnalyzer: "checkmark.shield"
         case .loginItems: "power"
         case .maintenance: "wrench.and.screwdriver"
-        case .processes: "cpu"
+        case .taskManager: "cpu"
         case .hiddenSettings: "slider.horizontal.3"
         }
     }
@@ -121,7 +130,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .uninstaller, .leftovers: 4
         case .duplicates: 5
         case .deepSearch: 6
-        case .privacy, .loginItems, .maintenance, .processes, .hiddenSettings: 8
+        case .privacy, .loginItems, .maintenance, .taskManager, .hiddenSettings: 8
+        case .disks, .fileRecovery: 10
         case .updater: 9
         }
     }

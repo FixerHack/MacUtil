@@ -4,7 +4,7 @@ import Testing
 
 struct TaskManagerTests {
     @Test func readsEveryColumnOfPsOutput() throws {
-        let line = "  501   1  12.5  65536 fixerhack   0 S Tue Sep 23 09:14:02 2026 /Applications/Safari.app/Contents/MacOS/Safari"
+        let line = "  501   1  12.5  65536 fixerhack   0 S /Applications/Safari.app/Contents/MacOS/Safari"
         let process = try #require(TaskManager.parse(line).first)
 
         #expect(process.pid == 501)
@@ -16,17 +16,24 @@ struct TaskManagerTests {
         #expect(process.name == "Safari")
         #expect(process.isApp)
         #expect(process.appBundlePath == "/Applications/Safari.app")
-        #expect(process.startedAt != nil)
+        // A process id that is not running has no kernel data, so no start time either.
+        #expect(process.startedAt == nil)
     }
 
     @Test func keepsSpacesInsideAPath() throws {
-        let line = "  77   1  0.0  1024 root   0 R Tue Sep 23 09:14:02 2026 /Applications/My App.app/Contents/MacOS/My App"
+        let line = "  77   1  0,0  1024 root   0 R /Applications/My App.app/Contents/MacOS/My App"
         let process = try #require(TaskManager.parse(line).first)
 
         #expect(process.path == "/Applications/My App.app/Contents/MacOS/My App")
         #expect(process.name == "My App")
         #expect(process.state == .running)
         #expect(!process.isOwnedByUser)
+    }
+
+    @Test func readsNumbersWrittenWithACommaToo() {
+        // In Ukrainian and many other languages ps prints 0,3 rather than 0.3.
+        #expect(TaskManager.number("12,5") == 12.5)
+        #expect(TaskManager.number("12.5") == 12.5)
     }
 
     @Test func skipsLinesItCannotRead() {
@@ -40,6 +47,7 @@ struct TaskManagerTests {
         let me = try #require(processes.filter { $0.pid == ProcessInfo.processInfo.processIdentifier }.first)
         #expect(me.memory > 1_000_000)
         #expect(me.threads > 0)
+        #expect(me.startedAt != nil)
         #expect(me.isOwnedByUser)
 
         #expect(!load.cores.isEmpty)

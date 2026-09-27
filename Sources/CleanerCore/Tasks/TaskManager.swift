@@ -68,6 +68,8 @@ public struct SystemLoad: Sendable, Equatable {
         cores.isEmpty ? 0 : cores.reduce(0, +) / Double(cores.count)
     }
 
+    public init() {}
+
     /// How hard memory is squeezed, the way Activity Monitor's pressure graph reads.
     public var memoryPressure: Double {
         guard let memory, memory.total > 0 else { return 0 }
@@ -85,8 +87,9 @@ public struct TaskManager: Sendable {
     public func sample(previous: [Int32: (read: Int64, written: Int64)] = [:], interval: TimeInterval = 1)
         async -> (processes: [TaskProcess], load: SystemLoad)
     {
+        // No lstart: its text is translated, and the kernel gives the start time anyway.
         let listing = await Command.run(
-            "/bin/ps", ["-axo", "pid=,ppid=,%cpu=,rss=,user=,nice=,state=,lstart=,comm="], timeout: .seconds(20)
+            "/bin/ps", ["-axo", "pid=,ppid=,%cpu=,rss=,user=,nice=,state=,comm="], timeout: .seconds(20)
         )
         let processes = Self.parse(listing?.text ?? "")
         var load = SystemLoad()
@@ -113,30 +116,43 @@ public struct TaskManager: Sendable {
 
     static func parse(_ output: String) -> [TaskProcess] {
         output.split(separator: "\n").compactMap { line in
-            // pid ppid %cpu rss user nice state <lstart: 5 fields> command
+            // pid ppid %cpu rss user nice state command
             let fields = line.split(separator: " ", omittingEmptySubsequences: true)
-            guard fields.count >= 13, let pid = Int32(fields[0]), let parent = Int32(fields[1]),
-                  let cpu = Double(fields[2]), let rss = Int64(fields[3]), let nice = Int32(fields[5])
+            guard fields.count >= 8, let pid = Int32(fields[0]), let parent = Int32(fields[1]),
+                  let cpu = number(fields[2]), let rss = Int64(fields[3]), let nice = Int32(fields[5])
             else { return nil }
-            let started = Self.startDate(from: fields[7 ..< 12].joined(separator: " "))
-            let path = fields[12...].joined(separator: " ")
+            let path = fields[7...].joined(separator: " ")
             let kernel = Self.kernelInfo(pid: pid)
             return TaskProcess(
                 pid: pid, parentPID: parent, name: (path as NSString).lastPathComponent, path: path,
                 user: String(fields[4]), state: TaskProcess.State(psState: fields[6]), cpu: cpu,
                 memory: kernel.footprint > 0 ? kernel.footprint : rss * 1024,
-                threads: kernel.threads, niceness: nice, startedAt: started,
+                threads: kernel.threads, niceness: nice, startedAt: kernel.startedAt,
                 diskRead: kernel.diskRead, diskWritten: kernel.diskWritten, wakeups: kernel.wakeups
             )
         }
     }
 
+    /// `ps` prints numbers the way the language of the Mac writes them, so "0,3" has to read
+    /// the same as "0.3".
+    static func number(_ text: Substring) -> Double? {
+        Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+
     /// Footprint, threads and disk use straight from the kernel. Processes of other users
     /// answer only partly, and the caller falls back to what `ps` reported.
-    static func kernelInfo(pid: Int32) -> (footprint: Int64, threads: Int, diskRead: Int64, diskWritten: Int64, wakeups: Int64) {
+    static func kernelInfo(pid: Int32)
+        -> (footprint: Int64, threads: Int, diskRead: Int64, diskWritten: Int64, wakeups: Int64, startedAt: Date?)
+    {
         var threads = 0
+        var startedAt: Date?
         var taskInfo = proc_taskinfo()
-        if proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, Int32(MemoryLayout<proc_taskinfo>.size)) > 0 {
+        var allInfo = proc_taskallinfo()
+        if proc_pidinfo(pid, PROC_PIDTASKALLINFO, 0, &allInfo, Int32(MemoryLayout<proc_taskallinfo>.size)) > 0 {
+            threads = Int(allInfo.ptinfo.pti_threadnum)
+            taskInfo = allInfo.ptinfo
+            startedAt = Date(timeIntervalSince1970: Double(allInfo.pbsd.pbi_start_tvsec))
+        } else if proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, Int32(MemoryLayout<proc_taskinfo>.size)) > 0 {
             threads = Int(taskInfo.pti_threadnum)
         }
         var usage = rusage_info_v4()
@@ -146,20 +162,13 @@ public struct TaskManager: Sendable {
             }
         }
         guard ok == 0 else {
-            return (Int64(taskInfo.pti_resident_size), threads, 0, 0, 0)
+            return (Int64(taskInfo.pti_resident_size), threads, 0, 0, 0, startedAt)
         }
         return (
             Int64(usage.ri_phys_footprint), threads,
             Int64(usage.ri_diskio_bytesread), Int64(usage.ri_diskio_byteswritten),
-            Int64(usage.ri_interrupt_wkups + usage.ri_pkg_idle_wkups)
+            Int64(usage.ri_interrupt_wkups + usage.ri_pkg_idle_wkups), startedAt
         )
-    }
-
-    static func startDate(from text: String) -> Date? {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE MMM d HH:mm:ss yyyy"
-        return formatter.date(from: text)
     }
 
     /// Busy share of each core since the last call.

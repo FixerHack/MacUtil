@@ -94,6 +94,8 @@ public struct FileCarver: Sendable {
         public var totalBytes: Int64 = 0
         public var found = 0
 
+        public init() {}
+
         public var fraction: Double {
             totalBytes > 0 ? min(1, Double(bytesScanned) / Double(totalBytes)) : 0
         }

@@ -134,7 +134,7 @@ public enum DiskBenchmark {
             progress(Double(index + 1) / Double(chunks) / 2)
         }
         // Without this the numbers would describe the write cache, not the disk.
-        fcntl(writer.fileDescriptor, F_FULLFSYNC)
+        _ = fcntl(writer.fileDescriptor, F_FULLFSYNC)
         try writer.close()
         let written = Date().timeIntervalSince(writeStart)
 
@@ -142,7 +142,7 @@ public enum DiskBenchmark {
             throw Failure.failed(String(localized: "The test file could not be read back."))
         }
         // F_NOCACHE makes macOS read from the drive instead of the file cache.
-        fcntl(reader.fileDescriptor, F_NOCACHE, 1)
+        _ = fcntl(reader.fileDescriptor, F_NOCACHE, 1)
         let readStart = Date()
         var index = 0
         while let piece = try reader.read(upToCount: chunkSize), !piece.isEmpty {
