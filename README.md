@@ -99,6 +99,14 @@ signed by anyone else is refused, so a tampered download cannot replace your Mac
 - Space Lens: an interactive map of the disk
 - Large and old files
 - Duplicates, counting what APFS clones really free
+- Disk Utilities: disks, containers and volumes; mount, rename, erase, first aid,
+  APFS volumes and quotas, disk images, speed test, local snapshots
+
+**↩️ File recovery**
+- The Trash, with anything put back where you choose
+- APFS snapshots, opened read-only and searched by name
+- Time Machine backups
+- Scanning a memory card, flash drive or external disk for deleted files
 
 **🔍 Deep search**
 - By name, pattern, size, date or text inside files
@@ -121,6 +129,8 @@ signed by anyone else is refused, so a tampered download cannot replace your Mac
   list and the score, and it returns if the file changes
 
 **⚡ Optimization**
+- Task Manager: everything running, with processor, memory, disk, threads and
+  wakeups; quit, force quit, pause, resume, change priority, take a sample
 - Login items with on/off switches
 - Maintenance scripts, DNS cache, Spotlight rebuild
 - Hidden macOS settings and a process list
@@ -133,9 +143,22 @@ signed by anyone else is refused, so a tampered download cannot replace your Mac
 <p align="center">
 <img src="docs/screenshots/junk-en.png" alt="System Junk" width="49%">
 <img src="docs/screenshots/security-en.png" alt="Security Analyzer" width="49%">
+<img src="docs/screenshots/tasks-en.png" alt="Task Manager" width="49%">
+<img src="docs/screenshots/disks-en.png" alt="Disk Utilities" width="49%">
 </p>
 
 The interface is available in English and Ukrainian and follows the macOS language setting.
+
+### What file recovery can and cannot do
+
+Recovery by scanning works on memory cards, flash drives, external disks and disk images, where
+a deleted file's contents stay on the disk until something writes over them. MacUtil reads the
+raw device, recognises files by the bytes they start with and writes them to a folder you choose
+on **another** disk.
+
+It cannot work on the internal SSD of a modern Mac: macOS tells the drive to discard the blocks of
+a deleted file, and FileVault encrypts what is left. For the internal disk the ways back are the
+Trash, an APFS snapshot, a Time Machine backup — all of which MacUtil covers.
 
 ## Safety and privacy
 
