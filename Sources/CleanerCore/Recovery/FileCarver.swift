@@ -78,6 +78,20 @@ public struct CarvedFile: Sendable, Identifiable, Hashable {
     /// True when a file with the same contents is still on the volume, so nothing was lost.
     public var isStillOnDisk: Bool
 
+    public init(
+        id: UUID = UUID(), signature: String, fileExtension: String, offset: Int64, size: Int64,
+        sha256: String, recoveredTo: String? = nil, isStillOnDisk: Bool = false
+    ) {
+        self.id = id
+        self.signature = signature
+        self.fileExtension = fileExtension
+        self.offset = offset
+        self.size = size
+        self.sha256 = sha256
+        self.recoveredTo = recoveredTo
+        self.isStillOnDisk = isStillOnDisk
+    }
+
     public var suggestedName: String {
         "recovered-\(String(format: "%010lld", offset)).\(fileExtension)"
     }
@@ -128,8 +142,9 @@ public struct FileCarver: Sendable {
     public func scan(
         device: String,
         output: URL?,
-        limit: Int = 500,
-        progress: @Sendable (Progress) -> Void = { _ in }
+        limit: Int = 5000,
+        progress: @Sendable (Progress) -> Void = { _ in },
+        found onFound: @Sendable (CarvedFile) -> Void = { _ in }
     ) async throws -> [CarvedFile] {
         guard let handle = FileHandle(forReadingAtPath: device) else {
             throw errno == EACCES || errno == EPERM ? Failure.notAllowed(device) : Failure.cannotRead(device)
@@ -161,6 +176,7 @@ public struct FileCarver: Sendable {
                     found.append(file)
                     state.found = found.count
                     lastEnd = offset + file.size
+                    onFound(file)
                 }
             }
 

@@ -22,6 +22,8 @@ BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 ARCH_FLAGS=()
 if [[ -n "${UNIVERSAL:-}" ]]; then ARCH_FLAGS=(--arch arm64 --arch x86_64); fi
 swift build -c "$CONFIG" --product MacUtil ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
+# Bundled so the app can scan a disk for deleted files through an administrator prompt.
+swift build -c "$CONFIG" --product mucli ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
 BIN_DIR="$(swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)"
 
 APP="$ROOT/build/MacUtil.app"
@@ -29,6 +31,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$BIN_DIR/MacUtil" "$APP/Contents/MacOS/MacUtil"
+cp "$BIN_DIR/mucli" "$APP/Contents/Resources/mucli"
 cp -R Resources/Localization/*.lproj "$APP/Contents/Resources/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \

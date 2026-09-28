@@ -262,6 +262,10 @@ private struct ScanSource: View {
                                 .disabled(store.selectedDevice == nil)
                         }
                     }
+                    Text("A physical disk belongs to macOS itself, so MacUtil asks for your password once to read it. Nothing is written to the disk being scanned.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text("Recovered files are written to a folder you choose, which must be on another disk. Writing to the disk being scanned would destroy what is left of the lost files.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -275,6 +279,12 @@ private struct ScanSource: View {
                             .font(.callout)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
+                        if let rate = store.scanRate {
+                            Text("\(rate.speed) · about \(rate.remaining) left")
+                                .font(.callout)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }

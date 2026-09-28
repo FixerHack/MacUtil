@@ -965,3 +965,7 @@
 "MacUtil cannot read %@." = "MacUtil не може прочитати %@.";
 "Reading %@ needs an administrator password." = "Для читання %@ потрібен пароль адміністратора.";
 "%@ of %@" = "%@ з %@";
+"MacUtil needs your password to read this disk. Nothing is written to it." = "MacUtil потрібен ваш пароль, щоб прочитати цей диск. На нього нічого не записується.";
+"The scanning tool is missing from this copy of MacUtil." = "У цій копії MacUtil бракує інструмента сканування.";
+"%@ · about %@ left" = "%@ · лишилося приблизно %@";
+"A physical disk belongs to macOS itself, so MacUtil asks for your password once to read it. Nothing is written to the disk being scanned." = "Фізичний диск належить самій macOS, тому MacUtil один раз попросить ваш пароль, щоб його прочитати. На диск, який скануємо, нічого не записується.";

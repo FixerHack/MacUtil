@@ -25,8 +25,28 @@ final class RecoveryStore {
     private(set) var scannableDisks: [StorageDisk] = []
     private(set) var carved: [CarvedFile] = []
     private(set) var scanProgress: FileCarver.Progress?
+    private(set) var scanStartedAt: Date?
+
+    /// Reading speed and time left, once there is enough to judge by.
+    var scanRate: (speed: String, remaining: String)? {
+        guard let scanProgress, let scanStartedAt, scanProgress.bytesScanned > 0 else { return nil }
+        let elapsed = Date().timeIntervalSince(scanStartedAt)
+        guard elapsed > 3 else { return nil }
+        let bytesPerSecond = Double(scanProgress.bytesScanned) / elapsed
+        let left = Double(max(0, scanProgress.totalBytes - scanProgress.bytesScanned))
+        let seconds = bytesPerSecond > 0 ? left / bytesPerSecond : 0
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.hour, .minute]
+        formatter.unitsStyle = .short
+        return (
+            "\(Int64(bytesPerSecond).formatted(.byteCount(style: .file)))/s",
+            formatter.string(from: seconds) ?? ""
+        )
+    }
     private var scanTask: Task<Void, Never>?
     private var scanWork: Task<Result<[CarvedFile], any Error>, Never>?
+    /// Lets the scan, which runs off the main thread, add files as it finds them.
+    @MainActor private static weak var shared: RecoveryStore?
 
     var source = Source.trash
     var search = ""
@@ -127,19 +147,25 @@ final class RecoveryStore {
 
     /// Scans the raw device for file shapes and writes what it finds into `output`,
     /// which must sit on a different disk than the one being scanned.
+    ///
+    /// Physical disks belong to root, so when MacUtil is not allowed to read one itself it runs
+    /// the same scan through the bundled command-line tool with an administrator prompt, and
+    /// follows along through the progress file that tool writes.
     func scan(device: String, output: URL) {
         guard scanTask == nil else { return }
         carved = []
         message = nil
         scanProgress = FileCarver.Progress()
+        scanStartedAt = Date()
 
-        // The scan runs off the main thread and reports back through a stream.
         let (updates, progress) = AsyncStream<FileCarver.Progress>.makeStream()
         let work = Task.detached { () -> Result<[CarvedFile], any Error> in
             defer { progress.finish() }
             do {
                 return try .success(await FileCarver().scan(device: "/dev/r\(device)", output: output) {
                     progress.yield($0)
+                } found: { file in
+                    Task { @MainActor in RecoveryStore.shared?.carved.append(file) }
                 })
             } catch {
                 return .failure(error)
@@ -147,6 +173,7 @@ final class RecoveryStore {
         }
         scanWork = work
         scanTask = Task { [weak self] in
+            RecoveryStore.shared = self
             for await update in updates { self?.scanProgress = update }
             switch await work.value {
             case let .success(found):
@@ -155,11 +182,78 @@ final class RecoveryStore {
                     ? String(localized: "Nothing recognisable was found on this disk.")
                     : String(localized: "Recovered \(found.count) files into \(FinderActions.abbreviate(output.path))")
             case let .failure(error):
-                self?.message = Task.isCancelled ? nil : error.localizedDescription
+                if case FileCarver.Failure.notAllowed = error {
+                    await self?.scanAsAdministrator(device: device, output: output)
+                } else {
+                    self?.message = Task.isCancelled ? nil : error.localizedDescription
+                }
             }
             self?.scanTask = nil
             self?.scanWork = nil
             self?.scanProgress = nil
+            self?.scanStartedAt = nil
+        }
+    }
+
+    /// The same scan, run by the bundled tool with a password, because the disk belongs to root.
+    private func scanAsAdministrator(device: String, output: URL) async {
+        guard let tool = Bundle.main.url(forResource: "mucli", withExtension: nil) else {
+            message = String(localized: "The scanning tool is missing from this copy of MacUtil.")
+            return
+        }
+        scanProgress = FileCarver.Progress()
+        scanStartedAt = Date()
+        let watcher = Task { [weak self] in
+            // The tool writes its progress into the output folder as it goes.
+            let file = output.appending(path: ".macutil-progress.json")
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let data = try? Data(contentsOf: file),
+                      let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                else { continue }
+                var progress = FileCarver.Progress()
+                progress.bytesScanned = payload["bytesScanned"] as? Int64 ?? 0
+                progress.totalBytes = payload["totalBytes"] as? Int64 ?? 0
+                progress.found = payload["found"] as? Int ?? 0
+                await MainActor.run { self?.scanProgress = progress }
+            }
+        }
+        defer { watcher.cancel() }
+
+        let command = "'\(tool.path)' carve \(device) --out '\(output.path)' --uid \(getuid()) --json"
+        let result = await AdminRunner.run([command], prompt: String(
+            localized: "MacUtil needs your password to read this disk. Nothing is written to it."
+        ))
+        try? FileManager.default.removeItem(at: output.appending(path: ".macutil-progress.json"))
+        guard !result.wasCancelled else { return }
+        guard result.succeeded else {
+            message = result.text
+            return
+        }
+        carved = Self.parse(result.text)
+        message = carved.isEmpty
+            ? String(localized: "Nothing recognisable was found on this disk.")
+            : String(localized: "Recovered \(carved.count) files into \(FinderActions.abbreviate(output.path))")
+    }
+
+    /// Reads back the one line of JSON the tool prints for each recovered file.
+    static func parse(_ output: String) -> [CarvedFile] {
+        struct Line: Decodable {
+            let signature: String
+            let fileExtension: String
+            let size: Int64
+            let offset: Int64
+            let sha256: String
+            let path: String?
+        }
+        return output.split(separator: "\n").compactMap { text in
+            guard let data = text.data(using: .utf8), let line = try? JSONDecoder().decode(Line.self, from: data)
+            else { return nil }
+            return CarvedFile(
+                id: UUID(), signature: line.signature, fileExtension: line.fileExtension,
+                offset: line.offset, size: line.size, sha256: line.sha256,
+                recoveredTo: line.path, isStillOnDisk: false
+            )
         }
     }
 

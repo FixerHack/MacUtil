@@ -91,19 +91,24 @@ public enum DiskInventory {
             for part in entry["Partitions"] as? [[String: Any]] ?? [] {
                 guard let partID = part["DeviceIdentifier"] as? String else { continue }
                 let container = containerByStore[partID]
+                var volumes = container.flatMap { volumesByContainer[$0] } ?? []
+                if container == nil, part["VolumeName"] is String {
+                    volumes = await plainVolume(id: partID, fallback: part)
+                }
                 partitions.append(StoragePartition(
                     id: partID,
                     name: part["VolumeName"] as? String,
                     content: part["Content"] as? String ?? "",
                     size: part["Size"] as? Int64 ?? 0,
                     containerID: container,
-                    volumes: container.flatMap { volumesByContainer[$0] } ?? nonAPFSVolume(part)
+                    volumes: volumes
                 ))
             }
             // A disk formatted without a partition map holds one volume directly.
             if partitions.isEmpty {
                 let container = containerByStore[id]
-                let volumes = container.flatMap { volumesByContainer[$0] } ?? nonAPFSVolume(entry)
+                var volumes = container.flatMap { volumesByContainer[$0] } ?? []
+                if volumes.isEmpty { volumes = await plainVolume(id: id, fallback: entry) }
                 if let volume = volumes.first {
                     partitions.append(StoragePartition(
                         id: id, name: volume.name, content: entry["Content"] as? String ?? "",
@@ -174,19 +179,28 @@ public enum DiskInventory {
         return result
     }
 
-    /// HFS+, ExFAT and the like, where the partition is the volume.
-    static func nonAPFSVolume(_ entry: [String: Any]) -> [StorageVolume] {
-        guard let id = entry["DeviceIdentifier"] as? String,
-              let name = entry["VolumeName"] as? String,
-              let size = entry["Size"] as? Int64
-        else { return [] }
-        let free = entry["FreeSpace"] as? Int64 ?? 0
+    /// HFS+, ExFAT, FAT and NTFS, where the partition is the volume. `diskutil list` does not
+    /// say which file system it really is or how full it is, so the volume is asked directly.
+    static func plainVolume(id: String, fallback: [String: Any]) async -> [StorageVolume] {
+        let info = await plist(["info", "-plist", id]) ?? fallback
+        guard let name = (info["VolumeName"] as? String) ?? (fallback["VolumeName"] as? String) else { return [] }
+        let size = info["Size"] as? Int64 ?? fallback["Size"] as? Int64 ?? 0
+        let mountPoint = (info["MountPoint"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        // A mounted volume knows its own free space better than diskutil does.
+        var free = info["FreeSpace"] as? Int64 ?? 0
+        if let mountPoint,
+           let values = try? URL(filePath: mountPoint).resourceValues(forKeys: [.volumeAvailableCapacityKey]),
+           let available = values.volumeAvailableCapacity
+        {
+            free = Int64(available)
+        }
+        let fileSystem = (info["FilesystemName"] as? String)
+            ?? (info["FilesystemType"] as? String)
+            ?? fileSystemName(info["Content"] as? String ?? "")
         return [StorageVolume(
-            id: id, name: name,
-            fileSystem: fileSystemName(entry["Content"] as? String ?? ""),
-            mountPoint: (entry["MountPoint"] as? String).flatMap { $0.isEmpty ? nil : $0 },
+            id: id, name: name, fileSystem: fileSystem, mountPoint: mountPoint,
             size: size, used: max(0, size - free),
-            isEncrypted: false, roles: [], containerID: nil
+            isEncrypted: info["Encryption"] as? Bool ?? false, roles: [], containerID: nil
         )]
     }
 
@@ -195,7 +209,8 @@ public enum DiskInventory {
         switch content {
         case "Apple_HFS": "Mac OS Extended"
         case "Apple_APFS": "APFS"
-        case "Microsoft Basic Data": "ExFAT or FAT32"
+        case "Microsoft Basic Data", "Windows_NTFS": "ExFAT, FAT or NTFS"
+        case "Windows_FAT_32": "FAT32"
         case "EFI": "EFI"
         case "Apple_Boot": "Recovery"
         default: content
