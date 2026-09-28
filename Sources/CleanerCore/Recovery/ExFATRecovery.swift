@@ -94,6 +94,11 @@ public struct ExFATRecovery: Sendable {
     }
 
     /// Copies a file's contents out of the card, without touching the card itself.
+    ///
+    /// A file written in one piece is read straight through. A file written in pieces is followed
+    /// through the table that records where it continues; if that table no longer holds the file's
+    /// chain, which is what deleting usually leaves behind, the clusters are read in order, and
+    /// the result may hold parts of something else.
     @discardableResult
     public func restore(_ file: RecordedFile, device: String, to directory: URL) throws -> URL {
         guard let handle = FileHandle(forReadingAtPath: device) else { throw Failure.cannotRead(device) }
@@ -107,17 +112,39 @@ public struct ExFATRecovery: Sendable {
 
         var remaining = file.size
         var cluster = file.firstCluster
-        while remaining > 0, cluster >= 2, cluster < geometry.clusterCount + 2 {
+        var visited = Set<UInt32>()
+        while remaining > 0, cluster >= 2, cluster < geometry.clusterCount + 2, visited.insert(cluster).inserted {
             try handle.seek(toOffset: geometry.offset(ofCluster: cluster))
             guard let chunk = try handle.read(upToCount: geometry.bytesPerCluster), !chunk.isEmpty else { break }
             let wanted = Int(min(remaining, Int64(chunk.count)))
             try writer.write(contentsOf: chunk.prefix(wanted))
             remaining -= Int64(wanted)
-            // A deleted file's chain in the table is usually cleared, so its clusters are read
-            // one after another, which is how cameras write files anyway.
-            cluster += 1
+
+            if file.isContiguous {
+                cluster += 1
+            } else if let next = try Self.nextCluster(after: cluster, handle: handle, geometry: geometry) {
+                cluster = next
+            } else {
+                // The chain is gone, as it usually is once a file is deleted.
+                cluster += 1
+            }
         }
         return destination
+    }
+
+    /// Where a file continues, according to the table exFAT keeps for that.
+    static func nextCluster(after cluster: UInt32, handle: FileHandle, geometry: Geometry) throws -> UInt32? {
+        let offset = UInt64(geometry.fatOffset) * UInt64(geometry.bytesPerSector) + UInt64(cluster) * 4
+        try handle.seek(toOffset: offset)
+        guard let data = try handle.read(upToCount: 4), data.count == 4 else { return nil }
+        return chainEntry([UInt8](data), clusterCount: geometry.clusterCount)
+    }
+
+    /// Reads one entry of the table. Zero means unused, and the end marker means the file stops here.
+    static func chainEntry(_ bytes: [UInt8], clusterCount: UInt32) -> UInt32? {
+        let value = read32(bytes, 0)
+        guard value >= 2, value < clusterCount + 2, value != 0xFFFF_FFFF else { return nil }
+        return value
     }
 
     /// macOS leaves its own small files on a card next to yours; they are noise here.

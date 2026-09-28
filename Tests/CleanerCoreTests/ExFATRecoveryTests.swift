@@ -85,6 +85,15 @@ import Testing
         _ = await DiskImages.detach(device, force: true)
     }
 
+    @Test func followsWhereAFileContinues() {
+        // Cluster 9 continues at 10; the end marker and an unused entry both stop the walk.
+        #expect(ExFATRecovery.chainEntry([10, 0, 0, 0], clusterCount: 1000) == 10)
+        #expect(ExFATRecovery.chainEntry([0xFF, 0xFF, 0xFF, 0xFF], clusterCount: 1000) == nil)
+        #expect(ExFATRecovery.chainEntry([0, 0, 0, 0], clusterCount: 1000) == nil)
+        // Past the end of the disk, so not a real place to continue.
+        #expect(ExFATRecovery.chainEntry([0xE8, 0x03, 0, 0], clusterCount: 100) == nil)
+    }
+
     @Test func leavesOutTheFilesMacOSLeavesBehind() {
         #expect(ExFATRecovery.isHousekeeping("._DSC_0001.JPG"))
         #expect(ExFATRecovery.isHousekeeping(".DS_Store"))
