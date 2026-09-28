@@ -25,6 +25,19 @@
                 state.selection = module
             }
             switch environment["MACUTIL_SNAPSHOT_SCAN"] {
+            case "recovery:quick":
+                Task {
+                    await state.recovery.load()
+                    state.recovery.source = .scan
+                    if let volume = state.recovery.scannableVolumes.first {
+                        await state.recovery.quickScan(volume: volume)
+                    }
+                }
+            case "recovery:scan":
+                Task {
+                    await state.recovery.load()
+                    state.recovery.source = .scan
+                }
             case "security:trust":
                 Task {
                     await state.security.scan()

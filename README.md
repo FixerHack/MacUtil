@@ -103,10 +103,12 @@ signed by anyone else is refused, so a tampered download cannot replace your Mac
   APFS volumes and quotas, disk images, speed test, local snapshots
 
 **↩️ File recovery**
+- By name: reads an exFAT card's own records, so deleted files come back with their
+  real names, sizes and dates, in seconds
+- Byte by byte: recognises files by their shape where the records are gone
 - The Trash, with anything put back where you choose
 - APFS snapshots, opened read-only and searched by name
 - Time Machine backups
-- Scanning a memory card, flash drive or external disk for deleted files
 
 **🔍 Deep search**
 - By name, pattern, size, date or text inside files
@@ -150,6 +152,16 @@ signed by anyone else is refused, so a tampered download cannot replace your Mac
 The interface is available in English and Ukrainian and follows the macOS language setting.
 
 ### What file recovery can and cannot do
+
+**By name** is the first thing to try on a memory card or a flash drive. Deleting a file on exFAT
+only clears a flag: its name, size, date and the place its contents start all stay in the card's
+records until something writes over them. Reading those records takes seconds and gives files back
+under their own names, fragmented ones included.
+
+**Byte by byte** is the fallback for when the records are gone or the disk is another file system.
+MacUtil reads the raw device and recognises files by the bytes they start with, then follows the
+structure of each format to its real end — a photo comes back whole rather than as the small
+preview stored inside it.
 
 Recovery by scanning works on memory cards, flash drives, external disks and disk images, where
 a deleted file's contents stay on the disk until something writes over them. MacUtil reads the

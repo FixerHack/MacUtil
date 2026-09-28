@@ -38,7 +38,7 @@ struct RecoveryView: View {
                 case .scan: ScanSource(store: store)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .navigationTitle("File Recovery")
         .task { await store.load() }
@@ -228,89 +228,149 @@ private struct ResultList: View {
     }
 }
 
-/// Reads a disk byte by byte and pulls out files that are no longer listed anywhere.
+/// Two ways to get files off a disk: read what its records remember, or read every byte.
 private struct ScanSource: View {
     @Bindable var store: RecoveryStore
 
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
-                Label(
-                    "This finds files on memory cards, flash drives, external disks and disk images. It cannot work on the disk macOS runs from: deleted blocks are discarded and what remains is encrypted.",
-                    systemImage: "info.circle"
-                )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-                if store.scannableDisks.isEmpty {
-                    Label("Connect a memory card, a flash drive or an external disk.", systemImage: "externaldrive.badge.plus")
-                } else {
-                    HStack(spacing: 10) {
-                        Picker("Disk", selection: $store.selectedDevice) {
-                            ForEach(store.scannableDisks) { disk in
-                                Text(verbatim: "\(disk.model) · \(disk.size.formatted(.byteCount(style: .file)))")
-                                    .tag(Optional(disk.id))
-                            }
-                        }
-                        .fixedSize()
-                        if store.isScanning {
-                            Button("Stop") { store.cancelScan() }
-                        } else {
-                            Button("Scan…") { start() }
-                                .prominentButton()
-                                .disabled(store.selectedDevice == nil)
-                        }
-                    }
-                    Text("A physical disk belongs to macOS itself, so MacUtil asks for your password once to read it. Nothing is written to the disk being scanned.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Recovered files are written to a folder you choose, which must be on another disk. Writing to the disk being scanned would destroy what is left of the lost files.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                Picker("How to look", selection: $store.scanKind) {
+                    Text("By name").tag(RecoveryStore.ScanKind.quick)
+                    Text("Byte by byte").tag(RecoveryStore.ScanKind.deep)
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
 
-                if let progress = store.scanProgress {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ProgressView(value: progress.fraction)
-                        Text("Read \(progress.bytesScanned.formatted(.byteCount(style: .file))) of \(progress.totalBytes.formatted(.byteCount(style: .file))) · found \(progress.found)")
-                            .font(.callout)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                        if let rate = store.scanRate {
-                            Text("\(rate.speed) · about \(rate.remaining) left")
-                                .font(.callout)
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                Text(store.scanKind == .quick
+                    ? "Deleting a file on a memory card only clears a flag: its name, size and date stay in the card's records until something writes over them. This reads those records, so files come back with their own names, in seconds."
+                    : "Reads every byte of the disk and recognises files by their shape. It finds files the records no longer mention, but it cannot know their names, and a 256 GB card takes hours.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if store.scanKind == .quick {
+                    quickControls
+                } else {
+                    deepControls
                 }
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
             Divider()
+            results
+        }
+    }
 
-            if store.carved.isEmpty {
+    @ViewBuilder private var quickControls: some View {
+        if store.scannableVolumes.isEmpty {
+            Label("Connect a memory card, a flash drive or an external disk.", systemImage: "externaldrive.badge.plus")
+        } else {
+            HStack(spacing: 10) {
+                Picker("Volume", selection: $store.selectedVolumeID) {
+                    ForEach(store.scannableVolumes) { volume in
+                        Text(verbatim: "\(volume.name.isEmpty ? volume.id : volume.name) · \(volume.fileSystem)")
+                            .tag(Optional(volume.id))
+                    }
+                }
+                .fixedSize()
+                Button("Look for Files") {
+                    guard let volume = selectedVolume else { return }
+                    Task { await store.quickScan(volume: volume) }
+                }
+                .prominentButton()
+                .disabled(store.busy || selectedVolume == nil)
+                if !store.recorded.isEmpty {
+                    Button("Restore All…") { restoreAll() }
+                }
+                if store.busy {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            if let failure = store.quickScanFailed {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(verbatim: failure).font(.callout).foregroundStyle(.orange)
+                    Text("Only exFAT disks keep records MacUtil can read this way. For anything else, use byte by byte.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder private var deepControls: some View {
+        if store.scannableDisks.isEmpty {
+            Label("Connect a memory card, a flash drive or an external disk.", systemImage: "externaldrive.badge.plus")
+        } else {
+            HStack(spacing: 10) {
+                Picker("Disk", selection: $store.selectedDevice) {
+                    ForEach(store.scannableDisks) { disk in
+                        Text(verbatim: "\(disk.model) · \(disk.size.formatted(.byteCount(style: .file)))")
+                            .tag(Optional(disk.id))
+                    }
+                }
+                .fixedSize()
+                if store.isScanning {
+                    Button("Stop") { store.cancelScan() }
+                } else {
+                    Button("Scan…") { startDeepScan() }
+                        .prominentButton()
+                        .disabled(store.selectedDevice == nil)
+                }
+            }
+            Text("A physical disk belongs to macOS itself, so MacUtil asks for your password once to read it. Nothing is written to the disk being scanned.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Recovered files are written to a folder you choose, which must be on another disk. Writing to the disk being scanned would destroy what is left of the lost files.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let progress = store.scanProgress {
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: progress.fraction)
+                    Text("Read \(progress.bytesScanned.formatted(.byteCount(style: .file))) of \(progress.totalBytes.formatted(.byteCount(style: .file))) · found \(progress.found)")
+                        .font(.callout)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    if let rate = store.scanRate {
+                        Text("\(rate.speed) · about \(rate.remaining) left")
+                            .font(.callout)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var results: some View {
+        if store.scanKind == .quick {
+            if store.recorded.isEmpty {
                 ContentUnavailableView(
-                    "Nothing recovered yet", systemImage: "doc.viewfinder",
-                    description: Text("Pick a disk and start the scan. Photos, documents, archives, video and databases are recognised.")
+                    "Nothing found yet", systemImage: "doc.text.magnifyingglass",
+                    description: Text("Pick a card and look for files. Deleted files keep their names until something writes over them.")
                 )
             } else {
                 List {
-                    ForEach(store.carved) { file in
+                    ForEach(store.recorded) { file in
                         HStack(spacing: 10) {
-                            Image(systemName: "doc.badge.arrow.up")
-                                .foregroundStyle(.green)
+                            Image(systemName: "doc.badge.arrow.up").foregroundStyle(.green)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(verbatim: file.signature)
-                                Text(verbatim: "\(file.size.formatted(.byteCount(style: .file))) · \(file.suggestedName)")
-                                    .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                                Text(verbatim: file.name).lineLimit(1).truncationMode(.middle)
+                                Text(verbatim: [
+                                    file.folder.isEmpty ? nil : file.folder,
+                                    file.size.formatted(.byteCount(style: .file)),
+                                    file.modified?.formatted(date: .abbreviated, time: .shortened),
+                                ].compactMap { $0 }.joined(separator: " · "))
+                                    .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if let path = file.recoveredTo {
-                                Button("Show in Finder") { FinderActions.reveal([path]) }
+                            if !file.isContiguous {
+                                Badge(title: "In pieces", color: .orange)
                             }
                         }
                         .padding(.vertical, 2)
@@ -318,10 +378,47 @@ private struct ScanSource: View {
                 }
                 .listStyle(.inset)
             }
+        } else if store.carved.isEmpty {
+            ContentUnavailableView(
+                "Nothing recovered yet", systemImage: "doc.viewfinder",
+                description: Text("Pick a disk and start the scan. Photos, documents, archives, video and databases are recognised.")
+            )
+        } else {
+            List {
+                ForEach(store.carved) { file in
+                    HStack(spacing: 10) {
+                        Image(systemName: "doc.badge.arrow.up").foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(verbatim: file.signature)
+                            Text(verbatim: "\(file.size.formatted(.byteCount(style: .file))) · \(file.suggestedName)")
+                                .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                        }
+                        Spacer()
+                        if let path = file.recoveredTo {
+                            Button("Show in Finder") { FinderActions.reveal([path]) }
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            .listStyle(.inset)
         }
     }
 
-    private func start() {
+    private var selectedVolume: StorageVolume? {
+        store.scannableVolumes.first { $0.id == store.selectedVolumeID }
+    }
+
+    private func restoreAll() {
+        guard let volume = selectedVolume,
+              let folder = RecoveryView.chooseFolder(
+                  title: String(localized: "Choose a folder on another disk for the recovered files")
+              )
+        else { return }
+        Task { await store.restoreAll(volume: volume, to: folder) }
+    }
+
+    private func startDeepScan() {
         guard let device = store.selectedDevice,
               let folder = RecoveryView.chooseFolder(
                   title: String(localized: "Choose a folder on another disk for the recovered files")

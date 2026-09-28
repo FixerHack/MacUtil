@@ -12,6 +12,16 @@ final class RecoveryStore {
         var id: String { rawValue }
     }
 
+    /// Two ways to look at a disk: what its records remember, and what its bytes still hold.
+    enum ScanKind: String, CaseIterable, Identifiable {
+        /// Reads the file system's records: real names, sizes and dates, in seconds.
+        case quick
+        /// Reads every byte and recognises files by their shape. Slow, and without names.
+        case deep
+
+        var id: String { rawValue }
+    }
+
     private(set) var trashItems: [RecoverableFile] = []
     private(set) var snapshots: [LocalSnapshots.Snapshot] = []
     private(set) var mountedSnapshot: SnapshotRecovery.Mounted?
@@ -23,7 +33,15 @@ final class RecoveryStore {
 
     /// Devices worth scanning: everything but the disk macOS runs from.
     private(set) var scannableDisks: [StorageDisk] = []
+    /// Volumes worth a quick scan, which reads records rather than raw bytes.
+    var scannableVolumes: [StorageVolume] {
+        scannableDisks.flatMap(\.volumes).filter { !$0.isSystemOwned }
+    }
     private(set) var carved: [CarvedFile] = []
+    /// Files the card's own records still remember, found by name in seconds.
+    private(set) var recorded: [RecordedFile] = []
+    private(set) var quickScanFailed: String?
+    var scanKind = ScanKind.quick
     private(set) var scanProgress: FileCarver.Progress?
     private(set) var scanStartedAt: Date?
     private var scanOutput: URL?
@@ -53,7 +71,10 @@ final class RecoveryStore {
     var search = ""
     var selectedSnapshot: LocalSnapshots.Snapshot?
     var selectedBackup: TimeMachineRecovery.Backup?
+    /// The whole disk a byte by byte scan reads.
     var selectedDevice: String?
+    /// The volume a quick scan reads the records of.
+    var selectedVolumeID: String?
 
     func load() async {
         trashItems = TrashRecovery.list()
@@ -62,6 +83,9 @@ final class RecoveryStore {
         if hasBackupDisk { backups = await TimeMachineRecovery.backups() }
         scannableDisks = await DiskInventory.load().filter { !$0.isStartupDisk }
         if selectedDevice == nil { selectedDevice = scannableDisks.first?.id }
+        if selectedVolumeID == nil || !scannableVolumes.contains(where: { $0.id == selectedVolumeID }) {
+            selectedVolumeID = scannableVolumes.first?.id
+        }
         if selectedSnapshot == nil { selectedSnapshot = snapshots.first }
         if selectedBackup == nil { selectedBackup = backups.first }
     }
@@ -256,6 +280,106 @@ final class RecoveryStore {
                 id: UUID(), signature: line.signature, fileExtension: line.fileExtension,
                 offset: line.offset, size: line.size, sha256: line.sha256,
                 recoveredTo: line.path, isStillOnDisk: false
+            )
+        }
+    }
+
+    // MARK: - Quick scan
+
+    /// Lists what the disk's own records still remember about deleted files.
+    func quickScan(volume: StorageVolume) async {
+        busy = true
+        defer { busy = false }
+        recorded = []
+        quickScanFailed = nil
+        message = nil
+
+        let device = "/dev/r\(volume.id)"
+        do {
+            recorded = try await Task.detached { try ExFATRecovery().scan(device: device) }.value
+        } catch let error as ExFATRecovery.Failure {
+            if case .notExFAT = error {
+                quickScanFailed = error.localizedDescription
+                return
+            }
+            // A real disk belongs to root, so the bundled tool reads it with a password.
+            await quickScanAsAdministrator(volume: volume)
+        } catch {
+            await quickScanAsAdministrator(volume: volume)
+        }
+        if recorded.isEmpty, quickScanFailed == nil {
+            message = String(localized: "The records of this disk do not remember any deleted files.")
+        }
+    }
+
+    private func quickScanAsAdministrator(volume: StorageVolume) async {
+        guard let tool = Bundle.main.url(forResource: "mucli", withExtension: nil) else {
+            message = String(localized: "The scanning tool is missing from this copy of MacUtil.")
+            return
+        }
+        let result = await AdminRunner.run(
+            ["'\(tool.path)' undelete \(volume.id) --list --json"],
+            prompt: String(localized: "MacUtil needs your password to read this disk. Nothing is written to it.")
+        )
+        guard !result.wasCancelled else { return }
+        guard result.succeeded else {
+            quickScanFailed = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return
+        }
+        recorded = Self.parseRecords(result.text)
+    }
+
+    /// Brings back everything the quick scan found, into a folder on another disk.
+    func restoreAll(volume: StorageVolume, to output: URL) async {
+        busy = true
+        defer { busy = false }
+        let device = "/dev/r\(volume.id)"
+        let files = recorded
+
+        let direct = await Task.detached { () -> Int in
+            let recovery = ExFATRecovery()
+            var count = 0
+            for file in files where (try? recovery.restore(file, device: device, to: output)) != nil {
+                count += 1
+            }
+            return count
+        }.value
+
+        if direct > 0 {
+            message = String(localized: "Restored \(direct) files into \(FinderActions.abbreviate(output.path))")
+            FinderActions.reveal([output.path])
+            return
+        }
+        guard let tool = Bundle.main.url(forResource: "mucli", withExtension: nil) else { return }
+        let result = await AdminRunner.run(
+            ["'\(tool.path)' undelete \(volume.id) --out '\(output.path)' --uid \(getuid()) --json"],
+            prompt: String(localized: "MacUtil needs your password to read this disk. Nothing is written to it.")
+        )
+        guard !result.wasCancelled else { return }
+        let restored = Self.parseRecords(result.text).count
+        message = result.succeeded
+            ? String(localized: "Restored \(restored) files into \(FinderActions.abbreviate(output.path))")
+            : result.text
+        if result.succeeded { FinderActions.reveal([output.path]) }
+    }
+
+    /// Reads back the one line of JSON the tool prints for each file it remembers.
+    static func parseRecords(_ output: String) -> [RecordedFile] {
+        struct Line: Decodable {
+            let name: String
+            let folder: String
+            let size: Int64
+            let modified: Double?
+            let cluster: UInt32
+            let contiguous: Bool
+        }
+        return output.split(separator: "\n").compactMap { text in
+            guard let data = text.data(using: .utf8), let line = try? JSONDecoder().decode(Line.self, from: data)
+            else { return nil }
+            return RecordedFile(
+                name: line.name, folder: line.folder, size: line.size,
+                modified: line.modified.map { Date(timeIntervalSince1970: $0) },
+                firstCluster: line.cluster, isContiguous: line.contiguous, isDeleted: true
             )
         }
     }

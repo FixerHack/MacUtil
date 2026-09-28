@@ -952,7 +952,6 @@
 "MacUtil needs your password to open this snapshot for reading." = "MacUtil потрібен ваш пароль, щоб відкрити цей знімок для читання.";
 "MacUtil needs your password to close this snapshot." = "MacUtil потрібен ваш пароль, щоб закрити цей знімок.";
 "MacUtil needs your password to restore this file from the backup." = "MacUtil потрібен ваш пароль, щоб відновити цей файл із копії.";
-"This finds files on memory cards, flash drives, external disks and disk images. It cannot work on the disk macOS runs from: deleted blocks are discarded and what remains is encrypted." = "Це знаходить файли на картах пам'яті, флешках, зовнішніх дисках і в образах дисків. На диску, з якого працює macOS, це неможливо: видалені блоки стираються, а решта зашифрована.";
 "Connect a memory card, a flash drive or an external disk." = "Під'єднайте карту пам'яті, флешку або зовнішній диск.";
 "Scan…" = "Сканувати…";
 "Recovered files are written to a folder you choose, which must be on another disk. Writing to the disk being scanned would destroy what is left of the lost files." = "Відновлені файли записуються в обрану вами теку, і вона має бути на іншому диску. Запис на диск, який скануємо, знищить те, що лишилося від втрачених файлів.";
@@ -969,3 +968,18 @@
 "The scanning tool is missing from this copy of MacUtil." = "У цій копії MacUtil бракує інструмента сканування.";
 "%@ · about %@ left" = "%@ · лишилося приблизно %@";
 "A physical disk belongs to macOS itself, so MacUtil asks for your password once to read it. Nothing is written to the disk being scanned." = "Фізичний диск належить самій macOS, тому MacUtil один раз попросить ваш пароль, щоб його прочитати. На диск, який скануємо, нічого не записується.";
+"How to look" = "Як шукати";
+"By name" = "За назвами";
+"Byte by byte" = "Побайтово";
+"Deleting a file on a memory card only clears a flag: its name, size and date stay in the card's records until something writes over them. This reads those records, so files come back with their own names, in seconds." = "Видалення файлу на карті пам'яті лише знімає позначку: назва, розмір і дата лишаються в записах карти, доки їх не перезапишуть. Це читає саме ті записи, тож файли повертаються зі своїми назвами за секунди.";
+"Reads every byte of the disk and recognises files by their shape. It finds files the records no longer mention, but it cannot know their names, and a 256 GB card takes hours." = "Читає кожен байт диска й упізнає файли за їхньою будовою. Знаходить те, про що записи вже не пам'ятають, але не знає назв, а карта на 256 ГБ читається годинами.";
+"Volume" = "Том";
+"Look for Files" = "Знайти файли";
+"Restore All…" = "Відновити все…";
+"Nothing found yet" = "Поки нічого не знайдено";
+"Pick a card and look for files. Deleted files keep their names until something writes over them." = "Виберіть карту й запустіть пошук. Видалені файли зберігають назви, доки їх не перезапишуть.";
+"In pieces" = "Фрагментований";
+"Only exFAT disks keep records MacUtil can read this way. For anything else, use byte by byte." = "Лише диски exFAT мають записи, які MacUtil може прочитати в такий спосіб. Для інших користуйтеся побайтовим скануванням.";
+"%@ is not an exFAT disk, so its own records cannot be read." = "%@ не є диском exFAT, тому його власні записи прочитати не вдасться.";
+"The records of this disk do not remember any deleted files." = "Записи цього диска не пам'ятають жодного видаленого файлу.";
+"Restored %lld files into %@" = "Відновлено файлів: %lld у %@";
