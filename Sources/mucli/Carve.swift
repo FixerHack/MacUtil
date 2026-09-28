@@ -30,8 +30,11 @@ struct Carve: AsyncParsableCommand {
         let output = URL(filePath: out)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
-        // MacUtil watches this file to show progress while the scan runs as root.
+        // MacUtil watches this file to show progress while the scan runs as root, and
+        // creates the stop file to end a scan it cannot signal, because this runs as root.
         let progressFile = output.appending(path: ".macutil-progress.json")
+        let stopFile = output.appending(path: ".macutil-stop")
+        try? FileManager.default.removeItem(at: stopFile)
         let owner = uid
         // Running as root would leave root-owned files behind, so each one is handed back.
         let give: @Sendable (URL) -> Void = { url in
@@ -42,7 +45,8 @@ struct Carve: AsyncParsableCommand {
         }
         give(output)
 
-        let found = try await FileCarver().scan(device: raw, output: output, limit: limit) { progress in
+        let scan = Task { () -> [CarvedFile] in
+            try await FileCarver().scan(device: raw, output: output, limit: limit) { progress in
             let payload: [String: Any] = [
                 "bytesScanned": progress.bytesScanned, "totalBytes": progress.totalBytes, "found": progress.found,
             ]
@@ -50,14 +54,24 @@ struct Carve: AsyncParsableCommand {
                 try? data.write(to: progressFile, options: .atomic)
                 give(progressFile)
             }
-        } found: { file in
-            if let path = file.recoveredTo { give(URL(filePath: path)) }
-            if json, let data = try? JSONEncoder().encode(FoundLine(file)) {
-                print(String(decoding: data, as: UTF8.self))
+            } found: { file in
+                if let path = file.recoveredTo { give(URL(filePath: path)) }
+                if json, let data = try? JSONEncoder().encode(FoundLine(file)) {
+                    print(String(decoding: data, as: UTF8.self))
+                }
             }
         }
+        let watcher = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if FileManager.default.fileExists(atPath: stopFile.path) { scan.cancel() }
+            }
+        }
+        let found = try await scan.value
+        watcher.cancel()
 
         try? FileManager.default.removeItem(at: progressFile)
+        try? FileManager.default.removeItem(at: stopFile)
         if !json {
             print("Recovered \(found.count) files into \(out)")
         }

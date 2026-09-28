@@ -26,6 +26,7 @@ final class RecoveryStore {
     private(set) var carved: [CarvedFile] = []
     private(set) var scanProgress: FileCarver.Progress?
     private(set) var scanStartedAt: Date?
+    private var scanOutput: URL?
 
     /// Reading speed and time left, once there is enough to judge by.
     var scanRate: (speed: String, remaining: String)? {
@@ -157,6 +158,8 @@ final class RecoveryStore {
         message = nil
         scanProgress = FileCarver.Progress()
         scanStartedAt = Date()
+        scanOutput = output
+        try? FileManager.default.removeItem(at: output.appending(path: ".macutil-stop"))
 
         let (updates, progress) = AsyncStream<FileCarver.Progress>.makeStream()
         let work = Task.detached { () -> Result<[CarvedFile], any Error> in
@@ -258,6 +261,11 @@ final class RecoveryStore {
     }
 
     func cancelScan() {
+        // The scan may be running as root, where a signal is not an option: it watches for this
+        // file in the folder it writes to and stops when it appears.
+        if let folder = scanOutput {
+            FileManager.default.createFile(atPath: folder.appending(path: ".macutil-stop").path, contents: nil)
+        }
         scanWork?.cancel()
         scanTask?.cancel()
         scanWork = nil

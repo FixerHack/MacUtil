@@ -13,6 +13,57 @@ import Testing
         return data
     }
 
+    /// A photo the way a camera writes one: a small preview tucked inside, then the picture.
+    private func makePhotoWithThumbnail() -> Data {
+        var thumbnail = Data([0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x04, 0x00, 0x00])
+        thumbnail.append(Data((0 ..< 2000).map { UInt8(($0 &* 17 &+ 3) % 250) }))
+        thumbnail.append(Data([0xFF, 0xD9]))
+
+        var exif = Data("Exif\0\0".utf8)
+        exif.append(thumbnail)
+        let length = exif.count + 2
+
+        var photo = Data([0xFF, 0xD8])
+        photo.append(Data([0xFF, 0xE1, UInt8(length >> 8), UInt8(length & 0xFF)]))
+        photo.append(exif)
+        // Start of scan, then the picture data, with FF escaped the way JPEG requires.
+        photo.append(Data([0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00]))
+        for index in 0 ..< 40000 {
+            let byte = UInt8((index &* 13 &+ 7) % 255)
+            photo.append(byte)
+            if byte == 0xFF { photo.append(0x00) }
+        }
+        photo.append(Data([0xFF, 0xD9]))
+        return photo
+    }
+
+    @Test func readsAPhotoPastItsPreviewPicture() throws {
+        let photo = makePhotoWithThumbnail()
+        let end = try #require(FileCarver.jpegEnd(in: [UInt8](photo), from: 0))
+
+        // Stopping at the preview's ending would give a few kilobytes instead of the photo.
+        #expect(end == photo.count)
+        #expect(end > 40000)
+    }
+
+    @Test func readsTheSizeOutOfASQLiteHeader() throws {
+        var header = [UInt8]("SQLite format 3\0".utf8)
+        header += [0x10, 0x00] // page size 4096
+        header += [UInt8](repeating: 0, count: 10)
+        header += [0x00, 0x00, 0x00, 0x03] // three pages
+        header += [UInt8](repeating: 0, count: 64)
+
+        #expect(FileCarver.sqliteEnd(in: header, from: 0) == 3 * 4096)
+    }
+
+    @Test func walksTheBoxesOfAVideo() {
+        // Two boxes: 16 bytes and 32 bytes.
+        var bytes: [UInt8] = [0, 0, 0, 16] + [UInt8]("ftyp".utf8) + [UInt8](repeating: 0, count: 8)
+        bytes += [0, 0, 0, 32] + [UInt8]("mdat".utf8) + [UInt8](repeating: 7, count: 24)
+
+        #expect(FileCarver.isoContainerEnd(in: bytes, from: 0) == 48)
+    }
+
     @Test func findsTheStartOfKnownFormats() {
         let carver = FileCarver()
         let png: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0]
@@ -46,7 +97,7 @@ import Testing
         let mountPoint = try #require(attached?.mountPoint)
         defer { Task { _ = await DiskImages.detach(device, force: true) } }
 
-        let original = makeJPEG()
+        let original = makePhotoWithThumbnail()
         let expected = SHA256.hash(data: original).map { String(format: "%02x", $0) }.joined()
         let file = URL(filePath: mountPoint).appending(path: "holiday.jpg")
         try original.write(to: file)
@@ -58,6 +109,8 @@ import Testing
         let found = try await FileCarver().scan(device: raw, output: output)
         _ = await DiskImages.detach(device, force: true)
 
+        // One photo, not the photo plus the preview inside it.
+        #expect(found.filter { $0.fileExtension == "jpg" }.count == 1)
         let jpeg = try #require(found.filter { $0.fileExtension == "jpg" }.first)
         #expect(jpeg.sha256 == expected)
         #expect(jpeg.size == Int64(original.count))

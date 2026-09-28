@@ -53,6 +53,29 @@ public struct FileSignature: Sendable, Hashable {
         ),
     ]
 
+    /// How the real end of the file is found. Looking for the ending bytes alone is not enough:
+    /// a photo carries a small preview that ends the same way, and cutting there would leave
+    /// the thumbnail instead of the picture.
+    enum Shape: Sendable, Hashable {
+        /// Walk the JPEG's segments and the scan data after them.
+        case jpeg
+        /// Walk the boxes of an ISO container, as MP4, MOV and HEIC do.
+        case isoContainer
+        /// The size is written in the header.
+        case sqlite
+        /// Search for the bytes the format ends with.
+        case trailer
+    }
+
+    var shape: Shape {
+        switch fileExtension {
+        case "jpg": .jpeg
+        case "mp4", "heic": .isoContainer
+        case "sqlite": .sqlite
+        default: .trailer
+        }
+    }
+
     /// JPEG's three magic bytes alone match random data, so the fourth byte has to be a
     /// real marker. Formats carried inside an ISO container start 4 bytes in.
     var offsetFromMatch: Int { name.hasPrefix("MP4") || name.hasPrefix("HEIC") ? -4 : 0 }
@@ -154,6 +177,7 @@ public struct FileCarver: Sendable {
         var state = Progress()
         state.totalBytes = Self.size(ofDevice: device)
         var found: [CarvedFile] = []
+        var seen = Set<String>()
         var carry = Data()
         var carryOffset: Int64 = 0
         /// Where the file found last ends, so its insides are not scanned again.
@@ -173,6 +197,12 @@ public struct FileCarver: Sendable {
                 if let file = try extract(
                     signature, from: handle, deviceOffset: offset, output: output
                 ) {
+                    // The same picture often turns up more than once; keep one copy of each.
+                    guard seen.insert(file.sha256).inserted else {
+                        if let path = file.recoveredTo { try? FileManager.default.removeItem(atPath: path) }
+                        lastEnd = offset + file.size
+                        continue
+                    }
                     found.append(file)
                     state.found = found.count
                     lastEnd = offset + file.size
@@ -221,7 +251,7 @@ public struct FileCarver: Sendable {
         return nil
     }
 
-    /// Reads from the start of a file until its end marker or its size limit.
+    /// Reads from the start of a file until the format itself says where it ends.
     private func extract(
         _ signature: FileSignature, from handle: FileHandle, deviceOffset: Int64, output: URL?
     ) throws -> CarvedFile? {
@@ -234,29 +264,26 @@ public struct FileCarver: Sendable {
         let skip = Int(deviceOffset - alignedStart)
         try handle.seek(toOffset: UInt64(alignedStart))
 
-        var data = Data()
+        var buffer = [UInt8]()
         var end: Int?
-        while data.count < signature.maximumSize {
+        while buffer.count - skip < signature.maximumSize {
             guard let chunk = try handle.read(upToCount: blockSize), !chunk.isEmpty else { break }
-            data.append(chunk)
-            if let trailer = signature.trailer {
-                let searchFrom = max(0, data.count - chunk.count - trailer.count)
-                if let range = data.range(of: Data(trailer), in: searchFrom ..< data.count) {
-                    end = data.distance(from: data.startIndex, to: range.upperBound)
-                    break
-                }
+            buffer.append(contentsOf: chunk)
+            if let found = Self.end(of: signature, in: buffer, from: skip) {
+                end = found
+                break
             }
-            if signature.trailer == nil, data.count >= 8 << 20 { break }
         }
-        guard data.count > skip else { return nil }
-        let contents = data.subdata(in: skip ..< (end ?? min(data.count, defaultSize(for: signature))))
-        guard contents.count >= 512 else { return nil }
+        guard buffer.count > skip else { return nil }
+        let stop = end ?? min(buffer.count, skip + defaultSize(for: signature))
+        let contents = Data(buffer[skip ..< stop])
+        // Too small to be a real file of this kind, or nothing but a broken fragment.
+        guard contents.count >= 4096 || end != nil else { return nil }
 
         var file = CarvedFile(
-            id: UUID(), signature: signature.name, fileExtension: signature.fileExtension,
+            signature: signature.name, fileExtension: signature.fileExtension,
             offset: deviceOffset, size: Int64(contents.count),
-            sha256: SHA256.hash(data: contents).map { String(format: "%02x", $0) }.joined(),
-            recoveredTo: nil, isStillOnDisk: false
+            sha256: SHA256.hash(data: contents).map { String(format: "%02x", $0) }.joined()
         )
         if let output {
             let destination = output.appending(path: file.suggestedName)
@@ -266,17 +293,125 @@ public struct FileCarver: Sendable {
         return file
     }
 
+    /// The end of the file inside `bytes`, or nil when more has to be read.
+    static func end(of signature: FileSignature, in bytes: [UInt8], from start: Int) -> Int? {
+        switch signature.shape {
+        case .jpeg: jpegEnd(in: bytes, from: start)
+        case .isoContainer: isoContainerEnd(in: bytes, from: start)
+        case .sqlite: sqliteEnd(in: bytes, from: start)
+        case .trailer:
+            signature.trailer.flatMap { find($0, in: bytes, from: start + signature.magic.count) }
+                .map { $0 + (signature.trailer?.count ?? 0) }
+        }
+    }
+
+    /// A JPEG is a chain of segments. Every segment but the scan data says how long it is, so the
+    /// preview picture tucked inside one of them is stepped over instead of being mistaken for
+    /// the end of the photo.
+    static func jpegEnd(in bytes: [UInt8], from start: Int) -> Int? {
+        var index = start + 2
+        while index + 1 < bytes.count {
+            guard bytes[index] == 0xFF else {
+                index += 1
+                continue
+            }
+            let marker = bytes[index + 1]
+            index += 2
+            switch marker {
+            case 0xD8, 0x01, 0xFF, 0xD0 ... 0xD7:
+                continue
+            case 0xD9:
+                return index
+            case 0xDA:
+                // Start of scan: skip its header, then the compressed picture data.
+                guard index + 1 < bytes.count else { return nil }
+                index += Int(bytes[index]) << 8 | Int(bytes[index + 1])
+                while index + 1 < bytes.count {
+                    guard bytes[index] == 0xFF else {
+                        index += 1
+                        continue
+                    }
+                    let next = bytes[index + 1]
+                    // FF00 is an escaped FF inside the data, and FFD0…FFD7 are restart markers.
+                    if next == 0x00 || (0xD0 ... 0xD7).contains(next) {
+                        index += 2
+                        continue
+                    }
+                    if next == 0xD9 { return index + 2 }
+                    index += 2
+                }
+                return nil
+            default:
+                guard index + 1 < bytes.count else { return nil }
+                let length = Int(bytes[index]) << 8 | Int(bytes[index + 1])
+                guard length >= 2 else { return nil }
+                index += length
+            }
+        }
+        return nil
+    }
+
+    /// MP4, MOV and HEIC are made of boxes, each starting with its own length.
+    static func isoContainerEnd(in bytes: [UInt8], from start: Int) -> Int? {
+        var index = start
+        while index + 8 <= bytes.count {
+            var size = Int(bytes[index]) << 24 | Int(bytes[index + 1]) << 16
+                | Int(bytes[index + 2]) << 8 | Int(bytes[index + 3])
+            if size == 1 {
+                guard index + 16 <= bytes.count else { return nil }
+                size = (8 ... 15).reduce(0) { $0 << 8 | Int(bytes[index + $1]) }
+            }
+            guard size >= 8 else { return index > start ? index : nil }
+            index += size
+        }
+        // Every box so far has been whole, so the file ends where the last one does.
+        return index <= bytes.count ? index : nil
+    }
+
+    /// A SQLite file writes its page size and page count into its first 32 bytes.
+    static func sqliteEnd(in bytes: [UInt8], from start: Int) -> Int? {
+        guard start + 32 <= bytes.count else { return nil }
+        let raw = Int(bytes[start + 16]) << 8 | Int(bytes[start + 17])
+        let pageSize = raw == 1 ? 65536 : raw
+        let pages = (28 ... 31).reduce(0) { $0 << 8 | Int(bytes[start + $1]) }
+        guard pageSize >= 512, pages > 0 else { return nil }
+        return start + pageSize * pages
+    }
+
+    static func find(_ needle: [UInt8], in bytes: [UInt8], from start: Int) -> Int? {
+        guard !needle.isEmpty, bytes.count >= needle.count else { return nil }
+        var index = max(0, start)
+        while index <= bytes.count - needle.count {
+            if Array(bytes[index ..< index + needle.count]) == needle { return index }
+            index += 1
+        }
+        return nil
+    }
+
     /// Formats without an end marker are cut at a size that keeps the useful part.
     private func defaultSize(for signature: FileSignature) -> Int {
         min(signature.maximumSize, 8 << 20)
     }
 
     /// Size of a device in bytes, so progress has something to count against.
+    /// A raw disk answers neither the file system nor a seek, so the driver is asked directly.
     static func size(ofDevice path: String) -> Int64 {
         if let attributes = try? FileManager.default.attributesOfItem(atPath: path),
            let size = attributes[.size] as? Int64, size > 0
         {
             return size
+        }
+        let descriptor = open(path, O_RDONLY)
+        if descriptor >= 0 {
+            defer { close(descriptor) }
+            var blockSize: UInt32 = 0
+            var blockCount: UInt64 = 0
+            // DKIOCGETBLOCKSIZE and DKIOCGETBLOCKCOUNT, the two the disk driver answers.
+            if ioctl(descriptor, 0x4004_6418, &blockSize) == 0,
+               ioctl(descriptor, 0x4008_6419, &blockCount) == 0
+            {
+                return Int64(blockCount) * Int64(blockSize)
+            }
         }
         let handle = FileHandle(forReadingAtPath: path)
         defer { try? handle?.close() }
