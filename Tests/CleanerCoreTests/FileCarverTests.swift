@@ -1,5 +1,7 @@
 @testable import CleanerCore
+import CoreGraphics
 import CryptoKit
+import ImageIO
 import Foundation
 import Testing
 
@@ -123,5 +125,52 @@ import Testing
         await #expect(throws: FileCarver.Failure.notAllowed("/dev/rdisk0")) {
             _ = try await FileCarver().scan(device: "/dev/rdisk0", output: nil, limit: 1)
         }
+    }
+}
+
+struct ImageSalvageTests {
+    /// A picture that opens, made the way a camera's preview is stored.
+    private func tinyJPEG() -> Data {
+        let pixel = CGImage(
+            width: 32, height: 32, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 32 * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+            provider: CGDataProvider(data: Data(repeating: 0x7F, count: 32 * 32 * 4) as CFData)!,
+            decode: nil, shouldInterpolate: false, intent: .defaultIntent
+        )!
+        let output = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(output, "public.jpeg" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, pixel, nil)
+        CGImageDestinationFinalize(destination)
+        return output as Data
+    }
+
+    @Test func callsAWorkingPictureWhole() {
+        #expect(ImageSalvage.inspect(tinyJPEG(), fileExtension: "jpg") == .whole)
+    }
+
+    @Test func findsThePreviewInsideABrokenPhoto() throws {
+        // A header with a preview inside it, then data belonging to something else.
+        var broken = Data([0xFF, 0xD8, 0xFF, 0xE1, 0x00, 0x10] + Array("Exif\0\0".utf8))
+        broken.append(tinyJPEG())
+        broken.append(Data((0 ..< 40000).map { UInt8($0 % 251) }))
+        broken.append(Data([0xFF, 0xD9]))
+
+        let verdict = ImageSalvage.inspect(broken, fileExtension: "jpg")
+        guard case let .partial(rescued) = verdict else {
+            Issue.record("expected the preview to be rescued, got \(verdict)")
+            return
+        }
+        let source = try #require(CGImageSourceCreateWithData(rescued as CFData, nil))
+        #expect(CGImageSourceCreateImageAtIndex(source, 0, nil) != nil)
+    }
+
+    @Test func callsRandomDataDamaged() {
+        let noise = Data([0xFF, 0xD8, 0xFF, 0xE0] + (0 ..< 20000).map { UInt8($0 % 255) } + [0xFF, 0xD9])
+        #expect(ImageSalvage.inspect(noise, fileExtension: "jpg") == .damaged)
+    }
+
+    @Test func leavesFormatsItCannotOpenAlone() {
+        #expect(ImageSalvage.inspect(Data([1, 2, 3]), fileExtension: "zip") == .whole)
     }
 }

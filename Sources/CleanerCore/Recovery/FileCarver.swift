@@ -89,13 +89,24 @@ public struct FileSignature: Sendable, Hashable {
 
 /// A file found by scanning the raw bytes of a disk.
 public struct CarvedFile: Sendable, Identifiable, Hashable {
+    public enum Quality: String, Sendable, Hashable {
+        /// Opens as it should.
+        case whole
+        /// Ran into other data partway; what could be read was saved beside it.
+        case partial
+        /// Nothing readable came out of it.
+        case damaged
+    }
+
     public let id: UUID
     public let signature: String
     public let fileExtension: String
     /// Where the file starts on the device, in bytes.
     public let offset: Int64
-    public let size: Int64
+    public internal(set) var size: Int64
     public let sha256: String
+    /// How much of the file could be read back.
+    public var quality: Quality = .whole
     /// Set once the file has been written somewhere safe.
     public var recoveredTo: String?
     /// True when a file with the same contents is still on the volume, so nothing was lost.
@@ -103,8 +114,9 @@ public struct CarvedFile: Sendable, Identifiable, Hashable {
 
     public init(
         id: UUID = UUID(), signature: String, fileExtension: String, offset: Int64, size: Int64,
-        sha256: String, recoveredTo: String? = nil, isStillOnDisk: Bool = false
+        sha256: String, quality: Quality = .whole, recoveredTo: String? = nil, isStillOnDisk: Bool = false
     ) {
+        self.quality = quality
         self.id = id
         self.signature = signature
         self.fileExtension = fileExtension
@@ -285,9 +297,32 @@ public struct FileCarver: Sendable {
             offset: deviceOffset, size: Int64(contents.count),
             sha256: SHA256.hash(data: contents).map { String(format: "%02x", $0) }.joined()
         )
+        // A picture that starts right can still run into another file's data, so it is opened
+        // before being called recovered.
+        let verdict = ImageSalvage.inspect(contents, fileExtension: signature.fileExtension)
+        switch verdict {
+        case .whole: file.quality = .whole
+        case .partial: file.quality = .partial
+        case .damaged: file.quality = .damaged
+        }
+
         if let output {
-            let destination = output.appending(path: file.suggestedName)
-            try contents.write(to: destination)
+            // Whole files stay together; the rest go to their own folders, out of the way.
+            let folder = switch verdict {
+            case .whole: output
+            case .partial: output.appending(path: "partly recovered")
+            case .damaged: output.appending(path: "damaged")
+            }
+            if folder != output {
+                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            }
+            let destination = folder.appending(path: file.suggestedName)
+            if case let .partial(rescued) = verdict {
+                try rescued.write(to: destination)
+                file.size = Int64(rescued.count)
+            } else {
+                try contents.write(to: destination)
+            }
             file.recoveredTo = destination.path
         }
         return file

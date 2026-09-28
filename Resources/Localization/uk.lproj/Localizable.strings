@@ -983,3 +983,6 @@
 "%@ is not an exFAT disk, so its own records cannot be read." = "%@ не є диском exFAT, тому його власні записи прочитати не вдасться.";
 "The records of this disk do not remember any deleted files." = "Записи цього диска не пам'ятають жодного видаленого файлу.";
 "Restored %lld files into %@" = "Відновлено файлів: %lld у %@";
+"Preview only" = "Лише прев'ю";
+"Does not open" = "Не відкривається";
+"Every picture is opened after it is read. Whole ones land in the folder you choose; a photo that was written in pieces leaves only its header, so its small preview goes to \"partly recovered\", and what cannot be read at all goes to \"damaged\"." = "Кожне зображення відкривається одразу після зчитування. Цілі потрапляють у вибрану вами теку; від фото, записаного шматками, лишається тільки заголовок, тож його маленьке прев'ю йде в теку «partly recovered», а те, що не читається зовсім, — у «damaged».";

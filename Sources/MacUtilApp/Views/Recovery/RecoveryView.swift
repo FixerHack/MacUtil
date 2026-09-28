@@ -324,6 +324,10 @@ private struct ScanSource: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Every picture is opened after it is read. Whole ones land in the folder you choose; a photo that was written in pieces leaves only its header, so its small preview goes to \"partly recovered\", and what cannot be read at all goes to \"damaged\".")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Text("Recovered files are written to a folder you choose, which must be on another disk. Writing to the disk being scanned would destroy what is left of the lost files.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -387,13 +391,19 @@ private struct ScanSource: View {
             List {
                 ForEach(store.carved) { file in
                     HStack(spacing: 10) {
-                        Image(systemName: "doc.badge.arrow.up").foregroundStyle(.green)
+                        Image(systemName: file.quality == .whole ? "doc.badge.arrow.up" : "exclamationmark.triangle")
+                            .foregroundStyle(file.quality == .whole ? Color.green : Color.orange)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(verbatim: file.signature)
                             Text(verbatim: "\(file.size.formatted(.byteCount(style: .file))) · \(file.suggestedName)")
                                 .font(.caption).foregroundStyle(.secondary).monospacedDigit()
                         }
                         Spacer()
+                        switch file.quality {
+                        case .whole: EmptyView()
+                        case .partial: Badge(title: "Preview only", color: .orange)
+                        case .damaged: Badge(title: "Does not open", color: .red)
+                        }
                         if let path = file.recoveredTo {
                             Button("Show in Finder") { FinderActions.reveal([path]) }
                         }
