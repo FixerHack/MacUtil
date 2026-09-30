@@ -19,21 +19,30 @@ VERSION="$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInf
 BUNDLE_ID="$(sed -n 's/.*bundleIdentifier = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInfo.swift)"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
-ARCH_FLAGS=()
-if [[ -n "${UNIVERSAL:-}" ]]; then ARCH_FLAGS=(--arch arm64 --arch x86_64); fi
-swift build -c "$CONFIG" --product MacUtil ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
-# Bundled so the app can scan a disk for deleted files through an administrator prompt.
-swift build -c "$CONFIG" --product mucli ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
-BIN_DIR="$(swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)"
+# A build for both architectures in one pass needs Xcode's own build tool, so each one is
+# built on its own and the two are joined afterwards. That way the Command Line Tools are enough.
+ARCHS=(arm64)
+if [[ -n "${UNIVERSAL:-}" ]]; then ARCHS=(arm64 x86_64); fi
 
-# The folder ends in .noindex so Spotlight leaves development builds alone and the app
-# does not show up twice next to the installed copy.
+BIN_DIRS=()
+for arch in "${ARCHS[@]}"; do
+    swift build -c "$CONFIG" --product MacUtil --arch "$arch"
+    swift build -c "$CONFIG" --product mucli --arch "$arch"
+    BIN_DIRS+=("$(swift build -c "$CONFIG" --arch "$arch" --show-bin-path)")
+done
+BIN_DIR="${BIN_DIRS[0]}"
+
 APP="$ROOT/build.noindex/MacUtil.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$BIN_DIR/MacUtil" "$APP/Contents/MacOS/MacUtil"
-cp "$BIN_DIR/mucli" "$APP/Contents/Resources/mucli"
+if (( ${#BIN_DIRS[@]} > 1 )); then
+    lipo -create "${BIN_DIRS[@]/%//MacUtil}" -output "$APP/Contents/MacOS/MacUtil"
+    lipo -create "${BIN_DIRS[@]/%//mucli}" -output "$APP/Contents/Resources/mucli"
+else
+    cp "$BIN_DIR/MacUtil" "$APP/Contents/MacOS/MacUtil"
+    cp "$BIN_DIR/mucli" "$APP/Contents/Resources/mucli"
+fi
 cp -R Resources/Localization/*.lproj "$APP/Contents/Resources/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \

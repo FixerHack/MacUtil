@@ -190,7 +190,9 @@ MacUtil раз на день перевіряє власні релізи на G
 
 ## Збирання з вихідного коду
 
-Потрібен Xcode 26 або новіший, або лише Command Line Tools зі Swift 6.
+Потрібні Command Line Tools зі Swift 6 (`xcode-select --install`). Xcode не потрібен:
+збірка сама склеює версії для Apple Silicon та Intel. Xcode знадобиться хіба що як найпростіший
+спосіб отримати безкоштовний сертифікат для підпису, описаний нижче.
 
 ```bash
 git clone https://github.com/FixerHack/MacUtil.git

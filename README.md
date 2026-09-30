@@ -192,7 +192,9 @@ The security analyzer can check apps against VirusTotal. To enable it, create a 
 
 ## Build from source
 
-You need Xcode 26 or later, or just the Command Line Tools with Swift 6.
+You need the Command Line Tools with Swift 6 (`xcode-select --install`). Xcode is not required:
+the build joins the Apple Silicon and Intel slices itself. Xcode is only the easiest way to get
+the free signing certificate described below.
 
 ```bash
 git clone https://github.com/FixerHack/MacUtil.git
