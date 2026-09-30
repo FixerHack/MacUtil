@@ -101,6 +101,8 @@ signed by anyone else is refused, so a tampered download cannot replace your Mac
 - Duplicates, counting what APFS clones really free
 - Disk Utilities: disks, containers and volumes; mount, rename, erase, first aid,
   APFS volumes and quotas, disk images, speed test, local snapshots
+- What macOS left after updating: downloaded installers, working files of a prepared
+  update, old copies of the system, the sleep image and diagnostic reports
 
 **↩️ File recovery**
 - By name: reads an exFAT card's own records, so deleted files come back with their

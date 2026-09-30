@@ -19,6 +19,9 @@ final class DisksStore {
     private(set) var benchmark: DiskBenchmark.Result?
     private(set) var benchmarkProgress: Double?
     private(set) var snapshots: [LocalSnapshots.Snapshot] = []
+    /// What macOS left behind after updating itself.
+    private(set) var leftovers: [SystemLeftover] = []
+    private(set) var scanningLeftovers = false
 
     var selection: String?
 
@@ -28,6 +31,18 @@ final class DisksStore {
 
     var selectedDisk: StorageDisk? {
         disks.first { $0.id == selection } ?? disks.first { $0.volumes.contains { $0.id == selection } }
+    }
+
+    /// Looks for update leftovers. It reads sizes of large folders, so it is asked for, not automatic.
+    func findLeftovers() async {
+        scanningLeftovers = true
+        defer { scanningLeftovers = false }
+        leftovers = await SystemLeftovers.scan()
+    }
+
+    func remove(_ leftover: SystemLeftover) async {
+        await run(String(localized: "Removing \(leftover.title)")) { await SystemLeftovers.remove(leftover) }
+        await findLeftovers()
     }
 
     func load() async {

@@ -94,6 +94,7 @@ struct DisksView: View {
                         description: Text("MacUtil shows what it is, how full it is and what can be done with it.")
                     )
                 }
+                LeftoversCard(store: store)
                 if !store.snapshots.isEmpty {
                     SnapshotsCard(store: store)
                 }
@@ -361,6 +362,70 @@ private struct JobCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
+    }
+}
+
+/// What macOS keeps after updating itself: downloaded installers, working files and old copies
+/// of the system. All of it belongs to root, so removing anything asks for a password.
+private struct LeftoversCard: View {
+    let store: DisksStore
+    @State private var confirming: SystemLeftover?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("What macOS left after updating").font(.headline)
+                Spacer()
+                if store.scanningLeftovers {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button(store.leftovers.isEmpty ? "Look" : "Look Again") {
+                        Task { await store.findLeftovers() }
+                    }
+                }
+            }
+            if store.leftovers.isEmpty, !store.scanningLeftovers {
+                Text("Installers of updates that are done, working files of a prepared update, copies of the system taken before updating, and the sleep image. The copy your Mac runs from and the recovery system are never offered.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            ForEach(store.leftovers) { leftover in
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(verbatim: leftover.title).font(.callout.weight(.medium))
+                            if leftover.size > 0 {
+                                Text(verbatim: leftover.size.formatted(.byteCount(style: .file)))
+                                    .font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                            }
+                        }
+                        Text(verbatim: leftover.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Spacer(minLength: 8)
+                    Button("Remove…") { confirming = leftover }
+                }
+                Divider()
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
+        .confirmationDialog(
+            "Remove \(confirming?.title ?? "")?",
+            isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } })
+        ) {
+            Button("Remove", role: .destructive) {
+                if let leftover = confirming { Task { await store.remove(leftover) } }
+                confirming = nil
+            }
+            Button("Cancel", role: .cancel) { confirming = nil }
+        } message: {
+            Text(verbatim: confirming?.detail ?? "")
+        }
     }
 }
 

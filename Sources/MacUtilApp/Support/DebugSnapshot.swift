@@ -25,6 +25,11 @@
                 state.selection = module
             }
             switch environment["MACUTIL_SNAPSHOT_SCAN"] {
+            case "disks:leftovers":
+                Task {
+                    await state.disks.load()
+                    await state.disks.findLeftovers()
+                }
             case "recovery:quick":
                 Task {
                     await state.recovery.load()

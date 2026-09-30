@@ -208,3 +208,54 @@ struct DiskInventoryTests {
         #expect(!DiskOperations.needsAdministrator("Error: -69493: You can't add any more APFS Volumes"))
     }
 }
+
+struct SystemLeftoverTests {
+    private let listing = """
+    Snapshots for disk3s1 (2 found)
+    |
+    +-- 61A36340-0543-450A-A16B-B53F8478F7C4
+    |   Name:        com.apple.os.update-5203530F8BB20B9DABC5CE76A0
+    |   XID:         4865245
+    |   Purgeable:   No
+    |
+    +-- 91436BCF-0975-4FDC-9985-48CCD522042B
+        Name:        com.apple.os.update-9256CC8B26ED66FB31F175DC7E
+        XID:         4976045
+        Purgeable:   No
+    """
+
+    @Test func offersOldUpdateCopiesButNeverTheRunningOne() {
+        let booted = "61A36340-0543-450A-A16B-B53F8478F7C4"
+        let found = SystemLeftovers.parseSnapshots(listing, volume: "disk3s1", booted: booted)
+
+        #expect(found.count == 1)
+        #expect(found.first?.snapshot?.uuid == "91436BCF-0975-4FDC-9985-48CCD522042B")
+        #expect(found.first?.snapshot?.volume == "disk3s1")
+        #expect(found.first?.kind == .updateSnapshot)
+    }
+
+    @Test func leavesSnapshotsThatAreNotFromAnUpdate() {
+        let backups = """
+        Snapshots for disk3s5 (1 found)
+        +-- AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE
+            Name:        com.apple.TimeMachine.2026-09-28-101500.local
+        """
+        #expect(SystemLeftovers.parseSnapshots(backups, volume: "disk3s5", booted: nil).isEmpty)
+    }
+
+    @Test func findsTheVolumeSnapshotsLiveOn() async {
+        // The running system is a snapshot, so /dev/disk3s1s1 belongs to volume disk3s1.
+        #expect(await SystemLeftovers.systemVolume()?.hasPrefix("disk") == true)
+        #expect(await SystemLeftovers.bootedSnapshotUUID()?.count == 36)
+    }
+
+    @Test func readsTheSizeOfAFolder() async {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "mu-size-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try? Data(repeating: 1, count: 300_000).write(to: folder.appending(path: "file"))
+
+        #expect(await SystemLeftovers.size(of: folder.path) >= 300_000)
+        #expect(await SystemLeftovers.size(of: "/nope/nothing/here") == 0)
+    }
+}
