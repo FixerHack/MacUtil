@@ -1,7 +1,7 @@
 name: CI
 
-# Manual only while the repository is private: private repos pay for macOS
-# runner minutes. When the repository goes public, restore the triggers:
+# Manual only. The repository is public now, so macOS runner minutes are free and the
+# triggers below can be restored whenever automatic checks are wanted:
 #   push: { branches: [main], tags: ["v*"] }
 #   pull_request:
 on:
@@ -23,7 +23,7 @@ jobs:
       - name: Build app
         run: scripts/build-app.sh release
       - name: Package
-        run: ditto -c -k --keepParent build/MacUtil.app MacUtil.zip
+        run: ditto -c -k --keepParent build.noindex/MacUtil.app MacUtil.zip
       - uses: actions/upload-artifact@v4
         with:
           name: MacUtil
