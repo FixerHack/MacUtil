@@ -151,9 +151,13 @@ public enum DiskInventory {
     }
 
     static func mountPoint(of id: String, in points: [String: String]) -> String? {
-        if let direct = points[id] { return direct }
-        // The system volume's snapshot: disk3s1 is mounted as disk3s1s1.
-        return points.first { $0.key.hasPrefix(id + "s") }?.value
+        // The startup volume is mounted through a snapshot, so disk3s1 is served by disk3s1s1.
+        // macOS also mounts it in other places while it stages an update, and the root is the
+        // one worth showing.
+        var candidates: [String] = []
+        if let direct = points[id] { candidates.append(direct) }
+        candidates += points.filter { $0.key.hasPrefix(id + "s") }.values.sorted()
+        return candidates.first { $0 == "/" } ?? candidates.first
     }
 
     /// APFS volumes of every container, keyed by container reference.

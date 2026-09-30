@@ -91,6 +91,18 @@ struct DiskInventoryTests {
         #expect(system.containerID != nil)
     }
 
+    @Test func showsTheStartupVolumeAtTheRoot() {
+        // While macOS stages an update it mounts the system volume in a second place as well.
+        let points = [
+            "disk3s1": "/System/Volumes/Update/mnt1",
+            "disk3s1s1": "/",
+            "disk3s5": "/System/Volumes/Data",
+        ]
+        #expect(DiskInventory.mountPoint(of: "disk3s1", in: points) == "/")
+        #expect(DiskInventory.mountPoint(of: "disk3s5", in: points) == "/System/Volumes/Data")
+        #expect(DiskInventory.mountPoint(of: "disk9s1", in: points) == nil)
+    }
+
     @Test func namesFileSystemsInPlainWords() {
         #expect(DiskInventory.fileSystemName("Apple_HFS") == "Mac OS Extended")
         #expect(DiskInventory.fileSystemName("Apple_APFS") == "APFS")
