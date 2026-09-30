@@ -202,7 +202,7 @@ scripts/install.sh      # optimized build, installed to /Applications and opened
 
 | Script | What it does |
 |---|---|
-| `scripts/build-app.sh [release]` | Builds `build/MacUtil.app` (`UNIVERSAL=1` for Apple Silicon + Intel) |
+| `scripts/build-app.sh [release]` | Builds `build.noindex/MacUtil.app` (`UNIVERSAL=1` for Apple Silicon + Intel) |
 | `scripts/test.sh` | Runs the tests (works without Xcode) |
 | `scripts/check-strings.sh` | Lists interface strings missing a Ukrainian translation |
 | `scripts/snapshot.sh` | Saves a PNG of the app window (debug builds) |

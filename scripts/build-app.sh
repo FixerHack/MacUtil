@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Builds build/MacUtil.app from the Swift package.
+# Builds build.noindex/MacUtil.app from the Swift package.
 #
-#   scripts/build-app.sh            # debug build
+#   scripts/build-app.sh            # debug build → build.noindex/MacUtil.app
 #   scripts/build-app.sh release    # optimized build
 #   UNIVERSAL=1 scripts/build-app.sh release   # Apple Silicon + Intel
 #
@@ -26,7 +26,9 @@ swift build -c "$CONFIG" --product MacUtil ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
 swift build -c "$CONFIG" --product mucli ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
 BIN_DIR="$(swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)"
 
-APP="$ROOT/build/MacUtil.app"
+# The folder ends in .noindex so Spotlight leaves development builds alone and the app
+# does not show up twice next to the installed copy.
+APP="$ROOT/build.noindex/MacUtil.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 

@@ -200,7 +200,7 @@ scripts/install.sh      # оптимізована збірка, встанов�
 
 | Скрипт | Що робить |
 |---|---|
-| `scripts/build-app.sh [release]` | Збирає `build/MacUtil.app` (`UNIVERSAL=1` для Apple Silicon + Intel) |
+| `scripts/build-app.sh [release]` | Збирає `build.noindex/MacUtil.app` (`UNIVERSAL=1` для Apple Silicon + Intel) |
 | `scripts/test.sh` | Запускає тести (працює без Xcode) |
 | `scripts/check-strings.sh` | Показує рядки інтерфейсу без українського перекладу |
 | `scripts/snapshot.sh` | Зберігає PNG вікна програми (налагоджувальні збірки) |

@@ -2,7 +2,7 @@
 # Builds a universal MacUtil.app, packs it as a DMG and a zip, publishes a GitHub
 # release and points the Homebrew cask in FixerHack/homebrew-macutil at the DMG.
 #
-#   scripts/release.sh           # build only: build/MacUtil-<version>.dmg and .zip
+#   scripts/release.sh           # build only: build.noindex/MacUtil-<version>.dmg and .zip
 #   scripts/release.sh publish   # also create the GitHub release and update the cask
 #
 # Bump MacUtilInfo.version before publishing a new release. The DMG window is laid out by
@@ -14,9 +14,9 @@ cd "$ROOT"
 REPO="FixerHack/MacUtil"
 TAP="FixerHack/homebrew-macutil"
 VERSION="$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInfo.swift)"
-APP="build/MacUtil.app"
-ZIP="build/MacUtil-$VERSION.zip"
-DMG="build/MacUtil-$VERSION.dmg"
+APP="build.noindex/MacUtil.app"
+ZIP="build.noindex/MacUtil-$VERSION.zip"
+DMG="build.noindex/MacUtil-$VERSION.dmg"
 
 UNIVERSAL=1 scripts/build-app.sh release
 codesign --verify --strict "$APP"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds an optimized MacUtil.app and installs it into /Applications.
 # Permissions such as Full Disk Access belong to the app at that location,
-# so always run the installed copy rather than build/MacUtil.app.
+# so always run the installed copy rather than build.noindex/MacUtil.app.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -12,6 +12,6 @@ if pgrep -x MacUtil >/dev/null; then
     sleep 1
 fi
 
-ditto "$ROOT/build/MacUtil.app" /Applications/MacUtil.app
+ditto "$ROOT/build.noindex/MacUtil.app" /Applications/MacUtil.app
 echo "Installed /Applications/MacUtil.app"
 open /Applications/MacUtil.app
