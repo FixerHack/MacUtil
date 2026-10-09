@@ -12,6 +12,10 @@ final class MenuBarMonitor {
     private let stats = SystemStats()
     private var timer: Task<Void, Never>?
     private var lastLowDiskWarning: Date?
+    /// When each alert was last sent, so a lasting problem is mentioned once an hour.
+    private var lastAlert: [String: Date] = [:]
+    /// How long the processor has been busy without a break.
+    private var busySince: Date?
 
     func start() {
         guard timer == nil else { return }
@@ -20,6 +24,7 @@ final class MenuBarMonitor {
                 let stats = stats
                 sample = await Task.detached { stats.sample() }.value
                 checkDiskSpace()
+                checkHardware()
                 try? await Task.sleep(for: .seconds(3))
             }
         }
@@ -28,6 +33,52 @@ final class MenuBarMonitor {
     func stop() {
         timer?.cancel()
         timer = nil
+    }
+
+    /// Warns about a Mac that is working too hard: a hot machine, memory under pressure, or the
+    /// processor pinned for minutes on end. Each is mentioned at most once an hour.
+    private func checkHardware() {
+        guard UserDefaults.standard.bool(forKey: Preferences.hardwareAlerts) else {
+            busySince = nil
+            return
+        }
+        if let temperature = sample.temperature, temperature >= 100 {
+            alert(
+                "temperature",
+                title: String(localized: "Your Mac is running hot"),
+                body: String(localized: "The warmest part is at \(Int(temperature.rounded())) °C. See what is working hard in the Task Manager.")
+            )
+        }
+        if let memory = sample.memory {
+            let pressure = Double(memory.wired + memory.compressed) / Double(max(memory.total, 1))
+            if pressure >= 0.8 {
+                alert(
+                    "memory",
+                    title: String(localized: "Memory is under pressure"),
+                    body: String(localized: "macOS is squeezing memory to keep up. Closing something heavy will help.")
+                )
+            }
+        }
+        // Busy means busy for a while: a short burst is just work being done.
+        if sample.cpu >= 0.85 {
+            let since = busySince ?? Date()
+            busySince = since
+            if Date().timeIntervalSince(since) >= 600 {
+                alert(
+                    "cpu",
+                    title: String(localized: "The processor has been busy for ten minutes"),
+                    body: String(localized: "Something has been using most of the processor. The Task Manager shows what.")
+                )
+            }
+        } else {
+            busySince = nil
+        }
+    }
+
+    private func alert(_ id: String, title: String, body: String) {
+        if let last = lastAlert[id], Date().timeIntervalSince(last) < 3600 { return }
+        lastAlert[id] = Date()
+        Notifications.post(id: "alert.\(id)", title: title, body: body)
     }
 
     /// Warns once a day when less than 10 % (or 10 GB) of the startup disk is free.
@@ -53,6 +104,7 @@ enum Preferences {
     static let lowDiskWarning = "lowDiskWarning"
     static let reminder = "cleanupReminder"
     static let automaticUpdateCheck = "automaticUpdateCheck"
+    static let hardwareAlerts = "hardwareAlerts"
     static let lastUpdateCheck = "lastUpdateCheck"
 }
 

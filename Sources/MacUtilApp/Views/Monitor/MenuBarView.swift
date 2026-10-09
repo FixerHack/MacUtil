@@ -53,6 +53,15 @@ struct MenuBarView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
             }
+            if let temperature = monitor.sample.temperature {
+                HStack {
+                    Label("Temperature", systemImage: "thermometer.medium")
+                    Spacer()
+                    Text(verbatim: "\(Int(temperature.rounded())) °C")
+                        .monospacedDigit()
+                        .foregroundStyle(temperature >= 95 ? Color.orange : Color.secondary)
+                }
+            }
             if let battery = sample.battery {
                 HStack {
                     Label("Battery", systemImage: battery.isCharging ? "battery.100percent.bolt" : "battery.75percent")

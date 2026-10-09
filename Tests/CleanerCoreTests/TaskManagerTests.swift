@@ -259,3 +259,39 @@ struct SystemLeftoverTests {
         #expect(await SystemLeftovers.size(of: "/nope/nothing/here") == 0)
     }
 }
+
+struct SystemSensorTests {
+    @Test func decodesTheNumberFormatsTheControllerUses() {
+        // 1.5 as a 32-bit float, little endian the way the controller sends it.
+        #expect(SMCClient.decode([0x00, 0x00, 0xC0, 0x3F], type: "flt ") == 1.5)
+        // Fixed point: 42.5 degrees.
+        #expect(SMCClient.decode([0x2A, 0x80], type: "sp78") == 42.5)
+        #expect(SMCClient.decode([0x0B, 0xB8], type: "ui16") == 3000)
+        #expect(SMCClient.decode([0x2A], type: "ui8 ") == 42)
+        #expect(SMCClient.decode([1, 2], type: "what") == nil)
+    }
+
+    @Test func picksOutTheKeysWorthReading() {
+        #expect(SMCClient.kind(of: "TC0P") == .temperature)
+        #expect(SMCClient.kind(of: "F0Ac") == .fan)
+        #expect(SMCClient.kind(of: "PSTR") == .power)
+        // Fan settings rather than a reading.
+        #expect(SMCClient.kind(of: "F0Mx") == nil)
+        #expect(SMCClient.kind(of: "#KEY") == nil)
+    }
+
+    @Test func readsTheKeyNameBothWays() {
+        #expect(SMCClient.name(of: SMCClient.code(of: "TC0P")) == "TC0P")
+    }
+
+    @Test func readsRealSensorsOfThisMac() {
+        let readings = SystemSensors.read()
+        #expect(!readings.isEmpty)
+
+        let temperatures = readings.filter { $0.kind == .temperature }
+        #expect(!temperatures.isEmpty)
+        // A Mac that is switched on is warmer than the room and cooler than boiling.
+        #expect(temperatures.allSatisfy { $0.value > 1 && $0.value < 125 })
+        #expect(SystemSensors.hottest() != nil)
+    }
+}

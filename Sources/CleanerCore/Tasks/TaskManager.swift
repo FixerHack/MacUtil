@@ -63,6 +63,22 @@ public struct SystemLoad: Sendable, Equatable {
     /// Bytes per second across every process, measured between samples.
     public var diskRead: Double = 0
     public var diskWritten: Double = 0
+    /// What the hardware reports about itself.
+    public var sensors: [SensorReading] = []
+
+    /// The warmest part of the Mac right now.
+    public var temperature: Double? {
+        sensors.filter { $0.kind == .temperature }.map(\.value).max()
+    }
+
+    /// What the whole machine draws, when it says.
+    public var power: Double? {
+        sensors.first { $0.key == "PSTR" }?.value
+    }
+
+    public var fanSpeed: Double? {
+        sensors.filter { $0.kind == .fan }.map(\.value).max()
+    }
 
     public var cpu: Double {
         cores.isEmpty ? 0 : cores.reduce(0, +) / Double(cores.count)
@@ -98,6 +114,7 @@ public struct TaskManager: Sendable {
         (load.swapUsed, load.swapTotal) = Self.swap()
         load.loadAverage = Self.loadAverage()
         load.uptime = Self.uptime()
+        load.sensors = SystemSensors.read()
         load.processCount = processes.count
         load.threadCount = processes.reduce(0) { $0 + $1.threads }
         if interval > 0 {

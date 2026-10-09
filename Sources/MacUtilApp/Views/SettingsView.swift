@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(\.openWindow) private var openWindow
     @AppStorage(Preferences.showsMenuBar) private var showsMenuBar = true
     @AppStorage(Preferences.lowDiskWarning) private var lowDiskWarning = false
+    @AppStorage(Preferences.hardwareAlerts) private var hardwareAlerts = false
     @AppStorage(Preferences.reminder) private var reminder = Notifications.Reminder.never.rawValue
     @State private var language = AppLanguage.current
     @State private var needsRestart = false
@@ -49,6 +50,15 @@ struct SettingsView: View {
 
             Section("Menu bar and notifications") {
                 Toggle("Show system monitor in the menu bar", isOn: $showsMenuBar)
+                Toggle("Warn about heat, memory pressure and a busy processor", isOn: Binding(
+                    get: { hardwareAlerts },
+                    set: { enabled in
+                        hardwareAlerts = enabled
+                        if enabled {
+                            Task { _ = await Notifications.requestPermission() }
+                        }
+                    }
+                ))
                 Toggle("Warn when disk space is low", isOn: Binding(
                     get: { lowDiskWarning },
                     set: { enabled in

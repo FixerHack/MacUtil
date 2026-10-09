@@ -140,6 +140,24 @@ private struct SystemLoadBar: View {
                 Text(verbatim: "↑ \(Int64(load.diskWritten).formatted(.byteCount(style: .file)))/s")
                     .font(.callout).monospacedDigit()
             }
+            if load.temperature != nil || load.power != nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Hardware").font(.caption).foregroundStyle(.secondary)
+                    if let temperature = load.temperature {
+                        Text(verbatim: "\(Int(temperature.rounded())) °C")
+                            .font(.callout).monospacedDigit()
+                            .foregroundStyle(temperature >= 95 ? Color.orange : Color.primary)
+                    }
+                    if let power = load.power {
+                        Text(verbatim: String(format: "%.1f W", power))
+                            .font(.callout).monospacedDigit()
+                    }
+                    if let fan = load.fanSpeed {
+                        Text(verbatim: "\(Int(fan)) rpm")
+                            .font(.callout).monospacedDigit()
+                    }
+                }
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Load").font(.caption).foregroundStyle(.secondary)
                 Text(verbatim: load.loadAverage.map { String(format: "%.2f", $0) }.joined(separator: "  "))

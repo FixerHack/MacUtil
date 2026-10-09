@@ -135,6 +135,8 @@ signed by anyone else is refused, so a tampered download cannot replace your Mac
 **⚡ Optimization**
 - Task Manager: everything running, with processor, memory, disk, threads and
   wakeups; quit, force quit, pause, resume, change priority, take a sample
+- Temperatures, fan speed and power draw read from the hardware, with warnings
+  about heat, memory pressure and a processor busy for too long
 - Login items with on/off switches
 - Maintenance scripts, DNS cache, Spotlight rebuild
 - Hidden macOS settings and a process list
@@ -194,9 +196,12 @@ The security analyzer can check apps against VirusTotal. To enable it, create a 
 
 ## Build from source
 
-You need the Command Line Tools with Swift 6 (`xcode-select --install`). Xcode is not required:
-the build joins the Apple Silicon and Intel slices itself. Xcode is only the easiest way to get
-the free signing certificate described below.
+You need the Command Line Tools with Swift 6 (`xcode-select --install`).
+
+Xcode is optional. Without it the build uses the macOS 26 SDK that ships with the Command Line
+Tools, because the newer SDK declares SwiftUI's `@State` as a macro whose plugin only Xcode
+carries. The deployment target is macOS 14 either way. Xcode is also the easiest way to get the
+free signing certificate described below.
 
 ```bash
 git clone https://github.com/FixerHack/MacUtil.git
@@ -239,6 +244,11 @@ Sources/
   mucli/          command-line tool
 Tests/            unit tests for both cores
 ```
+
+## Thanks
+
+The shape of the request the AppleSMC driver expects was worked out from
+[Vorssaint](https://github.com/vorssaint/vorssaint-utils), which is under the same licence.
 
 ## License
 

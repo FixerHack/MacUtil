@@ -20,6 +20,8 @@ public final class SystemStats: @unchecked Sendable {
         public var download: Int64 = 0
         public var upload: Int64 = 0
         public var battery: BatteryStatus?
+        /// Warmest part of the Mac, in degrees Celsius, when the hardware says.
+        public var temperature: Double?
 
         public init() {}
     }
@@ -39,6 +41,7 @@ public final class SystemStats: @unchecked Sendable {
         sample.disk = try? VolumeInfo.forVolume()
         (sample.download, sample.upload) = networkRates()
         sample.battery = Self.battery()
+        sample.temperature = SystemSensors.read().filter { $0.kind == .temperature }.map(\.value).max()
         return sample
     }
 
