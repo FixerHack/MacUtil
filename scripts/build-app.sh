@@ -22,7 +22,16 @@ BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 # A build for both architectures in one pass needs Xcode's own build tool, so each one is
 # built on its own and the two are joined afterwards. That way the Command Line Tools are enough.
 ARCHS=(arm64)
-if [[ -n "${UNIVERSAL:-}" ]]; then ARCHS=(arm64 x86_64); fi
+if [[ -n "${UNIVERSAL:-}" ]]; then
+    # The Command Line Tools ship the Swift compatibility libraries for Apple Silicon only, so
+    # the Intel half cannot be linked without Xcode. Say so plainly instead of failing at link time.
+    if [[ -z "${DEVELOPER_DIR:-}" || "$DEVELOPER_DIR" != *Xcode* ]]; then
+        echo "error: building for Intel needs Xcode; the Command Line Tools carry Apple Silicon libraries only" >&2
+        echo "       install Xcode, or build for this Mac only by leaving UNIVERSAL unset" >&2
+        exit 1
+    fi
+    ARCHS=(arm64 x86_64)
+fi
 
 BIN_DIRS=()
 for arch in "${ARCHS[@]}"; do

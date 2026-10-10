@@ -29,6 +29,7 @@ public enum SelfUpdate {
         case badDownload
         case wrongChecksum
         case notSameSigner
+        case wrongArchitecture
         case cannotWrite(String)
         case failed(String)
 
@@ -40,6 +41,10 @@ public enum SelfUpdate {
                 String(localized: "The downloaded file is not a working MacUtil disk image.")
             case .wrongChecksum:
                 String(localized: "The downloaded file does not match what GitHub published. Nothing was installed.")
+            case .wrongArchitecture:
+                String(
+                    localized: "This update was not built for this kind of Mac, so it was not installed. Download MacUtil from the releases page instead."
+                )
             case .notSameSigner:
                 String(
                     localized: "The downloaded MacUtil is signed by someone else, so it was not installed. Download MacUtil from the releases page instead."
@@ -155,6 +160,12 @@ public enum SelfUpdate {
         }
 
         guard FileManager.default.fileExists(atPath: newApp.path) else { throw await fail(.badDownload) }
+        // An update built for another kind of Mac would install and then refuse to open.
+        if let executable = Bundle(path: newApp.path)?.executableURL,
+           !(await Self.runsOnThisMac(executable))
+        {
+            throw await fail(.wrongArchitecture)
+        }
         do {
             try verifySameSigner(newApp, as: app)
         } catch let error as Failure {
@@ -208,6 +219,19 @@ public enum SelfUpdate {
         let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSCheckNestedCode)
         let status = SecStaticCodeCheckValidity(candidateCode, flags, requirement)
         guard status == errSecSuccess else { throw Failure.notSameSigner }
+    }
+
+    /// Whether a program carries code for the processor this Mac has.
+    static func runsOnThisMac(_ executable: URL) async -> Bool {
+        guard let output = await Command.run("/usr/bin/lipo", ["-archs", executable.path], timeout: .seconds(30)),
+              output.status == 0
+        else { return true }
+        let architectures = output.text.split(whereSeparator: \.isWhitespace).map(String.init)
+        #if arch(arm64)
+            return architectures.contains("arm64")
+        #else
+            return architectures.contains("x86_64")
+        #endif
     }
 
     static func isNewer(_ candidate: String, than current: String) -> Bool {

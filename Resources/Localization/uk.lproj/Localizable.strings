@@ -1023,3 +1023,4 @@
 "macOS is squeezing memory to keep up. Closing something heavy will help." = "macOS стискає пам'ять, щоб упоратися. Допоможе закрити щось важке.";
 "The processor has been busy for ten minutes" = "Процесор завантажений уже десять хвилин";
 "Something has been using most of the processor. The Task Manager shows what." = "Щось забирає більшу частину процесора. Диспетчер завдань покаже, що саме.";
+"This update was not built for this kind of Mac, so it was not installed. Download MacUtil from the releases page instead." = "Це оновлення зібране не для такого Mac, тому його не встановлено. Завантажте MacUtil зі сторінки релізів.";

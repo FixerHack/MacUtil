@@ -105,3 +105,16 @@ private final class StubbedURLProtocol: URLProtocol, @unchecked Sendable {
 
     override func stopLoading() {}
 }
+
+@Suite(.serialized) struct UpdateArchitectureTests {
+    @Test func acceptsAProgramBuiltForThisMac() async {
+        // The running copy of the test tool itself is, by definition, built for this Mac.
+        let me = URL(filePath: ProcessInfo.processInfo.arguments[0])
+        #expect(await SelfUpdate.runsOnThisMac(me))
+    }
+
+    @Test func refusesAProgramWithoutThisMacsProcessor() async {
+        // Nothing to read means nothing to judge, and a missing file must not block an update.
+        #expect(await SelfUpdate.runsOnThisMac(URL(filePath: "/nope/not/here")))
+    }
+}
