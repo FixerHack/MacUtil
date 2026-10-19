@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.showsMenuBar) private var showsMenuBar = true
     @AppStorage(Preferences.lowDiskWarning) private var lowDiskWarning = false
     @AppStorage(Preferences.hardwareAlerts) private var hardwareAlerts = false
+    @AppStorage(Preferences.cleanupSchedule) private var cleanupSchedule = ScheduledCleanup.Schedule.never.rawValue
     @AppStorage(Preferences.reminder) private var reminder = Notifications.Reminder.never.rawValue
     @State private var language = AppLanguage.current
     @State private var needsRestart = false
@@ -68,6 +69,23 @@ struct SettingsView: View {
                         }
                     }
                 ))
+                Picker("Clean up by itself", selection: Binding(
+                    get: { ScheduledCleanup.schedule },
+                    set: { value in
+                        cleanupSchedule = value.rawValue
+                        if value != .never {
+                            Task { _ = await Notifications.requestPermission() }
+                        }
+                    }
+                )) {
+                    Text("Never").tag(ScheduledCleanup.Schedule.never)
+                    Text("Every week").tag(ScheduledCleanup.Schedule.weekly)
+                    Text("Every month").tag(ScheduledCleanup.Schedule.monthly)
+                }
+                Text("Only caches and logs MacUtil considers safe, and only from apps that are not running. Everything goes to the Trash.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
                 Picker("Remind me to clean up", selection: Binding(
                     get: { Notifications.Reminder(rawValue: reminder) ?? .never },
                     set: { value in

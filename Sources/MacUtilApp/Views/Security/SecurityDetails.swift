@@ -1,3 +1,4 @@
+import CleanerCore
 import CoreServices
 import SecurityCore
 import SwiftUI
@@ -173,6 +174,7 @@ extension PermissionGrant.Finding {
 
 struct NetworkReportView: View {
     let store: SecurityStore
+    @State private var stopping: ListeningPort?
 
     static func issueTitle(_ key: String) -> LocalizedStringKey {
         switch key {
@@ -184,7 +186,7 @@ struct NetworkReportView: View {
 
     var body: some View {
         let report = store.network
-        List {
+        return List {
             Section("Programs accepting connections") {
                 if report.ports.isEmpty {
                     Text("None").foregroundStyle(.secondary)
@@ -207,6 +209,10 @@ struct NetworkReportView: View {
                         if let signature = port.signature {
                             TrustBadge(trust: signature.trust)
                         }
+                        // A port you did not expect is most quickly settled by stopping whatever
+                        // holds it; macOS only allows that for your own programs.
+                        Button("Stop") { stopping = port }
+                            .help("Quit the program holding this port")
                     }
                 }
             }
@@ -234,6 +240,21 @@ struct NetworkReportView: View {
             )
         }
         .listStyle(.inset)
+        .confirmationDialog(
+            "Quit \(stopping?.command ?? "")?",
+            isPresented: Binding(get: { stopping != nil }, set: { if !$0 { stopping = nil } })
+        ) {
+            Button("Quit", role: .destructive) {
+                if let port = stopping {
+                    TaskManager.send(.quit, to: port.pid)
+                    Task { await store.scan() }
+                }
+                stopping = nil
+            }
+            Button("Cancel", role: .cancel) { stopping = nil }
+        } message: {
+            Text("The program stops and the port is free. Anything it has not saved is lost.")
+        }
     }
 }
 

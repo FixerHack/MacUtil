@@ -38,6 +38,8 @@ struct ContentView: View {
                     UpdaterView(store: state.updater)
                 case .privacy:
                     JunkView(module: .privacy, store: state.privacy)
+                case .messengers:
+                    MessengerView(store: state.messengers)
                 case .maintenance:
                     MaintenanceView(store: state.maintenance)
                 case .hiddenSettings:

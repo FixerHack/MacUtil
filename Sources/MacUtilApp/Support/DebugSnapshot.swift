@@ -25,6 +25,8 @@
                 state.selection = module
             }
             switch environment["MACUTIL_SNAPSHOT_SCAN"] {
+            case "messengers":
+                Task { await state.messengers.scan() }
             case "disks:leftovers":
                 Task {
                     await state.disks.load()

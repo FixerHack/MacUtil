@@ -16,6 +16,7 @@ final class AppState {
     let duplicates = DuplicatesStore()
     let search = SearchStore()
     let privacy = JunkStore(group: .privacy)
+    let messengers = MessengerStore()
     let maintenance = MaintenanceStore()
     let hiddenSettings = HiddenSettingsStore()
     let taskManager = TaskManagerStore()

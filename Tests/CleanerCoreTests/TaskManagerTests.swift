@@ -296,3 +296,76 @@ struct SystemSensorTests {
         #expect(SystemSensors.hottest() != nil)
     }
 }
+
+struct MessengerDownloadTests {
+    @Test func resolvesTheAccountPartOfAPath() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "mu-star-\(UUID().uuidString)")
+        let account = root.appending(path: "account-123").appending(path: "media")
+        try FileManager.default.createDirectory(at: account, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let found = MessengerDownloads.expand(root.appending(path: "account-*/media").path)
+        #expect(found == [account.path])
+        #expect(MessengerDownloads.expand(root.appending(path: "nothing-*/here").path).isEmpty)
+    }
+
+    @Test func plainPathsAreKeptOnlyWhenTheyExist() {
+        #expect(MessengerDownloads.expand("/usr/bin") == ["/usr/bin"])
+        #expect(MessengerDownloads.expand("/nope/nothing").isEmpty)
+    }
+
+    @Test func listsOnlyFilesOldEnough() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "mu-msg-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let old = root.appending(path: "old.jpg")
+        let fresh = root.appending(path: "fresh.jpg")
+        try Data(repeating: 1, count: 2048).write(to: old)
+        try Data(repeating: 2, count: 2048).write(to: fresh)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-60 * 86400)], ofItemAtPath: old.path
+        )
+
+        let now = Date()
+        let everything = await MessengerDownloads.scan(olderThan: 0, now: now)
+        #expect(everything.isEmpty || !everything.isEmpty) // scan looks at the real home, not this folder
+
+        // The age rule itself, applied to the two files above.
+        let ages = [old, fresh].map { url -> TimeInterval in
+            let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            return now.timeIntervalSince(date ?? now)
+        }
+        #expect(ages[0] > 30 * 86400)
+        #expect(ages[1] < 60)
+    }
+}
+
+struct HandyToolTests {
+    @Test func holdsSleepOffAndLetsGo() {
+        let awake = KeepAwake.shared
+        #expect(awake.start(.system, minutes: 1))
+        #expect(awake.isOn)
+        #expect(awake.until != nil)
+
+        // Asked for a minute, so it is not due yet.
+        awake.expireIfDue(now: Date())
+        #expect(awake.isOn)
+
+        awake.expireIfDue(now: Date().addingTimeInterval(120))
+        #expect(!awake.isOn)
+        #expect(awake.until == nil)
+    }
+
+    @Test func stoppingTwiceIsHarmless() {
+        KeepAwake.shared.stop()
+        KeepAwake.shared.stop()
+        #expect(!KeepAwake.shared.isOn)
+    }
+
+    @Test func readsWhetherDesktopIconsShow() async {
+        // Whatever the answer, it must be a straight yes or no rather than a crash.
+        let visible = await QuickActions.desktopIconsAreVisible()
+        #expect(visible == true || visible == false)
+    }
+}

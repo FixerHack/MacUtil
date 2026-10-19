@@ -105,6 +105,8 @@ enum Preferences {
     static let reminder = "cleanupReminder"
     static let automaticUpdateCheck = "automaticUpdateCheck"
     static let hardwareAlerts = "hardwareAlerts"
+    static let cleanupSchedule = "cleanupSchedule"
+    static let lastScheduledCleanup = "lastScheduledCleanup"
     static let lastUpdateCheck = "lastUpdateCheck"
 }
 

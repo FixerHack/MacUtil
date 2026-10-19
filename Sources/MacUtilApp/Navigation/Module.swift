@@ -25,7 +25,7 @@ enum SidebarSection: CaseIterable, Identifiable {
 
 enum Module: CaseIterable, Identifiable, Hashable {
     case dashboard
-    case systemJunk, developerJunk, trash, privacy
+    case systemJunk, developerJunk, trash, privacy, messengers
     case spaceLens, largeFiles, duplicates, disks
     case fileRecovery
     case deepSearch
@@ -38,7 +38,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var section: SidebarSection {
         switch self {
         case .dashboard: .overview
-        case .systemJunk, .developerJunk, .trash, .privacy: .cleanup
+        case .systemJunk, .developerJunk, .trash, .privacy, .messengers: .cleanup
         case .spaceLens, .largeFiles, .duplicates, .disks: .space
         case .fileRecovery: .recovery
         case .deepSearch: .search
@@ -55,6 +55,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .developerJunk: "Developer Junk"
         case .trash: "Trash Bins"
         case .privacy: "Privacy"
+        case .messengers: "Messenger Downloads"
         case .spaceLens: "Space Lens"
         case .largeFiles: "Large & Old Files"
         case .duplicates: "Duplicates"
@@ -79,6 +80,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .developerJunk: "Xcode data, package manager caches, Docker and old node_modules."
         case .trash: "Empty the Trash on all connected drives."
         case .privacy: "Browser history, cookies and recent items."
+        case .messengers: "What Telegram, WhatsApp and the others downloaded and kept."
         case .spaceLens: "An interactive map of what takes up your disk."
         case .largeFiles: "Find big and long-unused files."
         case .duplicates: "Find identical files and free up space."
@@ -103,6 +105,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .developerJunk: "hammer"
         case .trash: "trash"
         case .privacy: "hand.raised"
+        case .messengers: "bubble.left.and.bubble.right"
         case .spaceLens: "chart.pie"
         case .largeFiles: "doc.badge.clock"
         case .duplicates: "doc.on.doc"
@@ -131,6 +134,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .duplicates: 5
         case .deepSearch: 6
         case .privacy, .loginItems, .maintenance, .taskManager, .hiddenSettings: 8
+        case .messengers: 11
         case .disks, .fileRecovery: 10
         case .updater: 9
         }
