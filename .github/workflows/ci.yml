@@ -1,12 +1,11 @@
 name: CI
 
-# The repository is public, so macOS runner minutes are free: every push to main and every
-# pull request is checked.
+# Manual only. The repository is public, so the runner minutes are free, but the account is
+# locked over billing and GitHub refuses to start any job: "The job was not started because your
+# account is locked due to a billing issue." Once that is sorted, restore the triggers:
+#   push: { branches: [main], tags: ["v*"] }
+#   pull_request:
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
-  pull_request:
   workflow_dispatch:
 
 jobs:
