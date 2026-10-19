@@ -64,6 +64,12 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 git push origin HEAD
 
+# A version may add its own notes; without them the release carries just the essentials.
+CHANGES=""
+if [[ -f "docs/release-notes/$VERSION.md" ]]; then
+    CHANGES="$(cat "docs/release-notes/$VERSION.md")"$'\n'
+fi
+
 NOTES="$(mktemp)"
 trap 'rm -f "$NOTES"' EXIT
 cat > "$NOTES" <<NOTES
@@ -79,6 +85,7 @@ cat > "$NOTES" <<NOTES
 >
 > [Step-by-step guide](https://github.com/$REPO#first-launch) · [Покрокова інструкція](https://github.com/$REPO/blob/main/README.uk.md#перший-запуск)
 
+$CHANGES
 ### Install / Встановлення
 
 **Download:** **MacUtil-$VERSION.zip** below, unpack it and move MacUtil to Applications.
