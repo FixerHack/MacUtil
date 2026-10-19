@@ -42,14 +42,18 @@ struct UninstallerView: View {
                     Divider()
                     if let app = store.selectedApp {
                         AppDetail(app: app, store: store)
+                            .frame(maxWidth: .infinity)
                     } else {
                         ContentUnavailableView(
                             "Choose an app",
                             systemImage: "trash.square",
                             description: Text("MacUtil shows the app together with the data it keeps in your Library.")
                         )
+                        .frame(maxWidth: .infinity)
                     }
                 }
+                // Without this the whole pair sits in the middle with a gap on either side.
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationTitle("Uninstaller")

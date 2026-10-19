@@ -1,10 +1,12 @@
 name: CI
 
-# Manual only. The repository is public now, so macOS runner minutes are free and the
-# triggers below can be restored whenever automatic checks are wanted:
-#   push: { branches: [main], tags: ["v*"] }
-#   pull_request:
+# The repository is public, so macOS runner minutes are free: every push to main and every
+# pull request is checked.
 on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
   workflow_dispatch:
 
 jobs:

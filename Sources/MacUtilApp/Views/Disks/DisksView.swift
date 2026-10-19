@@ -16,8 +16,9 @@ struct DisksView: View {
                 BusyView(title: "Looking at your disks…")
             } else {
                 HSplitView {
-                    diskList.frame(minWidth: 320)
-                    detail.frame(minWidth: 380)
+                    // The list keeps to its side so the details always have room to lay out.
+                    diskList.frame(minWidth: 260, idealWidth: 320, maxWidth: 420)
+                    detail.frame(minWidth: 420, maxWidth: .infinity)
                 }
             }
         }
@@ -216,33 +217,35 @@ private struct VolumeDetail: View {
 
             speed
 
-            HStack(spacing: 10) {
-                if volume.isMounted {
-                    Button("Unmount") { Task { await store.unmount(volume) } }
-                        .disabled(volume.isSystemOwned)
-                } else {
-                    Button("Mount") { Task { await store.mount(volume) } }
+            // Three to a row, so a long word in any language still reads whole.
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    if volume.isMounted {
+                        Button("Unmount") { Task { await store.unmount(volume) } }
+                            .disabled(volume.isSystemOwned)
+                    } else {
+                        Button("Mount") { Task { await store.mount(volume) } }
+                    }
+                    Button("Rename…", action: rename).disabled(volume.isSystemOwned)
+                    Button("Check") { Task { await store.verify(volume) } }
                 }
-                Button("Rename…", action: rename).disabled(volume.isSystemOwned)
-                Button("Check") { Task { await store.verify(volume) } }
-                Button("Repair") { Task { await store.repair(volume) } }
-                    .disabled(volume.isStartup)
-                Spacer(minLength: 0)
-            }
-            .fixedSize()
-            HStack(spacing: 10) {
-                Button("Erase…", action: erase)
-                    .disabled(volume.isSystemOwned)
+                GridRow {
+                    Button("Repair") { Task { await store.repair(volume) } }
+                        .disabled(volume.isStartup)
+                    Button("Erase…", action: erase)
+                        .disabled(volume.isSystemOwned)
+                    if volume.isMounted {
+                        Button("Measure Speed") { Task { await store.measureSpeed(of: volume) } }
+                            .disabled(store.benchmarkProgress != nil)
+                    }
+                }
                 if volume.containerID != nil {
-                    Button("Add Volume…", action: addVolume)
-                    Button("Delete Volume…", role: .destructive) { confirmingDelete = true }
-                        .disabled(volume.isSystemOwned)
+                    GridRow {
+                        Button("Add Volume…", action: addVolume)
+                        Button("Delete Volume…", role: .destructive) { confirmingDelete = true }
+                            .disabled(volume.isSystemOwned)
+                    }
                 }
-                if volume.isMounted {
-                    Button("Measure Speed") { Task { await store.measureSpeed(of: volume) } }
-                        .disabled(store.benchmarkProgress != nil)
-                }
-                Spacer(minLength: 0)
             }
             .fixedSize()
             .confirmationDialog("Delete the volume \(volume.name)?", isPresented: $confirmingDelete) {
