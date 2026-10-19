@@ -1058,3 +1058,8 @@
 "Install from Image…" = "Встановити з образу…";
 "Choose a disk image with an app inside" = "Виберіть образ диска з програмою всередині";
 "Installed into Applications" = "Встановлено в «Програми»";
+"What System Data is made of" = "З чого складаються системні дані";
+"System Settings counts what your apps keep in your Library as system data, which is why the figure looks unexplainable. This shows which apps it really is." = "Системні параметри зараховують до системних даних те, що ваші програми тримають у Бібліотеці, тому цифра виглядає незрозумілою. Тут видно, які це насправді програми.";
+"Removing any of this is the app's own business: delete games from its launcher, images from Docker, and so on." = "Прибирати це слід у самій програмі: ігри — через її лаунчер, образи — у Docker, і так далі.";
+"App data" = "Дані програм";
+"Group containers" = "Спільні контейнери";

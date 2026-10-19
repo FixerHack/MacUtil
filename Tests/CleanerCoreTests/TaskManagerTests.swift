@@ -369,3 +369,26 @@ struct HandyToolTests {
         #expect(visible == true || visible == false)
     }
 }
+
+struct SystemDataBreakdownTests {
+    @Test func readsSizesTheWayDuPrintsThem() throws {
+        let output = "16777216\t/Users/x/Library/Application Support/Steam\n2048\t/Users/x/Library/Application Support/Small\n"
+        let items = SystemDataBreakdown.parse(output, place: "App data")
+
+        #expect(items.count == 2)
+        let steam = try #require(items.first)
+        #expect(steam.name == "Steam")
+        // du counts in kilobytes, so 16 GiB comes back as 16777216 of them.
+        #expect(steam.size == Int64(16_777_216) * 1024)
+        #expect(steam.place == "App data")
+        #expect(SystemDataBreakdown.parse("nonsense", place: "App data").isEmpty)
+    }
+
+    @Test func findsTheBiggestThingsInTheLibrary() async {
+        let items = await SystemDataBreakdown.scan(limit: 5, atLeast: 1)
+        #expect(!items.isEmpty)
+        // Sorted by size, biggest first.
+        #expect(items == items.sorted { $0.size > $1.size })
+        #expect(items.allSatisfy { $0.path.contains("/Library/") })
+    }
+}

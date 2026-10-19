@@ -20,6 +20,8 @@ struct DashboardView: View {
                 if let disk = state.startupDisk {
                     StartupDiskCard(volume: disk)
                 }
+
+                SystemDataCard()
             }
             .padding(32)
             .frame(maxWidth: 820, alignment: .leading)
