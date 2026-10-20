@@ -1,11 +1,14 @@
 name: CI
 
-# Manual only. The repository is public, so the runner minutes are free, but the account is
-# locked over billing and GitHub refuses to start any job: "The job was not started because your
-# account is locked due to a billing issue." Once that is sorted, restore the triggers:
-#   push: { branches: [main], tags: ["v*"] }
-#   pull_request:
+# The repository is public, so the runner minutes are free.
+#
+# Tags are deliberately not a trigger: releases are cut by scripts/release.sh from a Mac with
+# Xcode, which is the only way to get both architectures and a real signature. A runner can
+# manage neither, and a release built here would be an ad-hoc signed Apple Silicon half.
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -29,8 +32,3 @@ jobs:
         with:
           name: MacUtil
           path: MacUtil.zip
-      - name: Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" MacUtil.zip --generate-notes
