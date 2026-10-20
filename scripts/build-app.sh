@@ -19,9 +19,7 @@ VERSION="$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInf
 BUNDLE_ID="$(sed -n 's/.*bundleIdentifier = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInfo.swift)"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
-# A build for both architectures in one pass needs Xcode's own build tool, so each one is
-# built on its own and the two are joined afterwards. That way the Command Line Tools are enough.
-ARCHS=(arm64)
+ARCH_FLAGS=(--arch arm64)
 if [[ -n "${UNIVERSAL:-}" ]]; then
     # The Command Line Tools ship the Swift compatibility libraries for Apple Silicon only, so
     # the Intel half cannot be linked without Xcode. Say so plainly instead of failing at link time.
@@ -30,27 +28,29 @@ if [[ -n "${UNIVERSAL:-}" ]]; then
         echo "       install Xcode, or build for this Mac only by leaving UNIVERSAL unset" >&2
         exit 1
     fi
-    ARCHS=(arm64 x86_64)
+    # Both architectures in one pass: the build puts them in the same place, so building them
+    # one after the other would leave only the one built last.
+    ARCH_FLAGS=(--arch arm64 --arch x86_64)
 fi
 
-BIN_DIRS=()
-for arch in "${ARCHS[@]}"; do
-    swift build -c "$CONFIG" --product MacUtil --arch "$arch"
-    swift build -c "$CONFIG" --product mucli --arch "$arch"
-    BIN_DIRS+=("$(swift build -c "$CONFIG" --arch "$arch" --show-bin-path)")
-done
-BIN_DIR="${BIN_DIRS[0]}"
+swift build -c "$CONFIG" --product MacUtil "${ARCH_FLAGS[@]}"
+swift build -c "$CONFIG" --product mucli "${ARCH_FLAGS[@]}"
+BIN_DIR="$(swift build -c "$CONFIG" "${ARCH_FLAGS[@]}" --show-bin-path)"
 
 APP="$ROOT/build.noindex/MacUtil.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-if (( ${#BIN_DIRS[@]} > 1 )); then
-    lipo -create "${BIN_DIRS[@]/%//MacUtil}" -output "$APP/Contents/MacOS/MacUtil"
-    lipo -create "${BIN_DIRS[@]/%//mucli}" -output "$APP/Contents/Resources/mucli"
-else
-    cp "$BIN_DIR/MacUtil" "$APP/Contents/MacOS/MacUtil"
-    cp "$BIN_DIR/mucli" "$APP/Contents/Resources/mucli"
+cp "$BIN_DIR/MacUtil" "$APP/Contents/MacOS/MacUtil"
+cp "$BIN_DIR/mucli" "$APP/Contents/Resources/mucli"
+if [[ -n "${UNIVERSAL:-}" ]]; then
+    # A silent half-build would ship a release that will not open on half the Macs.
+    for binary in "$APP/Contents/MacOS/MacUtil" "$APP/Contents/Resources/mucli"; do
+        archs="$(lipo -archs "$binary")"
+        for want in arm64 x86_64; do
+            [[ "$archs" == *"$want"* ]] || { echo "error: $binary has no $want ($archs)" >&2; exit 1; }
+        done
+    done
 fi
 cp -R Resources/Localization/*.lproj "$APP/Contents/Resources/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
