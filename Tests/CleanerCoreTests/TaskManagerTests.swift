@@ -138,16 +138,26 @@ struct DiskInventoryTests {
         let image = FileManager.default.temporaryDirectory.appending(path: "mu-disk-\(UUID().uuidString).dmg")
         defer { try? FileManager.default.removeItem(at: image) }
 
-        let created = await DiskImages.create(at: image, volumeName: "MUTest", size: 200 * 1024 * 1024)
+        // A name of its own for every image. Two volumes called the same thing can be
+        // attached at once, and macOS quietly mounts the second as "MUTest 1" — which a
+        // search for "MUTest" then never finds.
+        let name = "MUTest-\(UUID().uuidString.prefix(8))"
+        let created = await DiskImages.create(at: image, volumeName: name, size: 200 * 1024 * 1024)
         try #require(created.succeeded)
         let (outcome, attached) = await DiskImages.attach(image)
         try #require(outcome.succeeded)
         let device = try #require(attached?.device)
-        defer { Task { _ = await DiskImages.detach(device, force: true) } }
 
-        let disk = try #require(await disk(withVolume: "MUTest"))
-        let volume = try #require(disk.volumes.filter { $0.name == "MUTest" }.first)
-        try await body(disk, volume)
+        // Detached before this returns, whatever happened. `defer` cannot await, and a
+        // Task in one lets the next test begin while this image is still attached.
+        do {
+            let disk = try #require(await disk(withVolume: name))
+            let volume = try #require(disk.volumes.filter { $0.name == name }.first)
+            try await body(disk, volume)
+        } catch {
+            _ = await DiskImages.detach(device, force: true)
+            throw error
+        }
         _ = await DiskImages.detach(device, force: true)
     }
 
