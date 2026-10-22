@@ -29,6 +29,13 @@
                 Task { await state.messengers.scan() }
             case "history":
                 Task { await state.history.load() }
+            case "organize":
+                Task { @MainActor in state.organize.load() }
+            case "organize:preview":
+                Task { @MainActor in
+                    state.organize.load()
+                    await state.organize.preview()
+                }
             case "installers":
                 Task { await state.installers.scan() }
             case "projects":

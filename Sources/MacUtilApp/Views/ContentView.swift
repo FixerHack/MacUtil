@@ -54,6 +54,8 @@ struct ContentView: View {
                     TaskManagerView(store: state.taskManager)
                 case .disks:
                     DisksView(store: state.disks)
+                case .folderOrganizer:
+                    OrganizeView(store: state.organize)
                 case .fileRecovery:
                     RecoveryView(store: state.recovery)
                 case .loginItems:

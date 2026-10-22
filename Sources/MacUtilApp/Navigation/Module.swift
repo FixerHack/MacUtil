@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SidebarSection: CaseIterable, Identifiable {
-    case overview, cleanup, space, recovery, search, applications, security, optimization
+    case overview, cleanup, organize, space, recovery, search, applications, security, optimization
 
     var id: Self { self }
 
@@ -9,6 +9,7 @@ enum SidebarSection: CaseIterable, Identifiable {
         switch self {
         case .overview: "Overview"
         case .cleanup: "Cleanup"
+        case .organize: "Order"
         case .space: "Disk Space"
         case .recovery: "Recovery"
         case .search: "Search"
@@ -27,6 +28,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
     case dashboard, history
     case systemJunk, developerJunk, trash, privacy, messengers, installers, projectBuilds
     case spaceLens, largeFiles, duplicates, disks
+    case folderOrganizer
     case fileRecovery
     case deepSearch
     case uninstaller, leftovers, updater, slimming
@@ -40,6 +42,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .dashboard, .history: .overview
         case .systemJunk, .developerJunk, .trash, .privacy, .messengers, .installers, .projectBuilds: .cleanup
         case .spaceLens, .largeFiles, .duplicates, .disks: .space
+        case .folderOrganizer: .organize
         case .fileRecovery: .recovery
         case .deepSearch: .search
         case .uninstaller, .leftovers, .updater, .slimming: .applications
@@ -63,6 +66,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .largeFiles: "Large & Old Files"
         case .duplicates: "Duplicates"
         case .disks: "Disk Utilities"
+        case .folderOrganizer: "Keep Folders Tidy"
         case .fileRecovery: "File Recovery"
         case .deepSearch: "Deep Search"
         case .uninstaller: "Uninstaller"
@@ -92,6 +96,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .largeFiles: "Find big and long-unused files."
         case .duplicates: "Find identical files and free up space."
         case .disks: "Disks, volumes, partitions, first aid, disk images and speed tests."
+        case .folderOrganizer: "Rules that file what lands in a folder, previewed before anything moves."
         case .fileRecovery: "Bring back deleted files from the Trash, a snapshot, a backup or the disk itself."
         case .deepSearch: "Search everywhere by name, size, date or contents, including hidden files."
         case .uninstaller: "Remove apps together with all their leftovers."
@@ -121,6 +126,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .largeFiles: "doc.badge.clock"
         case .duplicates: "doc.on.doc"
         case .disks: "internaldrive"
+        case .folderOrganizer: "folder.badge.gearshape"
         case .fileRecovery: "clock.arrow.circlepath"
         case .deepSearch: "magnifyingglass"
         case .uninstaller: "trash.square"
@@ -150,6 +156,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .messengers: 11
         case .installers, .projectBuilds: 12
         case .disks, .fileRecovery: 10
+        case .folderOrganizer: 13
         case .updater: 9
         case .slimming: 12
         }
