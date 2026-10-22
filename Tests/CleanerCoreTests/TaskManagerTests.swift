@@ -121,6 +121,19 @@ struct DiskInventoryTests {
 
 /// Disk work is tried on a disk image made for the test, never on a real disk.
 @Suite(.serialized) struct DiskOperationsTests {
+
+    /// `hdiutil attach` returns before the volume is always listed, so looking once and
+    /// giving up makes the test fail for no reason — which it did, on the build runner.
+    private func disk(withVolume name: String, within seconds: TimeInterval = 15) async -> StorageDisk? {
+        let deadline = Date().addingTimeInterval(seconds)
+        while true {
+            let disks = await DiskInventory.load()
+            if let disk = disks.first(where: { $0.volumes.contains { $0.name == name } }) { return disk }
+            guard Date() < deadline else { return nil }
+            try? await Task.sleep(for: .milliseconds(300))
+        }
+    }
+
     private func withImage(_ body: (StorageDisk, StorageVolume) async throws -> Void) async throws {
         let image = FileManager.default.temporaryDirectory.appending(path: "mu-disk-\(UUID().uuidString).dmg")
         defer { try? FileManager.default.removeItem(at: image) }
@@ -132,8 +145,7 @@ struct DiskInventoryTests {
         let device = try #require(attached?.device)
         defer { Task { _ = await DiskImages.detach(device, force: true) } }
 
-        let disks = await DiskInventory.load()
-        let disk = try #require(disks.filter { $0.volumes.contains { $0.name == "MUTest" } }.first)
+        let disk = try #require(await disk(withVolume: "MUTest"))
         let volume = try #require(disk.volumes.filter { $0.name == "MUTest" }.first)
         try await body(disk, volume)
         _ = await DiskImages.detach(device, force: true)
