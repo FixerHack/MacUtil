@@ -10,15 +10,19 @@ public struct JunkContext: Sendable {
     public var claimingRules: [JunkRule]
     /// Installed apps, to recognize leftovers of removed ones.
     public var installed: InstalledApps
+    /// Places the person asked MacUtil to leave alone.
+    public var protected: ProtectedPaths
 
     public init(
         home: URL = FileManager.default.homeDirectoryForCurrentUser,
         runningBundleIDs: Set<String> = [],
         now: Date = Date(),
         claimingRules: [JunkRule] = JunkCatalog.all,
-        installed: InstalledApps? = nil
+        installed: InstalledApps? = nil,
+        protected: ProtectedPaths = .current()
     ) {
         self.installed = installed ?? InstalledApps.current()
+        self.protected = protected
         self.home = SafetyGuard.resolve(home.path(percentEncoded: false))
         self.runningBundleIDs = runningBundleIDs
         self.now = now
@@ -86,7 +90,7 @@ public enum JunkScanner {
 
         var seen = Set<String>()
         return found
-            .filter { $0.size > 0 && seen.insert($0.path).inserted }
+            .filter { $0.size > 0 && !context.protected.covers($0.path) && seen.insert($0.path).inserted }
             .map { JunkItem(
                 path: $0.path,
                 size: $0.size,

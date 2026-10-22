@@ -1,3 +1,4 @@
+import AppKit
 import CleanerCore
 import SecurityCore
 import SwiftUI
@@ -104,6 +105,10 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Protected places") {
+                ProtectedPathsSettings()
+            }
+
             Section("VirusTotal") {
                 VirusTotalKeySettings()
             }
@@ -115,6 +120,73 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+
+/// Files and folders MacUtil must never offer to remove.
+private struct ProtectedPathsSettings: View {
+    @State private var protected = ProtectedPaths.current()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Anything listed here is left out of every scan, however safe MacUtil thinks it is.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if protected.isEmpty {
+                Text("Nothing is protected yet.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(protected.paths, id: \.self) { path in
+                            HStack(spacing: 6) {
+                                Image(systemName: "lock")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(verbatim: path)
+                                    .lineLimit(1)
+                                    .truncationMode(.head)
+                                    .help(path)
+                                Spacer()
+                                Button("Remove", systemImage: "minus.circle") { remove(path) }
+                                    .labelStyle(.iconOnly)
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                // Enough to read the list without the settings window growing without end.
+                .frame(maxHeight: 140)
+            }
+
+            Button("Add…") { add() }
+        }
+    }
+
+    private func add() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        panel.message = String(localized: "Choose what MacUtil should never remove.")
+        guard panel.runModal() == .OK else { return }
+        var updated = protected
+        for url in panel.urls {
+            updated = updated.adding(url.path(percentEncoded: false))
+        }
+        apply(updated)
+    }
+
+    private func remove(_ path: String) {
+        apply(protected.removing(path))
+    }
+
+    private func apply(_ updated: ProtectedPaths) {
+        updated.save()
+        protected = updated
     }
 }
 

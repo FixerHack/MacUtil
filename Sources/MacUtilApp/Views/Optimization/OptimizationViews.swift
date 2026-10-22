@@ -14,6 +14,9 @@ struct MaintenanceView: View {
                     "Fixes for common macOS problems. Tasks with a lock ask for your administrator password once for all of them."
                 )
                 .foregroundStyle(.secondary)
+                if SudoTouchID.isAvailable {
+                    TouchIDRow()
+                }
                 ForEach(MaintenanceCatalog.all) { task in
                     MaintenanceRow(task: task, store: store)
                 }
@@ -39,6 +42,47 @@ struct MaintenanceView: View {
             .padding(.vertical, 12)
         }
         .navigationTitle("Maintenance")
+    }
+}
+
+/// Touch ID for the password prompt in the Terminal.
+private struct TouchIDRow: View {
+    @State private var isOn = SudoTouchID.isEnabled()
+    @State private var busy = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "touchid")
+                .font(.title3)
+                .foregroundStyle(.pink)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Touch ID for sudo")
+                Text("Lets the Terminal take your fingerprint instead of your password. Nothing else changes, and the password still works.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if busy {
+                ProgressView().controlSize(.small)
+            }
+            // A real label even though it is hidden: an empty one reaches the translators.
+            Toggle("Touch ID for sudo", isOn: Binding(get: { isOn }, set: { change(to: $0) }))
+                .labelsHidden()
+                .disabled(busy)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func change(to wanted: Bool) {
+        busy = true
+        Task {
+            _ = await SudoTouchID.set(wanted)
+            // Read the file back rather than trusting the switch: the password prompt
+            // can be dismissed, and then nothing happened.
+            isOn = SudoTouchID.isEnabled()
+            busy = false
+        }
     }
 }
 

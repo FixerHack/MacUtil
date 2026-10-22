@@ -57,6 +57,11 @@ public final class ActionLog: Sendable {
         }
     }
 
+    /// Forgets everything recorded so far. The files themselves are not touched.
+    public func clear() {
+        lock.withLock { _ in try? FileManager.default.removeItem(at: url) }
+    }
+
     public func entries() -> [Entry] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

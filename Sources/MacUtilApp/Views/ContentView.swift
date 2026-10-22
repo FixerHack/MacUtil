@@ -24,6 +24,8 @@ struct ContentView: View {
                 switch state.selection ?? .dashboard {
                 case .dashboard:
                     DashboardView()
+                case .history:
+                    HistoryView(store: state.history)
                 case .spaceLens:
                     SpaceLensView()
                 case .largeFiles:
@@ -40,6 +42,10 @@ struct ContentView: View {
                     JunkView(module: .privacy, store: state.privacy)
                 case .messengers:
                     MessengerView(store: state.messengers)
+                case .installers:
+                    InstallerView(store: state.installers)
+                case .projectBuilds:
+                    ProjectBuildsView(store: state.projectBuilds)
                 case .maintenance:
                     MaintenanceView(store: state.maintenance)
                 case .hiddenSettings:
@@ -60,6 +66,8 @@ struct ContentView: View {
                     UninstallerView(store: state.uninstaller)
                 case .leftovers:
                     JunkView(module: .leftovers, store: state.leftovers)
+                case .slimming:
+                    SlimmingView(store: state.slimming)
                 case .securityAnalyzer:
                     SecurityView(store: state.security)
                 case let module:

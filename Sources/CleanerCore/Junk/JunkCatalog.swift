@@ -174,13 +174,6 @@ public enum JunkCatalog {
             sources: [.brokenPreferences]
         ),
         JunkRule(
-            id: "system.oldInstallers", group: .system,
-            title: "Old installers",
-            details: "Disk images and installer packages in Downloads older than 2 weeks.",
-            safety: .review,
-            sources: [.oldFiles(in: "~/Downloads", extensions: ["dmg", "pkg", "mpkg", "xip"], olderThanDays: 14)]
-        ),
-        JunkRule(
             id: "system.mailDownloads", group: .system,
             title: "Mail attachments",
             details: "Copies of attachments you opened in Mail. The originals stay in your mailbox.",

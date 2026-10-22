@@ -211,7 +211,9 @@ struct JunkScannerTests {
         #expect(byRule["packages.homebrew"]?.items.map(\.name) == ["Homebrew"])
         #expect(byRule["system.userLogs"]?.items.map(\.name) == ["app.log"])
         #expect(byRule["system.brokenPreferences"]?.items.map(\.name) == ["com.broken.plist"])
-        #expect(byRule["system.oldInstallers"]?.items.map(\.name) == ["old.dmg"])
+        // Installers moved to a screen of their own, which also checks whether the app
+        // they carried ever arrived, so the junk scan no longer lists them twice.
+        #expect(byRule["system.oldInstallers"] == nil)
         #expect(byRule["projects.nodeModules"]?.items.map(\.path) == [home.path + "/Desktop/oldproject/node_modules"])
         #expect(byRule["xcode.derivedData"] == nil, "empty categories are dropped")
 

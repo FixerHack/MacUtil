@@ -27,6 +27,14 @@
             switch environment["MACUTIL_SNAPSHOT_SCAN"] {
             case "messengers":
                 Task { await state.messengers.scan() }
+            case "history":
+                Task { await state.history.load() }
+            case "installers":
+                Task { await state.installers.scan() }
+            case "projects":
+                Task { await state.projectBuilds.scan() }
+            case "slimming":
+                Task { await state.slimming.scan() }
             case "disks:leftovers":
                 Task {
                     await state.disks.load()

@@ -15,13 +15,19 @@ public struct SafetyGuard: Sendable {
     }
 
     public let home: String
+    private let protectedByChoice: ProtectedPaths
     private let allowedRoots: [String]
     private let protectedExact: Set<String>
     private let protectedPrefixes: [String]
 
-    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser, extraAllowedRoots: [String] = []) {
+    public init(
+        home: URL = FileManager.default.homeDirectoryForCurrentUser,
+        extraAllowedRoots: [String] = [],
+        protected: ProtectedPaths = .current()
+    ) {
         let home = Self.resolve(home.path(percentEncoded: false))
         self.home = home
+        protectedByChoice = protected
         allowedRoots = [home] + extraAllowedRoots.map(Self.resolve) + Self.volumeTrashRoots()
 
         let wellKnownFolders = [
@@ -57,6 +63,9 @@ public struct SafetyGuard: Sendable {
 
         if components.contains(where: { $0 == ".git" || $0.lowercased().hasSuffix(".photoslibrary") }) {
             return .blocked("inside a git repository or photo library")
+        }
+        if protectedByChoice.covers(path) {
+            return .blocked("on your protected list")
         }
         if protectedExact.contains(resolved) {
             return .blocked("a standard folder")

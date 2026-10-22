@@ -33,7 +33,9 @@ public enum MessengerDownloads {
     ]
 
     /// Everything older than `olderThan`, newest first. Zero keeps everything.
-    public static func scan(olderThan: TimeInterval = 0, now: Date = Date()) async -> [MessengerFile] {
+    public static func scan(
+        olderThan: TimeInterval = 0, now: Date = Date(), protected: ProtectedPaths = .current()
+    ) async -> [MessengerFile] {
         let home = FileManager.default.homeDirectoryForCurrentUser
         var files: [MessengerFile] = []
         for place in places {
@@ -41,7 +43,7 @@ public enum MessengerDownloads {
                 files += await contents(of: root, app: place.app, olderThan: olderThan, now: now)
             }
         }
-        return files.sorted { $0.size > $1.size }
+        return files.filter { !protected.covers($0.path) }.sorted { $0.size > $1.size }
     }
 
     /// Resolves one `*` in a path, which is how accounts are kept apart.

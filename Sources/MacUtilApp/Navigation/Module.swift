@@ -24,12 +24,12 @@ enum SidebarSection: CaseIterable, Identifiable {
 }
 
 enum Module: CaseIterable, Identifiable, Hashable {
-    case dashboard
-    case systemJunk, developerJunk, trash, privacy, messengers
+    case dashboard, history
+    case systemJunk, developerJunk, trash, privacy, messengers, installers, projectBuilds
     case spaceLens, largeFiles, duplicates, disks
     case fileRecovery
     case deepSearch
-    case uninstaller, leftovers, updater
+    case uninstaller, leftovers, updater, slimming
     case securityAnalyzer
     case loginItems, maintenance, taskManager, hiddenSettings
 
@@ -37,12 +37,12 @@ enum Module: CaseIterable, Identifiable, Hashable {
 
     var section: SidebarSection {
         switch self {
-        case .dashboard: .overview
-        case .systemJunk, .developerJunk, .trash, .privacy, .messengers: .cleanup
+        case .dashboard, .history: .overview
+        case .systemJunk, .developerJunk, .trash, .privacy, .messengers, .installers, .projectBuilds: .cleanup
         case .spaceLens, .largeFiles, .duplicates, .disks: .space
         case .fileRecovery: .recovery
         case .deepSearch: .search
-        case .uninstaller, .leftovers, .updater: .applications
+        case .uninstaller, .leftovers, .updater, .slimming: .applications
         case .securityAnalyzer: .security
         case .loginItems, .maintenance, .taskManager, .hiddenSettings: .optimization
         }
@@ -51,11 +51,14 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var title: LocalizedStringKey {
         switch self {
         case .dashboard: "Dashboard"
+        case .history: "History"
         case .systemJunk: "System Junk"
         case .developerJunk: "Developer Junk"
         case .trash: "Trash Bins"
         case .privacy: "Privacy"
         case .messengers: "Messenger Downloads"
+        case .installers: "Installer Files"
+        case .projectBuilds: "Project Build Files"
         case .spaceLens: "Space Lens"
         case .largeFiles: "Large & Old Files"
         case .duplicates: "Duplicates"
@@ -65,6 +68,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .uninstaller: "Uninstaller"
         case .leftovers: "Leftovers"
         case .updater: "Updater"
+        case .slimming: "Slim Down Apps"
         case .securityAnalyzer: "Security Analyzer"
         case .loginItems: "Login Items"
         case .maintenance: "Maintenance"
@@ -76,11 +80,14 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var summary: LocalizedStringKey {
         switch self {
         case .dashboard: "Clean, optimize and protect your Mac."
+        case .history: "Everything MacUtil has removed, with dates, sizes and paths."
         case .systemJunk: "Caches, logs, crash reports and other system leftovers."
         case .developerJunk: "Xcode data, package manager caches, Docker and old node_modules."
         case .trash: "Empty the Trash on all connected drives."
         case .privacy: "Browser history, cookies and recent items."
         case .messengers: "What Telegram, WhatsApp and the others downloaded and kept."
+        case .installers: "Disk images and packages left over after installing apps."
+        case .projectBuilds: "Dependencies and build output inside your project folders."
         case .spaceLens: "An interactive map of what takes up your disk."
         case .largeFiles: "Find big and long-unused files."
         case .duplicates: "Find identical files and free up space."
@@ -90,6 +97,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .uninstaller: "Remove apps together with all their leftovers."
         case .leftovers: "Files left behind by apps that are already deleted."
         case .updater: "Check your apps for updates."
+        case .slimming: "Remove the machine code your Mac never runs."
         case .securityAnalyzer: "Signatures, permissions, security settings and VirusTotal checks."
         case .loginItems: "Everything that starts with your Mac."
         case .maintenance: "Rebuild caches and indexes, flush DNS, verify the disk."
@@ -101,11 +109,14 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var symbol: String {
         switch self {
         case .dashboard: "gauge.with.dots.needle.67percent"
+        case .history: "list.bullet.rectangle.portrait"
         case .systemJunk: "sparkles"
         case .developerJunk: "hammer"
         case .trash: "trash"
         case .privacy: "hand.raised"
         case .messengers: "bubble.left.and.bubble.right"
+        case .installers: "shippingbox.and.arrow.backward"
+        case .projectBuilds: "shippingbox"
         case .spaceLens: "chart.pie"
         case .largeFiles: "doc.badge.clock"
         case .duplicates: "doc.on.doc"
@@ -115,6 +126,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .uninstaller: "trash.square"
         case .leftovers: "shippingbox"
         case .updater: "arrow.down.app"
+        case .slimming: "arrow.down.right.and.arrow.up.left"
         case .securityAnalyzer: "checkmark.shield"
         case .loginItems: "power"
         case .maintenance: "wrench.and.screwdriver"
@@ -127,6 +139,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var plannedPhase: Int {
         switch self {
         case .dashboard: 0
+        case .history: 12
         case .spaceLens, .largeFiles: 1
         case .systemJunk, .developerJunk, .trash: 2
         case .securityAnalyzer: 3
@@ -135,8 +148,10 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .deepSearch: 6
         case .privacy, .loginItems, .maintenance, .taskManager, .hiddenSettings: 8
         case .messengers: 11
+        case .installers, .projectBuilds: 12
         case .disks, .fileRecovery: 10
         case .updater: 9
+        case .slimming: 12
         }
     }
 }
