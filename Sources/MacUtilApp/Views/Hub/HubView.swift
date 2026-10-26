@@ -10,7 +10,7 @@ struct HubView: View {
 
         VStack(spacing: 0) {
             RadialMenu(opened: $opened) { module in
-                state.selection = module
+                state.open(module)
             }
             .padding(28)
 

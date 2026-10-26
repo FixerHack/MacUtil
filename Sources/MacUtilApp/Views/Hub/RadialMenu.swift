@@ -65,8 +65,47 @@ struct RadialMenu: View {
                     .position(centre)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+            // One layer decides what was pointed at, from the angle and the distance.
+            // Eight full-size views stacked on top of one another cannot: whichever is
+            // drawn last takes every click, whatever shape it was given.
+            .contentShape(.rect)
+            .onContinuousHover { phase in
+                switch phase {
+                case let .active(point): hovered = index(at: point, side: side, centre: centre)
+                case .ended: hovered = nil
+                }
+            }
+            .gesture(
+                SpatialTapGesture().onEnded { tap in
+                    tapped(at: tap.location, side: side, centre: centre)
+                }
+            )
         }
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: opened)
+    }
+
+    /// Which segment a point falls in, or nil for the core and for outside the ring.
+    private func index(at point: CGPoint, side: CGFloat, centre: CGPoint) -> Int? {
+        let dx = point.x - centre.x
+        let dy = point.y - centre.y
+        let distance = sqrt(dx * dx + dy * dy) / (side / 2)
+        guard distance > inner, distance < outer else { return nil }
+
+        // atan2 measures from the positive x axis; the ring starts at the top.
+        var degrees = atan2(dy, dx) * 180 / .pi + 90
+        if degrees < 0 { degrees += 360 }
+        let slot = Int(degrees / sweep)
+        return slot < count ? slot : nil
+    }
+
+    private func tapped(at point: CGPoint, side: CGFloat, centre: CGPoint) {
+        let dx = point.x - centre.x
+        let dy = point.y - centre.y
+        if sqrt(dx * dx + dy * dy) / (side / 2) <= inner {
+            if opened != nil { opened = nil }
+            return
+        }
+        if let slot = index(at: point, side: side, centre: centre) { choose(slot) }
     }
 
     // MARK: - Pieces
@@ -103,9 +142,6 @@ struct RadialMenu: View {
                 .shadow(color: .accentColor.opacity(isHovered ? 0.35 : 0), radius: 16)
                 .frame(width: side, height: side)
                 .position(centre)
-                .contentShape(shape)
-                .onHover { hovered = $0 ? index : (hovered == index ? nil : hovered) }
-                .onTapGesture { choose(index) }
 
             VStack(spacing: 5) {
                 Image(systemName: entry.symbol)
@@ -139,10 +175,7 @@ struct RadialMenu: View {
     }
 
     private func core(side: CGFloat) -> some View {
-        Button {
-            if opened != nil { opened = nil }
-        } label: {
-            ZStack {
+        ZStack {
                 Circle()
                     .fill(.ultraThinMaterial)
                 Circle()
@@ -165,9 +198,7 @@ struct RadialMenu: View {
                 }
                 .padding(side * 0.02)
             }
-            .frame(width: side * inner * 0.92, height: side * inner * 0.92)
-        }
-        .buttonStyle(.plain)
+        .frame(width: side * inner * 0.92, height: side * inner * 0.92)
         .help(opened == nil ? Text("Pick a section") : Text("Back to all sections"))
     }
 

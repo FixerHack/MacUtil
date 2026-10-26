@@ -5,7 +5,21 @@ import Observation
 @MainActor
 @Observable
 final class AppState {
-    var selection: Module? = .hub
+    /// Where you are: empty means the hub itself, otherwise the tool on screen.
+    ///
+    /// A path rather than a selection, because there is no sidebar to select in any more.
+    var path: [Module] = []
+
+    /// What is on screen, for the few places that need to know.
+    var selection: Module? {
+        get { path.last ?? .hub }
+        set { path = newValue.map { $0 == .hub ? [] : [$0] } ?? [] }
+    }
+
+    /// Opens a tool from anywhere: the menu bar, the dashboard, the hub.
+    func open(_ module: Module) {
+        path = module == .hub ? [] : [module]
+    }
     let scans = ScanStore()
     let systemJunk = JunkStore(group: .system)
     let developerJunk = JunkStore(group: .developer)

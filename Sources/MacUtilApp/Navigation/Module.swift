@@ -45,8 +45,9 @@ enum SidebarSection: CaseIterable, Identifiable {
         }
     }
 
+    /// The tools of this section. The hub is not one of them: it is where you already are.
     var modules: [Module] {
-        Module.allCases.filter { $0.section == self }
+        Module.allCases.filter { $0.section == self && $0 != .hub }
     }
 }
 

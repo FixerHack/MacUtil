@@ -101,7 +101,7 @@ struct MenuBarView: View {
     }
 
     private func open(_ module: Module) {
-        state.selection = module
+        state.open(module)
         openWindow(id: "main")
         NSApp.activate()
     }

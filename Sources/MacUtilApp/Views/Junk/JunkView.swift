@@ -230,15 +230,28 @@ struct CheckButton: View {
 
 struct BusyView: View {
     let title: LocalizedStringKey
+    @State private var breathing = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .controlSize(.large)
+        VStack(spacing: 18) {
+            ZStack {
+                // A ring that widens and fades while the work runs. It stops the moment
+                // the view goes away, unlike a glow left looping behind a finished screen.
+                Circle()
+                    .stroke(Palette.accent.opacity(breathing ? 0 : 0.45), lineWidth: 2)
+                    .frame(width: breathing ? 86 : 44, height: breathing ? 86 : 44)
+                ProgressView()
+                    .controlSize(.large)
+            }
+            .frame(height: 90)
+            .animation(.easeOut(duration: 1.6).repeatForever(autoreverses: false), value: breathing)
+
             Text(title)
                 .font(.title2)
+                .appears()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { breathing = true }
     }
 }
 
@@ -253,8 +266,10 @@ struct CleanupResultView: View {
             Image(systemName: result.failures.isEmpty ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(result.failures.isEmpty ? .green : .orange)
+                .appears()
             Text("Freed \(result.freedBytes.formatted(.byteCount(style: .file)))")
                 .font(.largeTitle.bold())
+                .appears(0.08)
             if result.mode == .trash, !result.removed.isEmpty {
                 Text("The items are in the Trash. Empty it to get the space back.")
                     .foregroundStyle(.secondary)

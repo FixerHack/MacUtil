@@ -10,6 +10,8 @@ struct MacUtilApp: App {
             ContentView()
                 .environment(state)
                 .frame(minWidth: 860, minHeight: 560)
+                .background(Backdrop())
+                .tint(Palette.accent)
                 .task { await state.selfUpdate.check() }
                 .task { await ScheduledCleanup.runIfDue() }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in

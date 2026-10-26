@@ -145,20 +145,20 @@ private struct SmartScanSection: View {
                 ResultCard(
                     symbol: "sparkles", color: .blue, title: "Junk",
                     value: junk.formatted(.byteCount(style: .file)), note: "Safe to remove"
-                ) { state.selection = .systemJunk }
+                ) { state.open(.systemJunk) }
                 ResultCard(
                     symbol: "shippingbox", color: .purple, title: "Leftovers",
                     value: leftovers.formatted(.byteCount(style: .file)), note: "From removed apps"
-                ) { state.selection = .leftovers }
+                ) { state.open(.leftovers) }
                 ResultCard(
                     symbol: "trash", color: .gray, title: "Trash",
                     value: state.trash.totalSize.formatted(.byteCount(style: .file)),
                     note: "Empty to get the space back"
-                ) { state.selection = .trash }
+                ) { state.open(.trash) }
                 ResultCard(
                     symbol: "checkmark.shield", color: state.security.score >= 90 ? .green : .orange, title: "Security",
                     value: "\(state.security.score)/100", note: "\(state.security.issues.count) things to look at"
-                ) { state.selection = .securityAnalyzer }
+                ) { state.open(.securityAnalyzer) }
             }
             if junk + leftovers > 0 {
                 HStack {

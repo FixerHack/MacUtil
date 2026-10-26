@@ -1356,3 +1356,13 @@
 "Everything this Mac can be told, in one ring." = "Усе, що можна сказати цьому Mac, одним кільцем.";
 "Pick a section" = "Виберіть розділ";
 "Back to all sections" = "Назад до всіх розділів";
+"Everything in one ring" = "Усе в одному кільці";
+"The hub holds every tool, grouped by what you came to do. Choose a section, then a tool; the middle takes you back." = "У хабі зібрані всі інструменти, згруповані за тим, навіщо ви прийшли. Виберіть розділ, тоді інструмент; центр повертає назад.";
+"Nothing happens unseen" = "Нічого не відбувається непоміченим";
+"Every scan shows what it found before anything is removed, and what goes to the Trash can come back out of it." = "Кожне сканування спершу показує знайдене, і лише потім щось прибирається, а все, що йде в Кошик, можна звідти дістати.";
+"Yours, and only yours" = "Ваше, і тільки ваше";
+"Nothing is uploaded and nothing is reported. The one exception asks first: a file you choose to check against VirusTotal." = "Нічого не вивантажується й нікуди не повідомляється. Єдиний виняток питає дозволу: файл, який ви самі відправляєте на перевірку у VirusTotal.";
+"Next" = "Далі";
+"Skip" = "Пропустити";
+"Start" = "Почати";
+"Settings…" = "Налаштування…";
