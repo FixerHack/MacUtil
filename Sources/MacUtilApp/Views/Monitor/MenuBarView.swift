@@ -77,6 +77,11 @@ struct MenuBarView: View {
             Divider()
             QuickActionsRow()
 
+            if state.clipboard.isEnabled, !state.clipboard.entries.isEmpty {
+                Divider()
+                ClipboardRow(store: state.clipboard) { open(.clipboard) }
+            }
+
             Divider()
             HStack {
                 Button("Open MacUtil") { open(.dashboard) }
@@ -104,6 +109,44 @@ struct MenuBarView: View {
 
 /// The handful of things people reach for often: keeping the Mac awake, ejecting what is
 /// removable, hiding the desktop and locking the screen.
+/// The last few things copied, close enough to the menu bar to be worth reaching for.
+private struct ClipboardRow: View {
+    let store: ClipboardStore
+    let openFull: () -> Void
+    @State private var copied: UUID?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Recently copied").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button("All") { openFull() }
+                    .buttonStyle(.link)
+                    .font(.caption)
+            }
+            ForEach(store.entries.prefix(5)) { entry in
+                Button {
+                    store.copy(entry)
+                    copied = entry.id
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: copied == entry.id ? "checkmark" : "doc.on.doc")
+                            .font(.caption2)
+                            .foregroundStyle(copied == entry.id ? Color.accentColor : .secondary)
+                            .frame(width: 12)
+                        Text(verbatim: entry.preview)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Spacer()
+                    }
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
 private struct QuickActionsRow: View {
     @State private var awake = KeepAwake.shared.isOn
     @State private var desktopIcons = true

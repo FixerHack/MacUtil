@@ -26,7 +26,7 @@ enum SidebarSection: CaseIterable, Identifiable {
 }
 
 enum Module: CaseIterable, Identifiable, Hashable {
-    case dashboard, history
+    case dashboard, history, clipboard
     case systemJunk, developerJunk, trash, privacy, messengers, installers, projectBuilds
     case spaceLens, largeFiles, duplicates, disks
     case folderOrganizer
@@ -41,7 +41,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
 
     var section: SidebarSection {
         switch self {
-        case .dashboard, .history: .overview
+        case .dashboard, .history, .clipboard: .overview
         case .systemJunk, .developerJunk, .trash, .privacy, .messengers, .installers, .projectBuilds: .cleanup
         case .spaceLens, .largeFiles, .duplicates, .disks: .space
         case .folderOrganizer: .organize
@@ -58,6 +58,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: "Dashboard"
         case .history: "History"
+        case .clipboard: "Clipboard History"
         case .systemJunk: "System Junk"
         case .developerJunk: "Developer Junk"
         case .trash: "Trash Bins"
@@ -91,6 +92,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: "Clean, optimize and protect your Mac."
         case .history: "Everything MacUtil has removed, with dates, sizes and paths."
+        case .clipboard: "The last hundred things you copied, instead of only the last one."
         case .systemJunk: "Caches, logs, crash reports and other system leftovers."
         case .developerJunk: "Xcode data, package manager caches, Docker and old node_modules."
         case .trash: "Empty the Trash on all connected drives."
@@ -124,6 +126,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: "gauge.with.dots.needle.67percent"
         case .history: "list.bullet.rectangle.portrait"
+        case .clipboard: "doc.on.clipboard"
         case .systemJunk: "sparkles"
         case .developerJunk: "hammer"
         case .trash: "trash"
@@ -158,6 +161,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: 0
         case .history: 12
+        case .clipboard: 16
         case .spaceLens, .largeFiles: 1
         case .systemJunk, .developerJunk, .trash: 2
         case .securityAnalyzer: 3

@@ -26,6 +26,8 @@ struct ContentView: View {
                     DashboardView()
                 case .history:
                     HistoryView(store: state.history)
+                case .clipboard:
+                    ClipboardView(store: state.clipboard)
                 case .spaceLens:
                     SpaceLensView()
                 case .largeFiles:
