@@ -5,7 +5,7 @@ import Observation
 @MainActor
 @Observable
 final class AppState {
-    var selection: Module? = .dashboard
+    var selection: Module? = .hub
     let scans = ScanStore()
     let systemJunk = JunkStore(group: .system)
     let developerJunk = JunkStore(group: .developer)

@@ -7,7 +7,6 @@ import SwiftUI
 /// limit macOS puts on it — so nothing arrives as a surprise later.
 struct PlannedView: View {
     let module: Module
-    @State private var glow = false
 
     var body: some View {
         VStack(spacing: 22) {
@@ -19,8 +18,9 @@ struct PlannedView: View {
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     )
                 )
-                .shadow(color: Color.accentColor.opacity(glow ? 0.5 : 0.15), radius: glow ? 22 : 8)
-                .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: glow)
+                // A glow that pulsed forever redrew the window without pause, and the
+                // sidebar kept being pulled back to the selected row while it did.
+                .shadow(color: Color.accentColor.opacity(0.3), radius: 14)
 
             VStack(spacing: 8) {
                 Text(module.title)
@@ -44,6 +44,5 @@ struct PlannedView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(40)
         .navigationTitle(module.title)
-        .onAppear { glow = true }
     }
 }

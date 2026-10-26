@@ -27,7 +27,9 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 215, ideal: 235)
         } detail: {
             Group {
-                switch state.selection ?? .dashboard {
+                switch state.selection ?? .hub {
+                case .hub:
+                    HubView()
                 case .dashboard:
                     DashboardView()
                 case .history:

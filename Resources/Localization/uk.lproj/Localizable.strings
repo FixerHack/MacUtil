@@ -63,7 +63,7 @@
 
 /* Settings */
 "Language" = "Мова";
-"System" = "Системна";
+"System" = "Система";
 "Restart UniMacHub to apply the new language." = "Перезапустіть UniMacHub, щоб застосувати нову мову.";
 "Restart Now" = "Перезапустити";
 
@@ -1351,3 +1351,8 @@
 "What may listen for connections and what is reaching out, with a switch for each." = "Хто може приймати зʼєднання і хто виходить назовні — з перемикачем для кожного.";
 "Which apps hold which permissions, in one list." = "Які програми мають які дозволи — одним списком.";
 "Camera, microphone, screen, files and automation: which app was granted what, gathered in one list instead of a dozen panes." = "Камера, мікрофон, екран, файли й автоматизація: кому що дозволено, зібране в один список замість десятка панелей.";
+"Hub" = "Хаб";
+"Everything this Mac can be told, in one place." = "Усе, що можна сказати цьому Mac, в одному місці.";
+"Everything this Mac can be told, in one ring." = "Усе, що можна сказати цьому Mac, одним кільцем.";
+"Pick a section" = "Виберіть розділ";
+"Back to all sections" = "Назад до всіх розділів";
