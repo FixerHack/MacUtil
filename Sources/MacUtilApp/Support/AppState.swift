@@ -33,6 +33,8 @@ final class AppState {
     let slimming = SlimmingStore()
     let organize = OrganizeStore()
     let network = NetworkStore()
+    let terminal = TerminalStore()
+    let addOns = AddOnStore()
     private(set) var fullDiskAccess: FullDiskAccess.Status = .unknown
     private(set) var startupDisk: VolumeInfo?
     /// The Full Disk Access guide; opens on launch while access is missing.

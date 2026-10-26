@@ -62,9 +62,15 @@ struct ProjectBuildsView: View {
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
             Spacer()
-            Text("Only what one command rebuilds is selected.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if store.excluded.isEmpty {
+                Text("Only what one command rebuilds is selected.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("\(store.excluded.count) folders now stay out of Time Machine.")
+                    .font(.caption)
+                    .foregroundStyle(Color.accentColor)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
@@ -130,6 +136,10 @@ struct ProjectBuildsView: View {
                 .monospacedDigit()
                 .font(.headline)
             Spacer()
+            Button("Keep Out of Backups") { Task { await store.excludeFromBackups() } }
+                .controlSize(.large)
+                .disabled(store.selection.isEmpty)
+                .help("Leaves the folders where they are and stops Time Machine copying them.")
             Button("Move to Trash…") { confirming = true }
                 .prominentButton()
                 .controlSize(.large)

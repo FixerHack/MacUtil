@@ -13,6 +13,8 @@ final class ProjectBuildsStore {
 
     private(set) var phase = Phase.idle
     private(set) var artifacts: [BuildArtifact] = []
+    /// Folders that were just taken out of Time Machine, to say so on screen.
+    private(set) var excluded = Set<String>()
     var selection = Set<String>()
 
     var isBusy: Bool {
@@ -65,6 +67,19 @@ final class ProjectBuildsStore {
         let result = await Cleaner().clean(targets, mode: .trash, source: "projects")
         selection = []
         phase = .done(result)
+    }
+
+    /// Keeps the chosen folders out of Time Machine instead of removing them.
+    ///
+    /// A different job from cleaning: no disk space comes back, but the backups stop
+    /// carrying folders that a single command would rebuild.
+    func excludeFromBackups() async {
+        let chosen = artifacts.filter { selection.contains($0.id) }
+        guard !chosen.isEmpty else { return }
+        phase = .cleaning
+        excluded = await BackupExclusions.setExcluded(true, paths: chosen.map(\.path))
+            ? Set(chosen.map(\.path)) : []
+        phase = .ready
     }
 
     func finish() async {

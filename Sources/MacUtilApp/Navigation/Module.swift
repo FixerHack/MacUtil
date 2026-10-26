@@ -35,7 +35,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
     case uninstaller, leftovers, updater, slimming
     case networkAdapters
     case securityAnalyzer
-    case loginItems, maintenance, taskManager, hiddenSettings
+    case loginItems, maintenance, taskManager, hiddenSettings, terminal, addOns
 
     var id: Self { self }
 
@@ -50,7 +50,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .uninstaller, .leftovers, .updater, .slimming: .applications
         case .networkAdapters: .network
         case .securityAnalyzer: .security
-        case .loginItems, .maintenance, .taskManager, .hiddenSettings: .optimization
+        case .loginItems, .maintenance, .taskManager, .hiddenSettings, .terminal, .addOns: .optimization
         }
     }
 
@@ -82,6 +82,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .maintenance: "Maintenance"
         case .taskManager: "Task Manager"
         case .hiddenSettings: "Hidden Settings"
+        case .terminal: "Terminal"
+        case .addOns: "System Add-ons"
         }
     }
 
@@ -113,6 +115,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .maintenance: "Rebuild caches and indexes, flush DNS, verify the disk."
         case .taskManager: "Everything running now, with what it costs and what you can do about it."
         case .hiddenSettings: "macOS settings that are not in System Settings."
+        case .terminal: "Settings zsh, Git and ssh already have, in words and switchable."
+        case .addOns: "Extensions, plug-ins, software needing Rosetta and files iCloud already holds."
         }
     }
 
@@ -144,6 +148,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .maintenance: "wrench.and.screwdriver"
         case .taskManager: "cpu"
         case .hiddenSettings: "slider.horizontal.3"
+        case .terminal: "terminal"
+        case .addOns: "puzzlepiece.extension"
         }
     }
 
@@ -164,6 +170,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .disks, .fileRecovery: 10
         case .folderOrganizer: 13
         case .networkAdapters: 14
+        case .terminal, .addOns: 15
         case .updater: 9
         case .slimming: 12
         }

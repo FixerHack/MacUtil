@@ -1,3 +1,4 @@
+import AppKit
 import CleanerCore
 import SecurityCore
 import SwiftUI
@@ -167,7 +168,14 @@ struct HiddenSettingsView: View {
                     ForEach(HiddenSettings.all.filter { $0.section == section }) { setting in
                         HiddenSettingRow(setting: setting, store: store)
                     }
+                    if section == .screenshots {
+                        ScreenshotFolderRow()
+                    }
                 }
+            }
+
+            Section("Apple Intelligence") {
+                AppleIntelligenceLinks()
             }
         }
         .formStyle(.grouped)
@@ -186,6 +194,78 @@ struct HiddenSettingsView: View {
             Button("Cancel", role: .cancel) {}
         }
         .task { store.load() }
+    }
+}
+
+/// Where screenshots are saved. A folder, so it needs a picker rather than a switch.
+private struct ScreenshotFolderRow: View {
+    @State private var folder = ""
+    @State private var problem: LocalizedStringResource?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabeledContent("Save screenshots to") {
+                HStack(spacing: 8) {
+                    Text(verbatim: FinderActions.abbreviate(folder))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                    Button("Choose…") { choose() }
+                    Button("Default") {
+                        Task {
+                            await ScreenshotFolder.reset()
+                            await refresh()
+                        }
+                    }
+                }
+            }
+            if let problem {
+                Text(problem).font(.caption).foregroundStyle(.orange)
+            }
+        }
+        .task { await refresh() }
+    }
+
+    private func refresh() async {
+        folder = await ScreenshotFolder.current()
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.message = String(localized: "Choose where screenshots are saved.")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task {
+            problem = await ScreenshotFolder.set(url.path(percentEncoded: false))
+            await refresh()
+        }
+    }
+}
+
+/// Apple Intelligence has real switches of its own, so this leads to them rather than
+/// writing hidden keys behind Apple's back — which would drift the moment macOS changes.
+private struct AppleIntelligenceLinks: View {
+    private static let panes: [(LocalizedStringKey, String)] = [
+        ("Siri and Apple Intelligence", "com.apple.Siri-Settings.extension"),
+        ("Notification summaries", "com.apple.Notifications-Settings.extension"),
+        ("Screen Time and content limits", "com.apple.Screen-Time-Settings.extension"),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("These have switches of their own in System Settings, which is where they belong.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ForEach(Self.panes, id: \.1) { pane in
+                Button(pane.0) {
+                    if let url = URL(string: "x-apple.systempreferences:\(pane.1)") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.link)
+            }
+        }
     }
 }
 

@@ -136,6 +136,32 @@ public enum AppSlimming {
         }
     }
 
+    /// The architectures of any Mach-O, whether it carries several or only one.
+    ///
+    /// A universal binary opens with a big-endian fat header; a plain one opens with its own
+    /// magic and names a single architecture. Telling them apart matters for the opposite
+    /// question to slimming: what has *no* native code and so needs Rosetta.
+    public static func architectures(ofMachO path: String) -> [UInt32] {
+        if let slices = architectures(of: path) { return slices.map(\.cpuType) }
+        guard let handle = FileHandle(forReadingAtPath: path) else { return [] }
+        defer { try? handle.close() }
+        guard let header = try? handle.read(upToCount: 8), header.count == 8 else { return [] }
+
+        // Mach-O headers are written in the byte order of the machine they are for, so both
+        // spellings of the magic appear on disk.
+        let magic = le32(header, 0)
+        guard magic == 0xFEED_FACF || magic == 0xFEED_FACE
+            || magic == 0xCFFA_EDFE || magic == 0xCEFA_EDFE
+        else { return [] }
+        let swapped = magic == 0xCFFA_EDFE || magic == 0xCEFA_EDFE
+        return [swapped ? be32(header, 4) : le32(header, 4)]
+    }
+
+    private static func le32(_ data: Data, _ offset: Int) -> UInt32 {
+        let bytes = data[data.startIndex + offset ..< data.startIndex + offset + 4]
+        return bytes.reversed().reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
+    }
+
     private static func be32(_ data: Data, _ offset: Int) -> UInt32 {
         let bytes = data[data.startIndex + offset ..< data.startIndex + offset + 4]
         return bytes.reduce(UInt32(0)) { $0 << 8 | UInt32($1) }

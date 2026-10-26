@@ -70,6 +70,10 @@ struct ContentView: View {
                     JunkView(module: .leftovers, store: state.leftovers)
                 case .slimming:
                     SlimmingView(store: state.slimming)
+                case .addOns:
+                    AddOnsView(store: state.addOns)
+                case .terminal:
+                    TerminalView(store: state.terminal)
                 case .networkAdapters:
                     NetworkView(store: state.network)
                 case .securityAnalyzer:
