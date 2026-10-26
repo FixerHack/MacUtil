@@ -127,7 +127,7 @@ private struct AppDetail: View {
     @State private var confirming: Action?
 
     enum Action: Identifiable {
-        case uninstall, reset
+        case uninstall, reset, homebrew, homebrewZap
         var id: Self { self }
     }
 
@@ -151,14 +151,43 @@ private struct AppDetail: View {
             }),
             presenting: confirming
         ) { action in
-            Button(action == .reset ? "Remove Data" : "Move to Trash", role: .destructive) {
-                Task { await store.remove(app, includingApp: action == .uninstall) }
+            Button(confirmTitle(for: action), role: .destructive) {
+                Task {
+                    switch action {
+                    case .reset: await store.remove(app, includingApp: false)
+                    case .uninstall: await store.remove(app, includingApp: true)
+                    case .homebrew, .homebrewZap:
+                        if let cask = store.selectedCask {
+                            await store.removeWithHomebrew(cask, zap: action == .homebrewZap)
+                        }
+                    }
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: { action in
-            Text(action == .reset
-                ? "The selected data moves to the Trash. The app stays and starts fresh, as on first launch."
-                : "The app and the selected data move to the Trash. You can restore them until you empty it.")
+            Text(message(for: action))
+        }
+    }
+
+    private func message(for action: Action) -> LocalizedStringKey {
+        switch action {
+        case .reset:
+            "The selected data moves to the Trash. The app stays and starts fresh, as on first launch."
+        case .uninstall:
+            "The app and the selected data move to the Trash. You can restore them until you empty it."
+        case .homebrew:
+            "Homebrew removes what it installed and stops listing the app. This does not go through the Trash."
+        case .homebrewZap:
+            "Homebrew removes the app and everything the cask itself names: caches, settings, launch agents. This does not go through the Trash and cannot be undone."
+        }
+    }
+
+    private func confirmTitle(for action: Action) -> LocalizedStringKey {
+        switch action {
+        case .reset: "Remove Data"
+        case .uninstall: "Move to Trash"
+        case .homebrew: "Let Homebrew Remove It"
+        case .homebrewZap: "Remove Everything"
         }
     }
 
@@ -232,9 +261,22 @@ private struct AppDetail: View {
             Button("Reset…") { confirming = .reset }
                 .disabled(store.selectedLeftovers.isEmpty || isRunning)
                 .help("Remove the app's data but keep the app")
-            Button("Uninstall…") { confirming = .uninstall }
-                .prominentButton()
+            if let cask = store.selectedCask {
+                // Homebrew put this app here and still lists it, so it should take it away.
+                Menu("Uninstall…") {
+                    Button("With Homebrew") { confirming = .homebrew }
+                    Button("With Homebrew, and everything it names") { confirming = .homebrewZap }
+                    Divider()
+                    Button("Move to Trash Instead") { confirming = .uninstall }
+                }
+                .menuStyle(.button)
                 .disabled(isRunning)
+                .help(Text(verbatim: "brew uninstall --cask \(cask.token)"))
+            } else {
+                Button("Uninstall…") { confirming = .uninstall }
+                    .prominentButton()
+                    .disabled(isRunning)
+            }
         }
         .controlSize(.large)
     }
@@ -261,6 +303,10 @@ private struct LeftoverRow: View {
             } else if item.match == .name {
                 Badge(title: "Matched by name", color: .orange)
                     .help("Named like the app, not by its identifier. Check before removing.")
+            } else {
+                // Every file says why it is here, not only the doubtful ones.
+                Badge(title: "Matched by identifier", color: .green)
+                    .help("Named after the app's bundle identifier, which nothing else uses.")
             }
             Spacer()
             Text(verbatim: item.size.formatted(.byteCount(style: .file)))

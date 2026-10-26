@@ -11,12 +11,16 @@ public enum Command {
     public static func run(
         _ executable: String,
         _ arguments: [String] = [],
-        timeout: Duration = .seconds(15)
+        timeout: Duration = .seconds(15),
+        environment: [String: String] = [:]
     ) async -> Output? {
         await Task.detached {
             let process = Process()
             process.executableURL = URL(filePath: executable)
             process.arguments = arguments
+            if !environment.isEmpty {
+                process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
+            }
             let pipe = Pipe()
             process.standardOutput = pipe
             process.standardError = pipe

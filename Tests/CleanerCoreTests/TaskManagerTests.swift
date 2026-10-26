@@ -122,9 +122,19 @@ struct DiskInventoryTests {
 /// Disk work is tried on a disk image made for the test, never on a real disk.
 @Suite(.serialized) struct DiskOperationsTests {
 
-    /// `hdiutil attach` returns before the volume is always listed, so looking once and
-    /// giving up makes the test fail for no reason — which it did, on the build runner.
-    private func disk(withVolume name: String, within seconds: TimeInterval = 15) async -> StorageDisk? {
+    /// `hdiutil attach` returns before the volume is mounted, so the disk has to be waited for.
+    ///
+    /// The waiting is done on `/Volumes/<name>`, which is one `stat`. Polling the inventory
+    /// instead runs `diskutil` several times per attempt, and while the rest of the suite is
+    /// scanning and carving that takes seconds — so a wait spent querying managed only a few
+    /// attempts before giving up, which is how this failed under a full test run and nowhere else.
+    private func disk(withVolume name: String, within seconds: TimeInterval = 30) async -> StorageDisk? {
+        let mountPoint = "/Volumes/\(name)"
+        let mounted = Date().addingTimeInterval(seconds)
+        while !FileManager.default.fileExists(atPath: mountPoint), Date() < mounted {
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+
         let deadline = Date().addingTimeInterval(seconds)
         while true {
             let disks = await DiskInventory.load()

@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SidebarSection: CaseIterable, Identifiable {
-    case overview, cleanup, organize, space, recovery, search, applications, security, optimization
+    case overview, cleanup, organize, space, recovery, search, applications, network, security, optimization
 
     var id: Self { self }
 
@@ -14,6 +14,7 @@ enum SidebarSection: CaseIterable, Identifiable {
         case .recovery: "Recovery"
         case .search: "Search"
         case .applications: "Applications"
+        case .network: "Network"
         case .security: "Security"
         case .optimization: "Optimization"
         }
@@ -32,6 +33,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
     case fileRecovery
     case deepSearch
     case uninstaller, leftovers, updater, slimming
+    case networkAdapters
     case securityAnalyzer
     case loginItems, maintenance, taskManager, hiddenSettings
 
@@ -46,6 +48,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .fileRecovery: .recovery
         case .deepSearch: .search
         case .uninstaller, .leftovers, .updater, .slimming: .applications
+        case .networkAdapters: .network
         case .securityAnalyzer: .security
         case .loginItems, .maintenance, .taskManager, .hiddenSettings: .optimization
         }
@@ -73,6 +76,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .leftovers: "Leftovers"
         case .updater: "Updater"
         case .slimming: "Slim Down Apps"
+        case .networkAdapters: "Network Adapters"
         case .securityAnalyzer: "Security Analyzer"
         case .loginItems: "Login Items"
         case .maintenance: "Maintenance"
@@ -103,6 +107,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .leftovers: "Files left behind by apps that are already deleted."
         case .updater: "Check your apps for updates."
         case .slimming: "Remove the machine code your Mac never runs."
+        case .networkAdapters: "Every network interface, what it carries and which one macOS uses."
         case .securityAnalyzer: "Signatures, permissions, security settings and VirusTotal checks."
         case .loginItems: "Everything that starts with your Mac."
         case .maintenance: "Rebuild caches and indexes, flush DNS, verify the disk."
@@ -133,6 +138,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .leftovers: "shippingbox"
         case .updater: "arrow.down.app"
         case .slimming: "arrow.down.right.and.arrow.up.left"
+        case .networkAdapters: "network"
         case .securityAnalyzer: "checkmark.shield"
         case .loginItems: "power"
         case .maintenance: "wrench.and.screwdriver"
@@ -157,6 +163,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .installers, .projectBuilds: 12
         case .disks, .fileRecovery: 10
         case .folderOrganizer: 13
+        case .networkAdapters: 14
         case .updater: 9
         case .slimming: 12
         }

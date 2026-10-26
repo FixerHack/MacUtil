@@ -15,6 +15,10 @@ final class UninstallerStore {
     private(set) var apps: [AppRecord] = []
     private(set) var leftovers: [Leftover] = []
     private(set) var isLoadingLeftovers = false
+    /// Casks Homebrew has on this Mac, read once from its Caskroom.
+    private(set) var casks: [HomebrewCask] = []
+    /// What Homebrew did when it was asked to remove the selected app.
+    private(set) var homebrewOutput: String?
     var selectedLeftovers = Set<Leftover.ID>()
     var selectedAppID: AppRecord.ID? {
         didSet {
@@ -28,12 +32,20 @@ final class UninstallerStore {
         apps.first { $0.id == selectedAppID }
     }
 
+    /// The cask that installed the selected app, if Homebrew put it there.
+    var selectedCask: HomebrewCask? {
+        guard let app = selectedApp else { return nil }
+        return HomebrewCasks.cask(forAppAt: app.path, in: casks)
+    }
+
     var selectedLeftoverSize: Int64 {
         leftovers.filter { selectedLeftovers.contains($0.id) }.reduce(0) { $0 + $1.size }
     }
 
     func load() async {
         phase = .loading
+        homebrewOutput = nil
+        casks = await Task.detached { HomebrewCasks.installed() }.value
         apps = await AppCatalog.scan()
         phase = .ready
         if selectedApp == nil {
@@ -64,6 +76,22 @@ final class UninstallerStore {
         // Give the app a moment to save and quit.
         for _ in 0 ..< 20 where runningApp(for: app) != nil {
             try? await Task.sleep(for: .milliseconds(250))
+        }
+    }
+
+    /// Hands the removal to Homebrew, which installed the app and still believes it is here.
+    ///
+    /// Deleting a cask's files by hand leaves Homebrew listing an app that is gone and trying
+    /// to upgrade it. `zap` also runs the clean-up the cask itself describes, which reaches
+    /// further than anything we could infer.
+    func removeWithHomebrew(_ cask: HomebrewCask, zap: Bool) async {
+        phase = .working
+        let output = await HomebrewCasks.uninstall(cask, zap: zap)
+        homebrewOutput = output?.text
+        if output?.status == 0 {
+            await finish()
+        } else {
+            phase = .ready
         }
     }
 
