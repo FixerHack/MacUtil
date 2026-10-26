@@ -16,8 +16,20 @@ struct TaskManagerTests {
         #expect(process.name == "Safari")
         #expect(process.isApp)
         #expect(process.appBundlePath == "/Applications/Safari.app")
-        // A process id that is not running has no kernel data, so no start time either.
-        #expect(process.startedAt == nil)
+    }
+
+    /// The start time does not come from the text at all: `ps` prints it in the locale's
+    /// own words, so it is read from the kernel by process id. Asserting it is empty for a
+    /// made-up line only holds while nothing happens to be running under that number, which
+    /// is true here and was not on the build runner.
+    @Test func takesTheStartTimeFromTheKernel() throws {
+        let mine = ProcessInfo.processInfo.processIdentifier
+        let started = try #require(TaskManager.kernelInfo(pid: mine).startedAt)
+        #expect(started <= Date())
+        #expect(started > Date().addingTimeInterval(-86400))
+
+        // A number no process can have returns nothing rather than a wrong answer.
+        #expect(TaskManager.kernelInfo(pid: -1).startedAt == nil)
     }
 
     @Test func keepsSpacesInsideAPath() throws {
