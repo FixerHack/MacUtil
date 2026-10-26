@@ -7,9 +7,25 @@ import Foundation
 /// between two marker lines: the rest of the file is copied through untouched, and removing
 /// the block puts the file back exactly as it was.
 public enum ManagedBlock {
-    public static let begin = "# >>> MacUtil >>>"
-    public static let end = "# <<< MacUtil <<<"
-    static let note = "# Lines between these markers are MacUtil's. Everything else is yours."
+    public static let begin = "# >>> UniMacHub >>>"
+    public static let end = "# <<< UniMacHub <<<"
+    static let note = "# Lines between these markers are UniMacHub's. Everything else is yours."
+
+    /// The markers written before the app was renamed. A block already in someone's file
+    /// has to stay findable, or the app would lose the ability to take its own lines back out.
+    static let previous = (begin: "# >>> MacUtil >>>", end: "# <<< MacUtil <<<")
+    static let previousNote = "# Lines between these markers are MacUtil's. Everything else is yours."
+
+    /// Where the block sits in these lines, under either pair of markers.
+    static func range(in lines: [String]) -> ClosedRange<Int>? {
+        for pair in [(begin, end), previous] {
+            guard let start = lines.firstIndex(of: pair.0),
+                  let finish = lines[start...].firstIndex(of: pair.1)
+            else { continue }
+            return start ... finish
+        }
+        return nil
+    }
 
     /// The lines MacUtil currently keeps in that file.
     public static func read(from path: String) -> [String] {
@@ -19,10 +35,9 @@ public enum ManagedBlock {
 
     static func read(in text: String) -> [String] {
         let lines = text.components(separatedBy: "\n")
-        guard let start = lines.firstIndex(of: begin), let finish = lines[start...].firstIndex(of: end),
-              start + 1 < finish
-        else { return [] }
-        return Array(lines[(start + 1) ..< finish]).filter { $0 != note }
+        guard let range = range(in: lines), range.lowerBound + 1 < range.upperBound else { return [] }
+        return Array(lines[(range.lowerBound + 1) ..< range.upperBound])
+            .filter { $0 != note && $0 != previousNote }
     }
 
     /// Replaces the block with these lines, or takes it out when there are none.
@@ -42,8 +57,8 @@ public enum ManagedBlock {
 
     static func replacing(_ lines: [String], in text: String) -> String {
         var kept = text.components(separatedBy: "\n")
-        if let start = kept.firstIndex(of: begin), let finish = kept[start...].firstIndex(of: end) {
-            kept.removeSubrange(start ... finish)
+        if let range = range(in: kept) {
+            kept.removeSubrange(range)
             // A file that ended with the block keeps its single trailing newline.
             while kept.count > 1, kept.last == "", kept[kept.count - 2] == "" {
                 kept.removeLast()

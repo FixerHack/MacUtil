@@ -46,7 +46,7 @@ public enum AppUpdates {
                 let build = info["CFBundleVersion"] as? String ?? installed
                 group.addTask {
                     var request = URLRequest(url: feed, timeoutInterval: 15)
-                    request.setValue("MacUtil", forHTTPHeaderField: "User-Agent")
+                    request.setValue("UniMacHub", forHTTPHeaderField: "User-Agent")
                     guard let (data, _) = try? await session.data(for: request),
                           let latest = latestAppcastItem(data)
                     else { return nil }

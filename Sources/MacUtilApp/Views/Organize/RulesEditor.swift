@@ -35,7 +35,7 @@ struct RulesEditor: View {
                     store.update(updated)
                 }
             ))
-            Text("Watching happens only while MacUtil is open.")
+            Text("Watching happens only while UniMacHub is open.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

@@ -32,7 +32,7 @@ struct TerminalView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Everything MacUtil adds goes between two marked lines in your files. The rest is left exactly as you wrote it, and turning a setting off takes its lines back out.")
+            Text("Everything UniMacHub adds goes between two marked lines in your files. The rest is left exactly as you wrote it, and turning a setting off takes its lines back out.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             if let problem = store.problem {

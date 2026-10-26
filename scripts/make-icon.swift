@@ -1,5 +1,8 @@
 // Draws the app icon and writes Resources/AppIcon.icns.
 //   swift scripts/make-icon.swift
+//
+// A core in orbit: the hub everything on the Mac is reached from. Candidates are drawn
+// side by side by scripts/make-icon-options.swift.
 import AppKit
 
 let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -32,24 +35,40 @@ func render(pixels: Int) -> Data {
     NSShadow().set()
 
     NSGradient(colors: [
-        NSColor(red: 0.20, green: 0.84, blue: 0.82, alpha: 1),
-        NSColor(red: 0.16, green: 0.42, blue: 0.95, alpha: 1),
-        NSColor(red: 0.40, green: 0.22, blue: 0.86, alpha: 1),
+        NSColor(red: 0.05, green: 0.07, blue: 0.18, alpha: 1),
+        NSColor(red: 0.18, green: 0.13, blue: 0.56, alpha: 1),
+        NSColor(red: 0.62, green: 0.18, blue: 0.70, alpha: 1),
     ])!.draw(in: shape, angle: -60)
 
     // Soft top highlight.
-    NSGradient(colors: [.white.withAlphaComponent(0.28), .white.withAlphaComponent(0)])!
+    NSGradient(colors: [.white.withAlphaComponent(0.22), .white.withAlphaComponent(0)])!
         .draw(in: shape, angle: -90)
 
-    let configuration = NSImage.SymbolConfiguration(pointSize: tile.width * 0.5, weight: .semibold)
-        .applying(.init(paletteColors: [.white]))
-    if let symbol = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)?
-        .withSymbolConfiguration(configuration)
-    {
-        let symbolSize = symbol.size
-        let origin = NSPoint(x: tile.midX - symbolSize.width / 2, y: tile.midY - symbolSize.height / 2)
-        symbol.draw(in: NSRect(origin: origin, size: symbolSize))
+    let centre = NSPoint(x: tile.midX, y: tile.midY)
+    let accent = NSColor(red: 0.45, green: 0.98, blue: 0.90, alpha: 1)
+
+    // Two tilted ellipses and a circle: an orbit read from the side and from above.
+    // The strokes thicken a little at small sizes, where a hairline would disappear.
+    let weight = pixels <= 32 ? 0.030 : 0.018
+    for (index, tilt) in [CGFloat(-28), 28, 90].enumerated() {
+        let isCircle = index == 2
+        let width = tile.width * (isCircle ? 0.46 : 0.62)
+        let height = tile.width * (isCircle ? 0.46 : 0.24)
+        let ring = NSBezierPath(ovalIn: NSRect(
+            x: -width / 2, y: -height / 2, width: width, height: height
+        ))
+        let turn = NSAffineTransform()
+        turn.translateX(by: centre.x, yBy: centre.y)
+        turn.rotate(byDegrees: tilt)
+        ring.transform(using: turn as AffineTransform)
+        ring.lineWidth = size * weight
+        accent.withAlphaComponent(isCircle ? 0.9 : 0.6).setStroke()
+        ring.stroke()
     }
+
+    let core = size * 0.075
+    NSColor.white.setFill()
+    NSBezierPath(ovalIn: NSRect(x: centre.x - core, y: centre.y - core, width: core * 2, height: core * 2)).fill()
 
     NSGraphicsContext.restoreGraphicsState()
     return bitmap.representation(using: .png, properties: [:])!

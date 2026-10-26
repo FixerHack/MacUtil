@@ -102,7 +102,7 @@ public enum DiskBenchmark {
         public var errorDescription: String? {
             switch self {
             case let .notWritable(name):
-                String(localized: "MacUtil cannot write to \(name), so it cannot measure its speed.")
+                String(localized: "UniMacHub cannot write to \(name), so it cannot measure its speed.")
             case let .failed(message):
                 message
             }
@@ -192,7 +192,7 @@ public enum LocalSnapshots {
             return DiskOperations.Outcome(succeeded: true, output: plain?.text ?? "", wasCancelled: false, command: command)
         }
         let elevated = await AdminRunner.run([command], prompt: String(
-            localized: "MacUtil needs your password to delete this local snapshot."
+            localized: "UniMacHub needs your password to delete this local snapshot."
         ))
         return DiskOperations.Outcome(
             succeeded: elevated.succeeded, output: elevated.text, wasCancelled: elevated.wasCancelled, command: command

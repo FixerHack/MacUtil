@@ -24,8 +24,7 @@ public final class ActionLog: Sendable {
     }
 
     public static let standard = ActionLog(
-        url: FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Application Support/MacUtil/History.jsonl")
+        url: AppPaths.file("History.jsonl")
     )
 
     public let url: URL

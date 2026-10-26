@@ -47,7 +47,7 @@ struct UninstallerView: View {
                         ContentUnavailableView(
                             "Choose an app",
                             systemImage: "trash.square",
-                            description: Text("MacUtil shows the app together with the data it keeps in your Library.")
+                            description: Text("UniMacHub shows the app together with the data it keeps in your Library.")
                         )
                         .frame(maxWidth: .infinity)
                     }

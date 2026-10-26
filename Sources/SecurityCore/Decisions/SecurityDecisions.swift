@@ -39,8 +39,7 @@ public struct SecurityDecision: Codable, Sendable, Hashable, Identifiable {
 /// Remembers which findings are settled, so a clean app stops being reported every scan.
 public final class SecurityDecisions: Sendable {
     public static let standard = SecurityDecisions(
-        url: FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Application Support/MacUtil/SecurityDecisions.json")
+        url: AppPaths.file("SecurityDecisions.json")
     )
 
     private let url: URL

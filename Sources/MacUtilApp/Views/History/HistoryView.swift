@@ -38,7 +38,7 @@ struct HistoryView: View {
             ContentUnavailableView {
                 Label("Nothing cleaned yet", systemImage: "clock.arrow.circlepath")
             } description: {
-                Text("Once MacUtil removes something, it is listed here with the date, the size and every path.")
+                Text("Once UniMacHub removes something, it is listed here with the date, the size and every path.")
             }
             .frame(maxWidth: .infinity)
         } else {

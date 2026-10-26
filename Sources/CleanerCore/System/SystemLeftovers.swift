@@ -159,7 +159,7 @@ public enum SystemLeftovers {
                 .joined(separator: " ; ")
         }
         let result = await AdminRunner.run([command], prompt: String(
-            localized: "MacUtil needs your password to remove what macOS left after updating."
+            localized: "UniMacHub needs your password to remove what macOS left after updating."
         ))
         return DiskOperations.Outcome(
             succeeded: result.succeeded, output: result.text, wasCancelled: result.wasCancelled, command: command

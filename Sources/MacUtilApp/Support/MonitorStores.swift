@@ -93,7 +93,7 @@ final class MenuBarMonitor {
             id: "lowDisk",
             title: String(localized: "Your disk is almost full"),
             body: String(
-                localized: "Only \(disk.availableCapacity.formatted(.byteCount(style: .file))) left. Open MacUtil to free up space."
+                localized: "Only \(disk.availableCapacity.formatted(.byteCount(style: .file))) left. Open UniMacHub to free up space."
             )
         )
     }
@@ -140,7 +140,7 @@ enum Notifications {
         }
         let content = UNMutableNotificationContent()
         content.title = String(localized: "Time for a cleanup")
-        content.body = String(localized: "Run Smart Scan in MacUtil to free up space and check your Mac's security.")
+        content.body = String(localized: "Run Smart Scan in UniMacHub to free up space and check your Mac's security.")
         center.add(UNNotificationRequest(
             identifier: "cleanupReminder", content: content,
             trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)

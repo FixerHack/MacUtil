@@ -225,7 +225,7 @@ final class RecoveryStore {
     /// The same scan, run by the bundled tool with a password, because the disk belongs to root.
     private func scanAsAdministrator(device: String, output: URL) async {
         guard let tool = Bundle.main.url(forResource: "mucli", withExtension: nil) else {
-            message = String(localized: "The scanning tool is missing from this copy of MacUtil.")
+            message = String(localized: "The scanning tool is missing from this copy of UniMacHub.")
             return
         }
         scanProgress = FileCarver.Progress()
@@ -249,7 +249,7 @@ final class RecoveryStore {
 
         let command = "'\(tool.path)' carve \(device) --out '\(output.path)' --uid \(getuid()) --json"
         let result = await AdminRunner.run([command], prompt: String(
-            localized: "MacUtil needs your password to read this disk. Nothing is written to it."
+            localized: "UniMacHub needs your password to read this disk. Nothing is written to it."
         ))
         try? FileManager.default.removeItem(at: output.appending(path: ".macutil-progress.json"))
         guard !result.wasCancelled else { return }
@@ -314,12 +314,12 @@ final class RecoveryStore {
 
     private func quickScanAsAdministrator(volume: StorageVolume) async {
         guard let tool = Bundle.main.url(forResource: "mucli", withExtension: nil) else {
-            message = String(localized: "The scanning tool is missing from this copy of MacUtil.")
+            message = String(localized: "The scanning tool is missing from this copy of UniMacHub.")
             return
         }
         let result = await AdminRunner.run(
             ["'\(tool.path)' undelete \(volume.id) --list --json"],
-            prompt: String(localized: "MacUtil needs your password to read this disk. Nothing is written to it.")
+            prompt: String(localized: "UniMacHub needs your password to read this disk. Nothing is written to it.")
         )
         guard !result.wasCancelled else { return }
         guard result.succeeded else {
@@ -353,7 +353,7 @@ final class RecoveryStore {
         guard let tool = Bundle.main.url(forResource: "mucli", withExtension: nil) else { return }
         let result = await AdminRunner.run(
             ["'\(tool.path)' undelete \(volume.id) --out '\(output.path)' --uid \(getuid()) --json"],
-            prompt: String(localized: "MacUtil needs your password to read this disk. Nothing is written to it.")
+            prompt: String(localized: "UniMacHub needs your password to read this disk. Nothing is written to it.")
         )
         guard !result.wasCancelled else { return }
         let restored = Self.parseRecords(result.text).count

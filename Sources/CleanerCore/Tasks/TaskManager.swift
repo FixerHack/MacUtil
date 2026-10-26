@@ -269,7 +269,7 @@ public struct TaskManager: Sendable {
         if setpriority(PRIO_PROCESS, UInt32(pid), niceness) == 0 { return true }
         let result = await AdminRunner.run(
             ["/usr/bin/renice \(niceness) -p \(pid)"],
-            prompt: String(localized: "MacUtil needs your password to change the priority of this program.")
+            prompt: String(localized: "UniMacHub needs your password to change the priority of this program.")
         )
         return result.succeeded
     }

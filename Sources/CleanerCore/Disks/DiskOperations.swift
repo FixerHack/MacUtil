@@ -52,7 +52,7 @@ public enum DiskOperations {
 
     public static func eject(_ disk: StorageDisk) async -> Outcome {
         guard !disk.isStartupDisk else { return .refused(startupDiskReason(disk)) }
-        return await run(["eject", disk.id], prompt: String(localized: "MacUtil needs your password to eject this disk."))
+        return await run(["eject", disk.id], prompt: String(localized: "UniMacHub needs your password to eject this disk."))
     }
 
     /// Checks the file system without changing anything.
@@ -76,7 +76,7 @@ public enum DiskOperations {
         guard !volume.isSystemOwned else { return .refused(systemVolumeReason(volume)) }
         guard isValidName(name) else { return .refused(invalidNameReason) }
         return await run(["rename", volume.id, name], prompt: String(
-            localized: "MacUtil needs your password to rename this volume."
+            localized: "UniMacHub needs your password to rename this volume."
         ))
     }
 
@@ -97,7 +97,7 @@ public enum DiskOperations {
         }
         return await run(
             ["eraseVolume", format.rawValue, name, volume.id],
-            prompt: String(localized: "MacUtil needs your password to erase this volume."),
+            prompt: String(localized: "UniMacHub needs your password to erase this volume."),
             timeout: .seconds(900)
         )
     }
@@ -109,14 +109,14 @@ public enum DiskOperations {
         var arguments = ["apfs", "addVolume", container, "APFS", name]
         if let quota { arguments += ["-quota", "\(quota)"] }
         return await run(arguments, prompt: String(
-            localized: "MacUtil needs your password to add a volume to this container."
+            localized: "UniMacHub needs your password to add a volume to this container."
         ))
     }
 
     public static func deleteVolume(_ volume: StorageVolume) async -> Outcome {
         guard !volume.isSystemOwned else { return .refused(systemVolumeReason(volume)) }
         return await run(["apfs", "deleteVolume", volume.id], prompt: String(
-            localized: "MacUtil needs your password to delete this volume."
+            localized: "UniMacHub needs your password to delete this volume."
         ))
     }
 
@@ -125,7 +125,7 @@ public enum DiskOperations {
         guard !volume.isSystemOwned else { return .refused(systemVolumeReason(volume)) }
         return await run(
             ["apfs", "resizeVolume", volume.id, quota.map(String.init) ?? "none"],
-            prompt: String(localized: "MacUtil needs your password to change this volume's limit.")
+            prompt: String(localized: "UniMacHub needs your password to change this volume's limit.")
         )
     }
 
@@ -136,12 +136,12 @@ public enum DiskOperations {
     public static func resizeContainer(_ container: String, to size: Int64, startupDisk: Bool) async -> Outcome {
         guard !startupDisk else {
             return .refused(String(
-                localized: "MacUtil does not resize the disk macOS runs from. Do that from Recovery, with a backup at hand."
+                localized: "UniMacHub does not resize the disk macOS runs from. Do that from Recovery, with a backup at hand."
             ))
         }
         return await run(
             ["apfs", "resizeContainer", container, "\(size)"],
-            prompt: String(localized: "MacUtil needs your password to resize this container."),
+            prompt: String(localized: "UniMacHub needs your password to resize this container."),
             timeout: .seconds(3600)
         )
     }
@@ -160,7 +160,7 @@ public enum DiskOperations {
         }
         return await run(
             arguments,
-            prompt: String(localized: "MacUtil needs your password to repartition this disk."),
+            prompt: String(localized: "UniMacHub needs your password to repartition this disk."),
             timeout: .seconds(3600)
         )
     }
@@ -209,17 +209,17 @@ public enum DiskOperations {
     private static let invalidNameReason = String(
         localized: "Pick a name of up to 127 characters, without a slash or a colon."
     )
-    private static let firstAidPrompt = String(localized: "MacUtil needs your password to check this volume.")
+    private static let firstAidPrompt = String(localized: "UniMacHub needs your password to check this volume.")
 
     private static func mountPrompt(_ volume: StorageVolume) -> String {
-        String(localized: "MacUtil needs your password to mount or unmount \(volume.name).")
+        String(localized: "UniMacHub needs your password to mount or unmount \(volume.name).")
     }
 
     private static func systemVolumeReason(_ volume: StorageVolume) -> String {
-        String(localized: "\(volume.name) is part of macOS, so MacUtil leaves it alone.")
+        String(localized: "\(volume.name) is part of macOS, so UniMacHub leaves it alone.")
     }
 
     private static func startupDiskReason(_ disk: StorageDisk) -> String {
-        String(localized: "This is the disk macOS runs from, so MacUtil leaves it alone.")
+        String(localized: "This is the disk macOS runs from, so UniMacHub leaves it alone.")
     }
 }

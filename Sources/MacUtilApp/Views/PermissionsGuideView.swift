@@ -24,7 +24,7 @@ struct PermissionsGuideView: View {
             if isOutsideApplications {
                 Label {
                     Text(
-                        "MacUtil is not in the Applications folder. Move it there first, otherwise macOS may forget the permission."
+                        "UniMacHub is not in the Applications folder. Move it there first, otherwise macOS may forget the permission."
                     )
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -43,12 +43,12 @@ struct PermissionsGuideView: View {
                 }
                 GuideStep(number: 2, isDone: isGranted) {
                     Text(
-                        "Find MacUtil in the list and turn on its switch. macOS asks for your password or Touch ID."
+                        "Find UniMacHub in the list and turn on its switch. macOS asks for your password or Touch ID."
                     )
                     HStack(spacing: 14) {
                         AppIconDragSource()
                         Text(
-                            "Not in the list? Drag this icon into the list, or click + below the list and choose MacUtil."
+                            "Not in the list? Drag this icon into the list, or click + below the list and choose UniMacHub."
                         )
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -57,7 +57,7 @@ struct PermissionsGuideView: View {
                 }
                 GuideStep(number: 3, isDone: isGranted) {
                     Text(
-                        "If macOS offers to quit and reopen MacUtil, choose either option. MacUtil notices the change by itself."
+                        "If macOS offers to quit and reopen UniMacHub, choose either option. UniMacHub notices the change by itself."
                     )
                 }
             }
@@ -94,10 +94,10 @@ struct PermissionsGuideView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.orange, .orange.opacity(0.25))
             VStack(alignment: .leading, spacing: 6) {
-                Text("Allow MacUtil to see your whole disk")
+                Text("Allow UniMacHub to see your whole disk")
                     .font(.title2.bold())
                 Text(
-                    "Caches, mail attachments, browser data and the Trash are protected by macOS. Without Full Disk Access MacUtil cannot measure or clean them. Files never leave your Mac."
+                    "Caches, mail attachments, browser data and the Trash are protected by macOS. Without Full Disk Access UniMacHub cannot measure or clean them. Files never leave your Mac."
                 )
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

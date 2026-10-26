@@ -29,7 +29,7 @@ struct SettingsView: View {
 
             if needsRestart {
                 HStack {
-                    Text("Restart MacUtil to apply the new language.")
+                    Text("Restart UniMacHub to apply the new language.")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button("Restart Now") {
@@ -83,7 +83,7 @@ struct SettingsView: View {
                     Text("Every week").tag(ScheduledCleanup.Schedule.weekly)
                     Text("Every month").tag(ScheduledCleanup.Schedule.monthly)
                 }
-                Text("Only caches and logs MacUtil considers safe, and only from apps that are not running. Everything goes to the Trash.")
+                Text("Only caches and logs UniMacHub considers safe, and only from apps that are not running. Everything goes to the Trash.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
@@ -130,7 +130,7 @@ private struct ProtectedPathsSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Anything listed here is left out of every scan, however safe MacUtil thinks it is.")
+            Text("Anything listed here is left out of every scan, however safe UniMacHub thinks it is.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -171,7 +171,7 @@ private struct ProtectedPathsSettings: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
         panel.allowsMultipleSelection = true
-        panel.message = String(localized: "Choose what MacUtil should never remove.")
+        panel.message = String(localized: "Choose what UniMacHub should never remove.")
         guard panel.runModal() == .OK else { return }
         var updated = protected
         for url in panel.urls {

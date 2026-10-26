@@ -37,7 +37,7 @@ struct ClipboardView: View {
         ContentUnavailableView {
             Label("Clipboard History", systemImage: "doc.on.clipboard")
         } description: {
-            Text("macOS keeps only the last thing you copied. With this on, MacUtil remembers the last 100, so you can reach back for one.\n\nAnything a password manager marks as concealed is skipped, and the list is kept on this Mac alone.")
+            Text("macOS keeps only the last thing you copied. With this on, UniMacHub remembers the last 100, so you can reach back for one.\n\nAnything a password manager marks as concealed is skipped, and the list is kept on this Mac alone.")
         } actions: {
             Button("Start Remembering") { store.setEnabled(true) }
                 .prominentButton()

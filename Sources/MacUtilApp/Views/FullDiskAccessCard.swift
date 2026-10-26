@@ -16,7 +16,7 @@ struct FullDiskAccessCard: View {
                     Text(status == .denied ? "Full Disk Access is not granted" : "Full Disk Access status is unknown")
                         .font(.headline)
                     Text(
-                        "MacUtil needs Full Disk Access to scan caches, mail and browser data. Without it, some files will be skipped."
+                        "UniMacHub needs Full Disk Access to scan caches, mail and browser data. Without it, some files will be skipped."
                     )
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

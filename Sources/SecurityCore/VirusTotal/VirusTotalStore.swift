@@ -42,7 +42,7 @@ public enum VirusTotalKey {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecAttrLabel as String: "MacUtil VirusTotal API key",
+            kSecAttrLabel as String: "UniMacHub VirusTotal API key",
             kSecValueData as String: Data(key.trimmingCharacters(in: .whitespacesAndNewlines).utf8),
         ]
         return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
@@ -66,8 +66,7 @@ public final class VirusTotalCache: Sendable {
     }
 
     public static let standard = VirusTotalCache(
-        url: FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Application Support/MacUtil/VirusTotalCache.json")
+        url: AppPaths.file("VirusTotalCache.json")
     )
 
     private let url: URL

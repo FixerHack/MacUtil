@@ -12,7 +12,7 @@ struct Sensors: AsyncParsableCommand {
     func run() async throws {
         let readings = SystemSensors.read()
         guard !readings.isEmpty else {
-            print("This Mac reports no sensors MacUtil can read.")
+            print("This Mac reports no sensors UniMacHub can read.")
             return
         }
         for kind in [SensorReading.Kind.temperature, .fan, .power] {

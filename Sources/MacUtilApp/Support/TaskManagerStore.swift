@@ -137,7 +137,7 @@ final class TaskManagerStore {
             app.terminate()
         } else if !TaskManager.send(force ? .forceQuit : .quit, to: process.pid) {
             lastError = String(
-                localized: "\(process.name) belongs to another user, so macOS did not let MacUtil stop it."
+                localized: "\(process.name) belongs to another user, so macOS did not let UniMacHub stop it."
             )
         }
         try? await Task.sleep(for: .milliseconds(600))
@@ -150,7 +150,7 @@ final class TaskManagerStore {
         defer { busyPIDs.remove(process.pid) }
         lastError = nil
         if !TaskManager.send(paused ? .pause : .resume, to: process.pid) {
-            lastError = String(localized: "macOS did not let MacUtil pause \(process.name).")
+            lastError = String(localized: "macOS did not let UniMacHub pause \(process.name).")
         }
         try? await Task.sleep(for: .milliseconds(300))
         await refresh()

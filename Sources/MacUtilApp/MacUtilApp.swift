@@ -6,7 +6,7 @@ struct MacUtilApp: App {
     @AppStorage(Preferences.showsMenuBar) private var showsMenuBar = true
 
     var body: some Scene {
-        Window("MacUtil", id: "main") {
+        Window("UniMacHub", id: "main") {
             ContentView()
                 .environment(state)
                 .frame(minWidth: 860, minHeight: 560)

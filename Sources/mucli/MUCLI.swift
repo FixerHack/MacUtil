@@ -11,7 +11,7 @@ import SecurityCore
 struct MUCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "mucli",
-        abstract: "MacUtil command-line tools.",
+        abstract: "UniMacHub command-line tools.",
         version: MacUtilInfo.version,
         subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self, Security.self, Search.self, Carve.self, Undelete.self, Verify.self, Sensors.self]
     )
@@ -116,7 +116,7 @@ struct Large: AsyncParsableCommand {
 
 struct Junk: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "List junk MacUtil would clean. Read-only: nothing is removed."
+        abstract: "List junk UniMacHub would clean. Read-only: nothing is removed."
     )
 
     @Option(help: "Rule group: system or developer. Default: both.")

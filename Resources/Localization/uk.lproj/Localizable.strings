@@ -2,16 +2,14 @@
    Run scripts/check-strings.sh to find missing translations. */
 
 /* Window */
-"MacUtil" = "MacUtil";
+"UniMacHub" = "UniMacHub";
 
 /* Sidebar sections */
 "Overview" = "Огляд";
 "Cleanup" = "Очищення";
-"Disk Space" = "Місце на диску";
 "Search" = "Пошук";
 "Applications" = "Програми";
 "Security" = "Безпека";
-"Optimization" = "Оптимізація";
 
 /* Modules */
 "Dashboard" = "Головна";
@@ -48,10 +46,9 @@
 "Everything that starts with your Mac." = "Усе, що запускається разом із Mac.";
 "Rebuild caches and indexes, flush DNS, verify the disk." = "Перебудова кешів та індексів, очищення DNS, перевірка диска.";
 "macOS settings that are not in System Settings." = "Налаштування macOS, яких немає в Системних параметрах.";
-"Planned for phase %lld" = "Заплановано на фазу %lld";
 
 /* Dashboard */
-"Welcome to MacUtil" = "Вітаємо в MacUtil";
+"Welcome to UniMacHub" = "Вітаємо в UniMacHub";
 "Smart Scan" = "Розумне сканування";
 "Startup Disk" = "Завантажувальний диск";
 "%@ available" = "Доступно %@";
@@ -60,14 +57,14 @@
 /* Full Disk Access */
 "Full Disk Access is not granted" = "Повний доступ до диска не надано";
 "Full Disk Access status is unknown" = "Не вдалося визначити повний доступ до диска";
-"MacUtil needs Full Disk Access to scan caches, mail and browser data. Without it, some files will be skipped." = "MacUtil потрібен повний доступ до диска, щоб сканувати кеші, пошту та дані браузерів. Без нього частину файлів буде пропущено.";
+"UniMacHub needs Full Disk Access to scan caches, mail and browser data. Without it, some files will be skipped." = "UniMacHub потрібен повний доступ до диска, щоб сканувати кеші, пошту та дані браузерів. Без нього частину файлів буде пропущено.";
 "Open System Settings" = "Відкрити Системні параметри";
 "Check Again" = "Перевірити ще раз";
 
 /* Settings */
 "Language" = "Мова";
 "System" = "Системна";
-"Restart MacUtil to apply the new language." = "Перезапустіть MacUtil, щоб застосувати нову мову.";
+"Restart UniMacHub to apply the new language." = "Перезапустіть UniMacHub, щоб застосувати нову мову.";
 "Restart Now" = "Перезапустити";
 
 /* Scanning */
@@ -211,14 +208,14 @@
 "Downloaded iOS and iPadOS software updates." = "Завантажені оновлення iOS та iPadOS.";
 
 /* Permissions guide */
-"Allow MacUtil to see your whole disk" = "Дозвольте MacUtil бачити весь диск";
-"Caches, mail attachments, browser data and the Trash are protected by macOS. Without Full Disk Access MacUtil cannot measure or clean them. Files never leave your Mac." = "Кеші, вкладення пошти, дані браузерів і Кошик захищені macOS. Без повного доступу до диска MacUtil не може їх виміряти чи очистити. Файли ніколи не залишають ваш Mac.";
-"MacUtil is not in the Applications folder. Move it there first, otherwise macOS may forget the permission." = "MacUtil не в теці «Програми». Спершу перемістіть його туди, інакше macOS може забути дозвіл.";
+"Allow UniMacHub to see your whole disk" = "Дозвольте UniMacHub бачити весь диск";
+"Caches, mail attachments, browser data and the Trash are protected by macOS. Without Full Disk Access UniMacHub cannot measure or clean them. Files never leave your Mac." = "Кеші, вкладення пошти, дані браузерів і Кошик захищені macOS. Без повного доступу до диска UniMacHub не може їх виміряти чи очистити. Файли ніколи не залишають ваш Mac.";
+"UniMacHub is not in the Applications folder. Move it there first, otherwise macOS may forget the permission." = "UniMacHub не в теці «Програми». Спершу перемістіть його туди, інакше macOS може забути дозвіл.";
 "Open the Full Disk Access settings." = "Відкрийте налаштування повного доступу до диска.";
-"Find MacUtil in the list and turn on its switch. macOS asks for your password or Touch ID." = "Знайдіть MacUtil у списку й увімкніть перемикач. macOS попросить пароль або Touch ID.";
-"Not in the list? Drag this icon into the list, or click + below the list and choose MacUtil." = "Немає в списку? Перетягніть цю іконку в список або натисніть + під списком і виберіть MacUtil.";
+"Find UniMacHub in the list and turn on its switch. macOS asks for your password or Touch ID." = "Знайдіть UniMacHub у списку й увімкніть перемикач. macOS попросить пароль або Touch ID.";
+"Not in the list? Drag this icon into the list, or click + below the list and choose UniMacHub." = "Немає в списку? Перетягніть цю іконку в список або натисніть + під списком і виберіть UniMacHub.";
 "Drag into the Full Disk Access list" = "Перетягніть у список повного доступу до диска";
-"If macOS offers to quit and reopen MacUtil, choose either option. MacUtil notices the change by itself." = "Якщо macOS запропонує закрити й знову відкрити MacUtil, виберіть будь-який варіант. MacUtil сам помітить зміну.";
+"If macOS offers to quit and reopen UniMacHub, choose either option. UniMacHub notices the change by itself." = "Якщо macOS запропонує закрити й знову відкрити UniMacHub, виберіть будь-який варіант. UniMacHub сам помітить зміну.";
 "Full Disk Access is on. You're all set." = "Повний доступ до диска увімкнено. Усе готово.";
 "Waiting for access…" = "Чекаємо на доступ…";
 "Continue" = "Продовжити";
@@ -388,7 +385,7 @@
 "Looking for apps…" = "Шукаємо програми…";
 "Removing…" = "Видаляємо…";
 "Choose an app" = "Виберіть програму";
-"MacUtil shows the app together with the data it keeps in your Library." = "MacUtil покаже програму разом з даними, які вона зберігає у вашій бібліотеці.";
+"UniMacHub shows the app together with the data it keeps in your Library." = "UniMacHub покаже програму разом з даними, які вона зберігає у вашій бібліотеці.";
 "Search apps" = "Пошук програм";
 "Sort" = "Сортування";
 "Least used" = "Найменш використовувані";
@@ -439,7 +436,7 @@
 "Choose a folder to search" = "Виберіть теку для пошуку";
 "Minimum size" = "Мінімальний розмір";
 "Find Duplicates" = "Знайти дублікати";
-"Finds files with exactly the same contents. Copies made by Finder on APFS share disk space, so MacUtil shows how much you really free." = "Знаходить файли з однаковим вмістом. Копії, зроблені Finder на APFS, ділять місце на диску, тому MacUtil показує, скільки ви справді звільните.";
+"Finds files with exactly the same contents. Copies made by Finder on APFS share disk space, so UniMacHub shows how much you really free." = "Знаходить файли з однаковим вмістом. Копії, зроблені Finder на APFS, ділять місце на диску, тому UniMacHub показує, скільки ви справді звільните.";
 "Looking at %@ files…" = "Переглянуто файлів: %@…";
 "Comparing %@ of %@ candidates…" = "Порівнюємо кандидатів: %1$@ з %2$@…";
 "Moving to Trash…" = "Переміщуємо в Кошик…";
@@ -558,7 +555,7 @@
 /* Keys and secrets */
 "No exposed keys found" = "Відкритих ключів не знайдено";
 "SSH keys, shell startup files and credential files in your home folder were checked." = "Перевірено SSH-ключі, файли запуску оболонки й файли з обліковими даними в домашній теці.";
-"Only the first and last characters of each key are shown. MacUtil never sends them anywhere." = "Показано лише перші й останні символи кожного ключа. MacUtil нікуди їх не надсилає.";
+"Only the first and last characters of each key are shown. UniMacHub never sends them anywhere." = "Показано лише перші й останні символи кожного ключа. UniMacHub нікуди їх не надсилає.";
 "SSH key without a passphrase" = "SSH-ключ без пароля";
 "SSH key readable by other users" = "SSH-ключ доступний іншим користувачам";
 "Keys that may log in over SSH" = "Ключі, що можуть входити через SSH";
@@ -590,8 +587,8 @@
 "Failed" = "Не вдалося";
 "Show Output" = "Показати вивід";
 "Hide Output" = "Сховати вивід";
-"MacUtil needs your password to run maintenance tasks." = "MacUtil потрібен ваш пароль, щоб виконати завдання обслуговування.";
-"MacUtil needs your password to change a background service." = "MacUtil потрібен ваш пароль, щоб змінити фонову службу.";
+"UniMacHub needs your password to run maintenance tasks." = "UniMacHub потрібен ваш пароль, щоб виконати завдання обслуговування.";
+"UniMacHub needs your password to change a background service." = "UniMacHub потрібен ваш пароль, щоб змінити фонову службу.";
 "Flush DNS cache" = "Очистити кеш DNS";
 "Fixes websites that do not open or open the wrong server after a network change." = "Виправляє сайти, які не відкриваються або ведуть не туди після зміни мережі.";
 "Free up memory" = "Звільнити пам'ять";
@@ -730,8 +727,8 @@
 /* Menu bar and notifications */
 "Disk" = "Диск";
 "Battery" = "Батарея";
-"Open MacUtil" = "Відкрити MacUtil";
-"Quit MacUtil" = "Вийти з MacUtil";
+"Open UniMacHub" = "Відкрити UniMacHub";
+"Quit UniMacHub" = "Вийти з UniMacHub";
 "Menu bar and notifications" = "Рядок меню і сповіщення";
 "Show system monitor in the menu bar" = "Показувати монітор системи в рядку меню";
 "Warn when disk space is low" = "Попереджати, коли мало місця на диску";
@@ -740,9 +737,9 @@
 "Every week" = "Щотижня";
 "Every month" = "Щомісяця";
 "Your disk is almost full" = "Диск майже заповнений";
-"Only %@ left. Open MacUtil to free up space." = "Лишилося лише %@. Відкрийте MacUtil, щоб звільнити місце.";
+"Only %@ left. Open UniMacHub to free up space." = "Лишилося лише %@. Відкрийте UniMacHub, щоб звільнити місце.";
 "Time for a cleanup" = "Час для очищення";
-"Run Smart Scan in MacUtil to free up space and check your Mac's security." = "Запустіть розумне сканування в MacUtil, щоб звільнити місце й перевірити безпеку Mac.";
+"Run Smart Scan in UniMacHub to free up space and check your Mac's security." = "Запустіть розумне сканування в UniMacHub, щоб звільнити місце й перевірити безпеку Mac.";
 
 /* Updater */
 "Checks your apps for new versions through their own update feeds (Sparkle), Homebrew and the App Store." = "Перевіряє нові версії програм через їхні власні канали оновлень (Sparkle), Homebrew і App Store.";
@@ -759,10 +756,10 @@
 "Open App Store" = "Відкрити App Store";
 "Update failed" = "Оновлення не вдалося";
 
-/* Updating MacUtil itself */
+/* Updating UniMacHub itself */
 "Updates" = "Оновлення";
-"MacUtil %@" = "MacUtil %@";
-"MacUtil %@ is available" = "Доступна MacUtil %@";
+"UniMacHub %@" = "UniMacHub %@";
+"UniMacHub %@ is available" = "Доступна UniMacHub %@";
 "You have %@. The update is %@." = "У вас %@. Розмір оновлення: %@.";
 "Update Now" = "Оновити зараз";
 "What's New" = "Що нового";
@@ -770,21 +767,21 @@
 "Release page" = "Сторінка релізу";
 "Downloading the update…" = "Завантаження оновлення…";
 "Installing…" = "Встановлення…";
-"MacUtil is updated" = "MacUtil оновлено";
-"Restart MacUtil to start using the new version." = "Перезапустіть MacUtil, щоб почати користуватися новою версією.";
+"UniMacHub is updated" = "UniMacHub оновлено";
+"Restart UniMacHub to start using the new version." = "Перезапустіть UniMacHub, щоб почати користуватися новою версією.";
 "Check for updates automatically" = "Перевіряти оновлення автоматично";
 "Check Now" = "Перевірити зараз";
 "Up to date" = "Версія найновіша";
 "Version %@ is available" = "Доступна версія %@";
 "Updating…" = "Оновлення…";
-"MacUtil downloads updates from its GitHub releases and installs only files signed with the same certificate as this copy. Updates installed this way open without the Gatekeeper prompt you saw the first time." = "MacUtil завантажує оновлення зі своїх релізів на GitHub і встановлює лише файли, підписані тим самим сертифікатом, що й ця копія. Оновлення, встановлені так, відкриваються без запиту безпеки, який ви бачили під час першого запуску.";
+"UniMacHub downloads updates from its GitHub releases and installs only files signed with the same certificate as this copy. Updates installed this way open without the Gatekeeper prompt you saw the first time." = "UniMacHub завантажує оновлення зі своїх релізів на GitHub і встановлює лише файли, підписані тим самим сертифікатом, що й ця копія. Оновлення, встановлені так, відкриваються без запиту безпеки, який ви бачили під час першого запуску.";
 "Could not reach GitHub." = "Не вдалося зʼєднатися з GitHub.";
-"The downloaded file is not a working MacUtil disk image." = "Завантажений файл не є робочим образом MacUtil.";
+"The downloaded file is not a working UniMacHub disk image." = "Завантажений файл не є робочим образом UniMacHub.";
 "The downloaded file does not match what GitHub published. Nothing was installed." = "Завантажений файл не збігається з тим, що опубліковано на GitHub. Нічого не встановлено.";
-"The downloaded MacUtil is signed by someone else, so it was not installed. Download MacUtil from the releases page instead." = "Завантажений MacUtil підписаний кимось іншим, тому його не встановлено. Завантажте MacUtil зі сторінки релізів.";
-"MacUtil cannot update itself at %@. Move it to your Applications folder and try again." = "MacUtil не може оновити себе в %@. Перемістіть програму в теку «Програми» і спробуйте ще раз.";
+"The downloaded UniMacHub is signed by someone else, so it was not installed. Download UniMacHub from the releases page instead." = "Завантажений UniMacHub підписаний кимось іншим, тому його не встановлено. Завантажте UniMacHub зі сторінки релізів.";
+"UniMacHub cannot update itself at %@. Move it to your Applications folder and try again." = "UniMacHub не може оновити себе в %@. Перемістіть програму в теку «Програми» і спробуйте ще раз.";
 "The update could not be copied." = "Не вдалося скопіювати оновлення.";
-"MacUtil cannot read its own signature." = "MacUtil не може прочитати власний підпис.";
+"UniMacHub cannot read its own signature." = "UniMacHub не може прочитати власний підпис.";
 
 /* Settling security findings */
 "Resolved: %lld" = "Вирішено: %lld";
@@ -830,8 +827,8 @@
 "Command" = "Команда";
 "Helpers" = "Допоміжні процеси";
 "Open files: %lld" = "Відкритих файлів: %lld";
-"%@ belongs to another user, so macOS did not let MacUtil stop it." = "%@ належить іншому користувачу, тому macOS не дозволила зупинити цю програму.";
-"macOS did not let MacUtil pause %@." = "macOS не дозволила призупинити %@.";
+"%@ belongs to another user, so macOS did not let UniMacHub stop it." = "%@ належить іншому користувачу, тому macOS не дозволила зупинити цю програму.";
+"macOS did not let UniMacHub pause %@." = "macOS не дозволила призупинити %@.";
 "The priority of %@ could not be changed." = "Не вдалося змінити пріоритет %@.";
 "The sample could not be taken." = "Не вдалося зняти зразок.";
 "Disk Utilities" = "Дискові утиліти";
@@ -839,7 +836,7 @@
 "Looking at your disks…" = "Читаю ваші диски…";
 "Refresh" = "Оновити";
 "Pick a disk or a volume" = "Виберіть диск або том";
-"MacUtil shows what it is, how full it is and what can be done with it." = "MacUtil покаже, що це, наскільки воно заповнене й що з цим можна зробити.";
+"UniMacHub shows what it is, how full it is and what can be done with it." = "UniMacHub покаже, що це, наскільки воно заповнене й що з цим можна зробити.";
 "Startup" = "Завантажувальний";
 "Health" = "Стан";
 "Used" = "Зайнято";
@@ -854,7 +851,7 @@
 "Disk image" = "Образ диска";
 "Connection" = "Підключення";
 "Partition map" = "Схема розділів";
-"Part of macOS. MacUtil only reads this one." = "Частина macOS. MacUtil його лише читає.";
+"Part of macOS. UniMacHub only reads this one." = "Частина macOS. UniMacHub його лише читає.";
 "Mount" = "Змонтувати";
 "Unmount" = "Відмонтувати";
 "Eject" = "Витягти";
@@ -872,7 +869,7 @@
 "Delete Volume…" = "Видалити том…";
 "Delete the volume %@?" = "Видалити том %@?";
 "Everything on it is removed and the space goes back to the container. This cannot be undone." = "Усе на ньому буде видалено, а місце повернеться контейнеру. Скасувати це неможливо.";
-"Everything on this volume is deleted. There is no undo, and MacUtil cannot bring the files back afterwards." = "Усе на цьому томі буде видалено. Скасувати неможливо, і повернути файли потім MacUtil не зможе.";
+"Everything on this volume is deleted. There is no undo, and UniMacHub cannot bring the files back afterwards." = "Усе на цьому томі буде видалено. Скасувати неможливо, і повернути файли потім UniMacHub не зможе.";
 "Type the volume's name to confirm:" = "Введіть назву тому для підтвердження:";
 "New APFS volume" = "Новий том APFS";
 "The volume shares the free space of its container, so nothing is resized." = "Том ділить вільне місце свого контейнера, тож нічого змінювати за розміром не треба.";
@@ -900,28 +897,27 @@
 "For older Macs and hard drives." = "Для старіших Mac і жорстких дисків.";
 "Read and write on Mac, Windows and cameras. No permissions." = "Читання й запис на Mac, Windows і в камерах. Без прав доступу.";
 "Works everywhere, but no file larger than 4 GB." = "Працює всюди, але файл не більший за 4 ГБ.";
-"%@ is part of macOS, so MacUtil leaves it alone." = "%@ є частиною macOS, тому MacUtil його не чіпає.";
-"This is the disk macOS runs from, so MacUtil leaves it alone." = "Це диск, з якого працює macOS, тому MacUtil його не чіпає.";
+"%@ is part of macOS, so UniMacHub leaves it alone." = "%@ є частиною macOS, тому UniMacHub його не чіпає.";
+"This is the disk macOS runs from, so UniMacHub leaves it alone." = "Це диск, з якого працює macOS, тому UniMacHub його не чіпає.";
 "A volume inside an APFS container stays APFS. To use another file system, erase the whole disk." = "Том усередині контейнера APFS лишається APFS. Щоб змінити файлову систему, зітріть увесь диск.";
 "Pick a name of up to 127 characters, without a slash or a colon." = "Виберіть назву до 127 символів, без скісної риски й двокрапки.";
 "Describe at least one partition." = "Опишіть хоча б один розділ.";
 "The startup volume can only be repaired from Recovery. Restart holding the power button, then open Disk Utility there." = "Завантажувальний том можна відновити лише з Recovery. Перезавантажте Mac, утримуючи кнопку живлення, і відкрийте там «Дискову утиліту».";
-"MacUtil does not resize the disk macOS runs from. Do that from Recovery, with a backup at hand." = "MacUtil не змінює розмір диска, з якого працює macOS. Робіть це з Recovery і з готовою резервною копією.";
-"MacUtil cannot write to %@, so it cannot measure its speed." = "MacUtil не може писати в %@, тому не може виміряти швидкість.";
+"UniMacHub does not resize the disk macOS runs from. Do that from Recovery, with a backup at hand." = "UniMacHub не змінює розмір диска, з якого працює macOS. Робіть це з Recovery і з готовою резервною копією.";
+"UniMacHub cannot write to %@, so it cannot measure its speed." = "UniMacHub не може писати в %@, тому не може виміряти швидкість.";
 "The test file could not be read back." = "Не вдалося прочитати тестовий файл назад.";
-"MacUtil needs your password to mount or unmount %@." = "MacUtil потрібен ваш пароль, щоб змонтувати або відмонтувати %@.";
-"MacUtil needs your password to eject this disk." = "MacUtil потрібен ваш пароль, щоб витягти цей диск.";
-"MacUtil needs your password to check this volume." = "MacUtil потрібен ваш пароль, щоб перевірити цей том.";
-"MacUtil needs your password to rename this volume." = "MacUtil потрібен ваш пароль, щоб перейменувати цей том.";
-"MacUtil needs your password to erase this volume." = "MacUtil потрібен ваш пароль, щоб стерти цей том.";
-"MacUtil needs your password to add a volume to this container." = "MacUtil потрібен ваш пароль, щоб додати том у цей контейнер.";
-"MacUtil needs your password to delete this volume." = "MacUtil потрібен ваш пароль, щоб видалити цей том.";
-"MacUtil needs your password to change this volume's limit." = "MacUtil потрібен ваш пароль, щоб змінити ліміт цього тому.";
-"MacUtil needs your password to resize this container." = "MacUtil потрібен ваш пароль, щоб змінити розмір цього контейнера.";
-"MacUtil needs your password to repartition this disk." = "MacUtil потрібен ваш пароль, щоб розмітити цей диск заново.";
-"MacUtil needs your password to delete this local snapshot." = "MacUtil потрібен ваш пароль, щоб видалити цей локальний знімок.";
-"MacUtil needs your password to change the priority of this program." = "MacUtil потрібен ваш пароль, щоб змінити пріоритет цієї програми.";
-"Recovery" = "Відновлення";
+"UniMacHub needs your password to mount or unmount %@." = "UniMacHub потрібен ваш пароль, щоб змонтувати або відмонтувати %@.";
+"UniMacHub needs your password to eject this disk." = "UniMacHub потрібен ваш пароль, щоб витягти цей диск.";
+"UniMacHub needs your password to check this volume." = "UniMacHub потрібен ваш пароль, щоб перевірити цей том.";
+"UniMacHub needs your password to rename this volume." = "UniMacHub потрібен ваш пароль, щоб перейменувати цей том.";
+"UniMacHub needs your password to erase this volume." = "UniMacHub потрібен ваш пароль, щоб стерти цей том.";
+"UniMacHub needs your password to add a volume to this container." = "UniMacHub потрібен ваш пароль, щоб додати том у цей контейнер.";
+"UniMacHub needs your password to delete this volume." = "UniMacHub потрібен ваш пароль, щоб видалити цей том.";
+"UniMacHub needs your password to change this volume's limit." = "UniMacHub потрібен ваш пароль, щоб змінити ліміт цього тому.";
+"UniMacHub needs your password to resize this container." = "UniMacHub потрібен ваш пароль, щоб змінити розмір цього контейнера.";
+"UniMacHub needs your password to repartition this disk." = "UniMacHub потрібен ваш пароль, щоб розмітити цей диск заново.";
+"UniMacHub needs your password to delete this local snapshot." = "UniMacHub потрібен ваш пароль, щоб видалити цей локальний знімок.";
+"UniMacHub needs your password to change the priority of this program." = "UniMacHub потрібен ваш пароль, щоб змінити пріоритет цієї програми.";
 "File Recovery" = "Відновлення файлів";
 "Bring back deleted files from the Trash, a snapshot, a backup or the disk itself." = "Повернути видалені файли з кошика, знімка, резервної копії або з самого диска.";
 "Where to look" = "Де шукати";
@@ -947,9 +943,9 @@
 "Nothing found with that name." = "Нічого з такою назвою не знайдено.";
 "Nothing to show yet" = "Поки нічого показувати";
 "Search by part of the file's name." = "Шукайте за частиною назви файлу.";
-"MacUtil needs your password to open this snapshot for reading." = "MacUtil потрібен ваш пароль, щоб відкрити цей знімок для читання.";
-"MacUtil needs your password to close this snapshot." = "MacUtil потрібен ваш пароль, щоб закрити цей знімок.";
-"MacUtil needs your password to restore this file from the backup." = "MacUtil потрібен ваш пароль, щоб відновити цей файл із копії.";
+"UniMacHub needs your password to open this snapshot for reading." = "UniMacHub потрібен ваш пароль, щоб відкрити цей знімок для читання.";
+"UniMacHub needs your password to close this snapshot." = "UniMacHub потрібен ваш пароль, щоб закрити цей знімок.";
+"UniMacHub needs your password to restore this file from the backup." = "UniMacHub потрібен ваш пароль, щоб відновити цей файл із копії.";
 "Connect a memory card, a flash drive or an external disk." = "Під'єднайте карту пам'яті, флешку або зовнішній диск.";
 "Scan…" = "Сканувати…";
 "Recovered files are written to a folder you choose, which must be on another disk. Writing to the disk being scanned would destroy what is left of the lost files." = "Відновлені файли записуються в обрану вами теку, і вона має бути на іншому диску. Запис на диск, який скануємо, знищить те, що лишилося від втрачених файлів.";
@@ -959,13 +955,13 @@
 "Pick a disk and start the scan. Photos, documents, archives, video and databases are recognised." = "Виберіть диск і запустіть сканування. Розпізнаються фото, документи, архіви, відео та бази даних.";
 "Nothing recognisable was found on this disk." = "На цьому диску не знайдено нічого впізнаваного.";
 "Recovered %lld files into %@" = "Відновлено файлів: %lld у %@";
-"MacUtil cannot read %@." = "MacUtil не може прочитати %@.";
+"UniMacHub cannot read %@." = "UniMacHub не може прочитати %@.";
 "Reading %@ needs an administrator password." = "Для читання %@ потрібен пароль адміністратора.";
 "%@ of %@" = "%@ з %@";
-"MacUtil needs your password to read this disk. Nothing is written to it." = "MacUtil потрібен ваш пароль, щоб прочитати цей диск. На нього нічого не записується.";
-"The scanning tool is missing from this copy of MacUtil." = "У цій копії MacUtil бракує інструмента сканування.";
+"UniMacHub needs your password to read this disk. Nothing is written to it." = "UniMacHub потрібен ваш пароль, щоб прочитати цей диск. На нього нічого не записується.";
+"The scanning tool is missing from this copy of UniMacHub." = "У цій копії UniMacHub бракує інструмента сканування.";
 "%@ · about %@ left" = "%@ · лишилося приблизно %@";
-"A physical disk belongs to macOS itself, so MacUtil asks for your password once to read it. Nothing is written to the disk being scanned." = "Фізичний диск належить самій macOS, тому MacUtil один раз попросить ваш пароль, щоб його прочитати. На диск, який скануємо, нічого не записується.";
+"A physical disk belongs to macOS itself, so UniMacHub asks for your password once to read it. Nothing is written to the disk being scanned." = "Фізичний диск належить самій macOS, тому UniMacHub один раз попросить ваш пароль, щоб його прочитати. На диск, який скануємо, нічого не записується.";
 "How to look" = "Як шукати";
 "By name" = "За назвами";
 "Byte by byte" = "Побайтово";
@@ -977,7 +973,7 @@
 "Nothing found yet" = "Поки нічого не знайдено";
 "Pick a card and look for files. Deleted files keep their names until something writes over them." = "Виберіть карту й запустіть пошук. Видалені файли зберігають назви, доки їх не перезапишуть.";
 "In pieces" = "Фрагментований";
-"Only exFAT disks keep records MacUtil can read this way. For anything else, use byte by byte." = "Лише диски exFAT мають записи, які MacUtil може прочитати в такий спосіб. Для інших користуйтеся побайтовим скануванням.";
+"Only exFAT disks keep records UniMacHub can read this way. For anything else, use byte by byte." = "Лише диски exFAT мають записи, які UniMacHub може прочитати в такий спосіб. Для інших користуйтеся побайтовим скануванням.";
 "%@ is not an exFAT disk, so its own records cannot be read." = "%@ не є диском exFAT, тому його власні записи прочитати не вдасться.";
 "The records of this disk do not remember any deleted files." = "Записи цього диска не пам'ятають жодного видаленого файлу.";
 "Restored %lld files into %@" = "Відновлено файлів: %lld у %@";
@@ -1001,7 +997,7 @@
 "Remove…" = "Вилучити…";
 "Remove %@?" = "Вилучити %@?";
 "Removing %@" = "Вилучаю %@";
-"MacUtil needs your password to remove what macOS left after updating." = "MacUtil потрібен ваш пароль, щоб вилучити те, що macOS лишила після оновлення.";
+"UniMacHub needs your password to remove what macOS left after updating." = "UniMacHub потрібен ваш пароль, щоб вилучити те, що macOS лишила після оновлення.";
 "There is nothing to remove." = "Немає чого вилучати.";
 "Hardware" = "Обладнання";
 "Temperature" = "Температура";
@@ -1021,7 +1017,7 @@
 "macOS is squeezing memory to keep up. Closing something heavy will help." = "macOS стискає пам'ять, щоб упоратися. Допоможе закрити щось важке.";
 "The processor has been busy for ten minutes" = "Процесор завантажений уже десять хвилин";
 "Something has been using most of the processor. The Task Manager shows what." = "Щось забирає більшу частину процесора. Диспетчер завдань покаже, що саме.";
-"This update was not built for this kind of Mac, so it was not installed. Download MacUtil from the releases page instead." = "Це оновлення зібране не для такого Mac, тому його не встановлено. Завантажте MacUtil зі сторінки релізів.";
+"This update was not built for this kind of Mac, so it was not installed. Download UniMacHub from the releases page instead." = "Це оновлення зібране не для такого Mac, тому його не встановлено. Завантажте UniMacHub зі сторінки релізів.";
 "Messenger Downloads" = "Завантаження месенджерів";
 "What Telegram, WhatsApp and the others downloaded and kept." = "Те, що завантажили й лишили Telegram, WhatsApp та інші.";
 "Telegram, WhatsApp, Viber and the rest keep every picture and video you open. Nothing here is unique: the chat still has it." = "Telegram, WhatsApp, Viber та інші зберігають кожне фото й відео, яке ви відкрили. Нічого унікального тут немає: у чаті все лишилось.";
@@ -1046,8 +1042,8 @@
 "Nothing to eject" = "Немає чого витягати";
 "Ejected %lld" = "Витягнуто: %lld";
 "Clean up by itself" = "Очищати самостійно";
-"Only caches and logs MacUtil considers safe, and only from apps that are not running. Everything goes to the Trash." = "Лише кеші та журнали, які MacUtil вважає безпечними, і лише від програм, що не запущені. Усе потрапляє в Кошик.";
-"MacUtil cleaned up" = "MacUtil прибрав";
+"Only caches and logs UniMacHub considers safe, and only from apps that are not running. Everything goes to the Trash." = "Лише кеші та журнали, які UniMacHub вважає безпечними, і лише від програм, що не запущені. Усе потрапляє в Кошик.";
+"UniMacHub cleaned up" = "UniMacHub прибрав";
 "%@ moved to the Trash, where you can still get it back." = "%@ перенесено в Кошик, звідки це ще можна повернути.";
 "Quit the program holding this port" = "Завершити програму, що тримає цей порт";
 "Quit %@?" = "Завершити %@?";
@@ -1070,10 +1066,10 @@
 "A disk image or package only carries an app to your Mac. Once the app is in place the carrier is just a large file, and these are often the biggest things in Downloads." = "Образ диска чи пакет лише доставляє програму на ваш Mac. Щойно програма на місці, перевізник стає просто великим файлом — а це часто найбільше з того, що лежить у «Завантаженнях».";
 "A universal app carries a complete copy of itself for Apple Silicon and another for Intel. Your Mac runs one of them, and the other takes up space for nothing." = "Універсальна програма містить повну копію себе для Apple Silicon і ще одну для Intel. Ваш Mac виконує одну з них, а друга просто займає місце.";
 "Add…" = "Додати…";
-"Anything listed here is left out of every scan, however safe MacUtil thinks it is." = "Усе, що тут перелічено, не потрапляє в жодне сканування, хай би яким безпечним MacUtil це вважав.";
+"Anything listed here is left out of every scan, however safe UniMacHub thinks it is." = "Усе, що тут перелічено, не потрапляє в жодне сканування, хай би яким безпечним UniMacHub це вважав.";
 "Cargo (Rust)" = "Cargo (Rust)";
 "Check first" = "Спершу перевірте";
-"Choose what MacUtil should never remove." = "Виберіть те, що MacUtil ніколи не має видаляти.";
+"Choose what UniMacHub should never remove." = "Виберіть те, що UniMacHub ніколи не має видаляти.";
 "Clear History" = "Очистити історію";
 "Clear the history?" = "Очистити історію?";
 "CocoaPods" = "CocoaPods";
@@ -1084,7 +1080,7 @@
 "Disk images and packages left over after installing apps." = "Образи дисків і пакети, що лишилися після встановлення програм.";
 "Either it installs something that is not an app, or you have not installed it yet. Look before removing." = "Або воно встановлює не програму, або ви ще цього не встановили. Подивіться, перш ніж видаляти.";
 "Every app here is already built for this Mac alone." = "Усі програми тут уже зібрані саме під цей Mac.";
-"Everything MacUtil has removed, with dates, sizes and paths." = "Усе, що MacUtil видалив, із датами, розмірами та шляхами.";
+"Everything UniMacHub has removed, with dates, sizes and paths." = "Усе, що UniMacHub видалив, із датами, розмірами та шляхами.";
 "Freed up" = "Звільнено";
 "Gradle" = "Gradle";
 "History" = "Історія";
@@ -1098,7 +1094,7 @@
 "Look for Universal Apps" = "Знайти універсальні програми";
 "Looking through Downloads…" = "Переглядаю «Завантаження»…";
 "Looking through projects…" = "Переглядаю проєкти…";
-"MacUtil needs your password to change how sudo asks for one." = "MacUtil потрібен ваш пароль, щоб змінити те, як sudo його запитує.";
+"UniMacHub needs your password to change how sudo asks for one." = "UniMacHub потрібен ваш пароль, щоб змінити те, як sudo його запитує.";
 "Move %lld folders to the Trash?" = "Перенести %lld тек у Кошик?";
 "Move %lld installers to the Trash?" = "Перенести %lld інсталяторів у Кошик?";
 "Moved to the Trash" = "Перенесено в Кошик";
@@ -1115,7 +1111,7 @@
 "Nothing to slim down" = "Нічого зменшувати";
 "Nothing to tidy in Downloads, on the Desktop or in Documents." = "Нічого прибирати в «Завантаженнях», на робочому столі чи в «Документах».";
 "Nuxt" = "Nuxt";
-"Once MacUtil removes something, it is listed here with the date, the size and every path." = "Щойно MacUtil щось видалить, воно зʼявиться тут із датою, розміром і повним переліком шляхів.";
+"Once UniMacHub removes something, it is listed here with the date, the size and every path." = "Щойно UniMacHub щось видалить, воно зʼявиться тут із датою, розміром і повним переліком шляхів.";
 "Only the record goes. Files already removed stay removed, and anything in the Trash stays there." = "Зникне лише запис. Видалені файли лишаються видаленими, а те, що в Кошику, лишається в Кошику.";
 "Only what one command rebuilds is selected." = "Вибрано лише те, що відновлює одна команда.";
 "Project Build Files" = "Артефакти збірки";
@@ -1172,7 +1168,6 @@
 "Keep Folders Tidy" = "Порядок у теках";
 "No name rules. Add one to catch things like Invoice* or *Screenshot*." = "Правил за назвою немає. Додайте, щоб ловити щось на кшталт Invoice* чи *Screenshot*.";
 "Nothing to file" = "Нічого розкладати";
-"Order" = "Порядок";
 "Pattern" = "Шаблон";
 "Pick a folder" = "Виберіть теку";
 "Put Everything Back" = "Повернути все назад";
@@ -1182,7 +1177,7 @@
 "Sort new files as they arrive" = "Розкладати нові файли одразу";
 "Sorts itself" = "Розкладається сама";
 "Stop Watching" = "Припинити стеження";
-"Watching happens only while MacUtil is open." = "Стеження працює, лише доки MacUtil відкритий.";
+"Watching happens only while UniMacHub is open." = "Стеження працює, лише доки UniMacHub відкритий.";
 "Working out what goes where…" = "Визначаю, що куди…";
 "renamed to %@" = "перейменовано на %@";
 "Carrying traffic" = "Несе трафік";
@@ -1193,8 +1188,8 @@
 "Homebrew removes what it installed and stops listing the app. This does not go through the Trash." = "Homebrew прибере те, що сам встановив, і перестане вважати програму наявною. Це проходить повз Кошик.";
 "In use" = "Активний";
 "Let Homebrew Remove It" = "Хай зніме Homebrew";
-"MacUtil needs your password to forget this installer receipt." = "MacUtil потрібен ваш пароль, щоб забути цю квитанцію інсталятора.";
-"MacUtil needs your password to remove what this installer put on your Mac." = "MacUtil потрібен ваш пароль, щоб прибрати те, що цей інсталятор поклав на ваш Mac.";
+"UniMacHub needs your password to forget this installer receipt." = "UniMacHub потрібен ваш пароль, щоб забути цю квитанцію інсталятора.";
+"UniMacHub needs your password to remove what this installer put on your Mac." = "UniMacHub потрібен ваш пароль, щоб прибрати те, що цей інсталятор поклав на ваш Mac.";
 "Matched by identifier" = "Збіг за ідентифікатором";
 "Move to Trash Instead" = "Натомість перенести в Кошик";
 "Named after the app's bundle identifier, which nothing else uses." = "Названо за ідентифікатором програми, який більше ніхто не використовує.";
@@ -1225,7 +1220,7 @@
 "Contextual menu items" = "Пункти контекстного меню";
 "Creates or removes ~/.hushlogin" = "Створює або прибирає ~/.hushlogin";
 "Everyone on this Mac" = "Для всіх на цьому Mac";
-"Everything MacUtil adds goes between two marked lines in your files. The rest is left exactly as you wrote it, and turning a setting off takes its lines back out." = "Усе, що MacUtil додає, лежить між двома позначеними рядками у ваших файлах. Решта лишається точно такою, як ви написали, а вимкнення налаштування прибирає його рядки назад.";
+"Everything UniMacHub adds goes between two marked lines in your files. The rest is left exactly as you wrote it, and turning a setting off takes its lines back out." = "Усе, що UniMacHub додає, лежить між двома позначеними рядками у ваших файлах. Решта лишається точно такою, як ви написали, а вимкнення налаштування прибирає його рядки назад.";
 "Everything here is built for this Mac." = "Усе тут зібрано саме для цього Mac.";
 "Extensions, plug-ins, software needing Rosetta and files iCloud already holds." = "Розширення, плагіни, програми, яким потрібен Rosetta, і файли, що вже є в iCloud.";
 "Fetching drops the local copies of branches that no longer exist." = "Отримання змін прибирає локальні копії гілок, яких уже немає.";
@@ -1311,4 +1306,48 @@
 "The last hundred things you copied, instead of only the last one." = "Сто останніх скопійованих записів замість одного-єдиного.";
 "The list goes, and the file it is kept in with it." = "Зникне список і файл, у якому він зберігається.";
 "Try fewer words." = "Спробуйте менше слів.";
-"macOS keeps only the last thing you copied. With this on, MacUtil remembers the last 100, so you can reach back for one.\n\nAnything a password manager marks as concealed is skipped, and the list is kept on this Mac alone." = "macOS тримає лише те, що ви скопіювали востаннє. З увімкненою історією MacUtil памʼятає сто останніх, тож можна дотягнутися до попереднього.\n\nУсе, що менеджер паролів позначає як приховане, пропускається, а список лишається тільки на цьому Mac.";
+"macOS keeps only the last thing you copied. With this on, UniMacHub remembers the last 100, so you can reach back for one.\n\nAnything a password manager marks as concealed is skipped, and the list is kept on this Mac alone." = "macOS тримає лише те, що ви скопіювали востаннє. З увімкненою історією UniMacHub памʼятає сто останніх, тож можна дотягнутися до попереднього.\n\nУсе, що менеджер паролів позначає як приховане, пропускається, а список лишається тільки на цьому Mac.";
+"Storage" = "Диск";
+"Files" = "Файли";
+"Coming soon" = "Скоро";
+"Menu Bar" = "Рядок меню";
+"Window Layouts" = "Розкладка вікон";
+"Sound Output" = "Звуковий вихід";
+"Displays" = "Дисплеї";
+"Dock & Widgets" = "Dock і віджети";
+"Rename in Bulk" = "Пакетне перейменування";
+"Terminal Themes" = "Теми Термінала";
+"Network Settings" = "Налаштування мережі";
+"Combine Connections" = "Обʼєднати зʼєднання";
+"What your Mac looks like right now." = "Який ваш Mac просто зараз.";
+"What can go, and why it is safe to let it." = "Що можна прибрати і чому це безпечно.";
+"Where the space went, and how to get it back." = "Куди пішло місце і як його повернути.";
+"What is installed, and what it left behind." = "Що встановлено і що по собі лишило.";
+"Finding things, and keeping them in order." = "Знайти потрібне й тримати лад.";
+"How macOS behaves, and what runs inside it." = "Як поводиться macOS і що в ній працює.";
+"What this Mac is connected through." = "Через що цей Mac підключений.";
+"What is running, signed and allowed." = "Що запущено, підписано й дозволено.";
+"Hide the icons you do not need, and reach them when you do." = "Сховати значки, які не потрібні, і дістатися до них, коли знадобляться.";
+"A crowded menu bar hides what matters. This will put the icons you rarely need behind a divider, and bring them back on a click." = "Переповнений рядок меню ховає головне. Рідковживані значки підуть за роздільник і повернуться одним натиском.";
+"Put windows side by side with the keyboard." = "Розкладати вікна поруч із клавіатури.";
+"Halves, quarters and thirds from the keyboard. This one needs permission to move other apps' windows, which is a larger thing to ask than anything here does today." = "Половини, чверті й третини з клавіатури. Цьому потрібен дозвіл рухати вікна чужих програм — а це більше, ніж просить будь-що інше тут сьогодні.";
+"Change output and per-app volume without opening Settings." = "Змінити вихід і гучність окремої програми, не відкриваючи «Параметри».";
+"Headphones to speakers in one click, and a volume slider for each app rather than one for everything." = "З навушників на динаміки одним натиском, і повзунок гучності для кожної програми замість одного на все.";
+"Brightness and resolution, including on external screens." = "Яскравість і роздільність, зокрема на зовнішніх екранах.";
+"Brightness on an external screen, which macOS leaves to the monitor's own buttons, and a quick change of resolution." = "Яскравість зовнішнього екрана, яку macOS лишає кнопкам самого монітора, і швидка зміна роздільності.";
+"Health, cycles, and holding the charge where it wears least." = "Здоровʼя, цикли й утримання заряду там, де він менше зношується.";
+"Cycles, capacity and wear. Holding the charge below full is what makes a battery last, and that part depends on the Mac's own controller." = "Цикли, ємність і знос. Довговічність батареї дає саме неповний заряд, а це залежить від контролера самого Mac.";
+"A Dock of your own, with the apps you choose as live widgets." = "Власний Dock, де вибрані програми стають живими віджетами.";
+"A Dock with the apps you choose shown as small live widgets. macOS never gives up its own Dock, so this hides it rather than replacing it, and puts it back when you quit." = "Dock, де вибрані програми показані невеликими живими віджетами. macOS ніколи не віддає власний Dock, тому його не замінюють, а ховають — і повертають, коли ви виходите.";
+"Rename many files at once, by a rule you can see first." = "Перейменувати багато файлів разом, за правилом, яке видно наперед.";
+"Numbering, find and replace, dates from the file itself — with the whole list of new names shown before a single file moves." = "Нумерація, заміна тексту, дати з самого файлу — і повний список нових назв перед тим, як зрушиться хоч один.";
+"Colours for Terminal, built to be read for hours." = "Кольори для Термінала, зроблені так, щоб читати їх годинами.";
+"Colour schemes for Terminal that hold up over a long day, applied to its profiles." = "Кольорові схеми для Термінала, що витримують довгий день, із застосуванням до його профілів.";
+"Change DNS, the order of adapters, and what is switched on." = "Змінити DNS, порядок адаптерів і те, що ввімкнено.";
+"Change DNS servers, reorder the adapters macOS tries, and switch a service off — each needing your password, as these are settings for the whole Mac." = "Змінити сервери DNS, порядок, у якому macOS пробує адаптери, і вимкнути службу — кожна дія з паролем, бо це налаштування всього Mac.";
+"Use Wi-Fi and Ethernet at once, adding up their speed." = "Використати Wi-Fi і Ethernet разом, склавши їхню швидкість.";
+"Sending different connections over Wi-Fi and Ethernet at once, so their speeds add up. This needs a virtual network device and administrator rights, which changes how much trust the app is asking for." = "Різні зʼєднання йдуть через Wi-Fi і Ethernet одночасно, тож їхні швидкості складаються. Для цього потрібен віртуальний мережевий пристрій і права адміністратора — а це змінює міру довіри, якої програма просить.";
+"What is allowed to listen, and what is reaching out." = "Кому дозволено слухати і хто виходить назовні.";
+"What may listen for connections and what is reaching out, with a switch for each." = "Хто може приймати зʼєднання і хто виходить назовні — з перемикачем для кожного.";
+"Which apps hold which permissions, in one list." = "Які програми мають які дозволи — одним списком.";
+"Camera, microphone, screen, files and automation: which app was granted what, gathered in one list instead of a dozen panes." = "Камера, мікрофон, екран, файли й автоматизація: кому що дозволено, зібране в один список замість десятка панелей.";

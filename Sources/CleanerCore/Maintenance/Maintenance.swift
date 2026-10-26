@@ -149,7 +149,7 @@ public enum MaintenanceCatalog {
             }
             let output = await AdminRunner.run(
                 commands,
-                prompt: String(localized: "MacUtil needs your password to run maintenance tasks.")
+                prompt: String(localized: "UniMacHub needs your password to run maintenance tasks.")
             )
             for (id, result) in split(output) {
                 results[id] = result

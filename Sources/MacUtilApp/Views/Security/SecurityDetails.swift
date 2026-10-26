@@ -402,7 +402,7 @@ struct SecretsList: View {
             )
         } else {
             List {
-                Text("Only the first and last characters of each key are shown. MacUtil never sends them anywhere.")
+                Text("Only the first and last characters of each key are shown. UniMacHub never sends them anywhere.")
                     .foregroundStyle(.secondary)
                 ForEach(store.secrets) { secret in
                     HStack(alignment: .top, spacing: 12) {

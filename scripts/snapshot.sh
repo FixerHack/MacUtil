@@ -9,7 +9,9 @@
 set -euo pipefail
 OUT="$1"; MODULE="${2:-dashboard}"; LANGUAGE="${3:-en}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$(ls -d "$ROOT"/build.noindex/*.app | head -1)"
+# Newest first: a bundle left over from before the app was renamed would otherwise
+# win on alphabetical order and be photographed instead of the current build.
+APP="$(ls -dt "$ROOT"/build.noindex/*.app | head -1)"
 BINARY="$APP/Contents/MacOS/$(defaults read "$APP/Contents/Info.plist" CFBundleExecutable)"
 DELAY="${SNAPSHOT_DELAY:-2}"
 ID_FILE="$(mktemp)"

@@ -35,7 +35,7 @@ public enum SudoTouchID {
             : "[ -f \(path) ] && /usr/bin/sed -i '' '/pam_tid.so/d' \(path) || true"
         return await AdminRunner.run(
             [command],
-            prompt: String(localized: "MacUtil needs your password to change how sudo asks for one.")
+            prompt: String(localized: "UniMacHub needs your password to change how sudo asks for one.")
         )
     }
 }

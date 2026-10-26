@@ -291,7 +291,7 @@ private struct ScanSource: View {
             if let failure = store.quickScanFailed {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(verbatim: failure).font(.callout).foregroundStyle(.orange)
-                    Text("Only exFAT disks keep records MacUtil can read this way. For anything else, use byte by byte.")
+                    Text("Only exFAT disks keep records UniMacHub can read this way. For anything else, use byte by byte.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -320,7 +320,7 @@ private struct ScanSource: View {
                         .disabled(store.selectedDevice == nil)
                 }
             }
-            Text("A physical disk belongs to macOS itself, so MacUtil asks for your password once to read it. Nothing is written to the disk being scanned.")
+            Text("A physical disk belongs to macOS itself, so UniMacHub asks for your password once to read it. Nothing is written to the disk being scanned.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)

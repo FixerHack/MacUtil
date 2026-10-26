@@ -3,8 +3,7 @@ import Foundation
 /// Where the watched folders and their rules are kept between launches.
 public enum OrganizeStore {
     public static var url: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Application Support/MacUtil/Folders.json")
+        AppPaths.file("Folders.json")
     }
 
     public static func load(from url: URL = url) -> [WatchedFolder] {

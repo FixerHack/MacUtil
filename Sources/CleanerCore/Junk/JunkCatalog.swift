@@ -147,7 +147,7 @@ public enum JunkCatalog {
             title: "User logs",
             details: "Diagnostic logs written by apps.",
             safety: .safe,
-            sources: [.contents(of: "~/Library/Logs", excluding: ["DiagnosticReports", "CrashReporter", "MacUtil"])]
+            sources: [.contents(of: "~/Library/Logs", excluding: ["DiagnosticReports", "CrashReporter", "UniMacHub"])]
         ),
         JunkRule(
             id: "system.crashReports", group: .system,

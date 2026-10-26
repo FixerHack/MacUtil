@@ -92,7 +92,7 @@ struct DisksView: View {
                 } else {
                     ContentUnavailableView(
                         "Pick a disk or a volume", systemImage: "internaldrive",
-                        description: Text("MacUtil shows what it is, how full it is and what can be done with it.")
+                        description: Text("UniMacHub shows what it is, how full it is and what can be done with it.")
                     )
                 }
                 LeftoversCard(store: store)
@@ -186,7 +186,7 @@ private struct VolumeDetail: View {
                 Text(verbatim: "\(volume.fileSystem) · \(volume.id)\(volume.mountPoint.map { " · \($0)" } ?? "")")
                     .foregroundStyle(.secondary)
                 if volume.isSystemOwned {
-                    Label("Part of macOS. MacUtil only reads this one.", systemImage: "lock.shield")
+                    Label("Part of macOS. UniMacHub only reads this one.", systemImage: "lock.shield")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -477,7 +477,7 @@ private struct EraseSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Erase \(volume.name)").font(.title3.bold())
             Label(
-                "Everything on this volume is deleted. There is no undo, and MacUtil cannot bring the files back afterwards.",
+                "Everything on this volume is deleted. There is no undo, and UniMacHub cannot bring the files back afterwards.",
                 systemImage: "exclamationmark.triangle.fill"
             )
             .foregroundStyle(.orange)

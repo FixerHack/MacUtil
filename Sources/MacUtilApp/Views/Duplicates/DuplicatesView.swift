@@ -57,7 +57,7 @@ struct DuplicatesView: View {
                 Label("Duplicates", systemImage: "doc.on.doc")
             } description: {
                 Text(
-                    "Finds files with exactly the same contents. Copies made by Finder on APFS share disk space, so MacUtil shows how much you really free."
+                    "Finds files with exactly the same contents. Copies made by Finder on APFS share disk space, so UniMacHub shows how much you really free."
                 )
             } actions: {
                 Button("Find Duplicates") { Task { await store.search() } }

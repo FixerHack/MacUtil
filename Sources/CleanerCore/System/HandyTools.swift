@@ -34,7 +34,7 @@ public final class KeepAwake: @unchecked Sendable {
         stopLocked()
 
         let type = scope == .display ? kIOPMAssertionTypeNoDisplaySleep : kIOPMAssertionTypeNoIdleSleep
-        let reason = "MacUtil keeps this Mac awake" as CFString
+        let reason = "UniMacHub keeps this Mac awake" as CFString
         var identifier: IOPMAssertionID = 0
         let result = IOPMAssertionCreateWithName(type as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), reason, &identifier)
         guard result == kIOReturnSuccess else { return false }

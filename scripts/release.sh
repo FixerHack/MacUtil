@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Builds a universal MacUtil.app, packs it as a DMG and a zip, publishes a GitHub
+# Builds a universal UniMacHub.app, packs it as a DMG and a zip, publishes a GitHub
 # release and points the Homebrew cask in FixerHack/homebrew-macutil at the DMG.
 #
-#   scripts/release.sh           # build only: build.noindex/MacUtil-<version>.dmg and .zip
+#   scripts/release.sh           # build only: build.noindex/UniMacHub-<version>.dmg and .zip
 #   scripts/release.sh publish   # also create the GitHub release and update the cask
 #
 # Bump MacUtilInfo.version before publishing a new release. The DMG window is laid out by
@@ -11,16 +11,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# Renaming the repository on GitHub leaves a redirect behind, so copies already
+# installed keep finding updates. Change this when the repository is renamed.
 REPO="FixerHack/MacUtil"
 TAP="FixerHack/homebrew-macutil"
 VERSION="$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInfo.swift)"
-APP="build.noindex/MacUtil.app"
-ZIP="build.noindex/MacUtil-$VERSION.zip"
-DMG="build.noindex/MacUtil-$VERSION.dmg"
+APP="build.noindex/UniMacHub.app"
+ZIP="build.noindex/UniMacHub-$VERSION.zip"
+DMG="build.noindex/UniMacHub-$VERSION.dmg"
 
 UNIVERSAL=1 scripts/build-app.sh release
 codesign --verify --strict "$APP"
-lipo -info "$APP/Contents/MacOS/MacUtil"
+lipo -info "$APP/Contents/MacOS/UniMacHub"
 IDENTITY="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^Authority=//p' | head -1)"
 
 rm -f "$ZIP" "$DMG"
@@ -32,14 +34,14 @@ if [[ ! -x "$VENV/bin/dmgbuild" ]]; then
     python3 -m venv "$VENV"
     "$VENV/bin/pip" install --quiet dmgbuild
 fi
-"$VENV/bin/dmgbuild" -s scripts/dmg-settings.py -D app="$APP" -D root="$ROOT" MacUtil "$DMG" 2>&1 \
+"$VENV/bin/dmgbuild" -s scripts/dmg-settings.py -D app="$APP" -D root="$ROOT" UniMacHub "$DMG" 2>&1 \
     | grep -v "is deprecated" || true
 if [[ -n "$IDENTITY" ]]; then codesign --sign "$IDENTITY" --timestamp=none "$DMG"; fi
 hdiutil verify -quiet "$DMG"
 # The copy people drag out of the DMG must still pass a strict signature check.
 MOUNT="$(mktemp -d)"
 hdiutil attach -nobrowse -readonly -quiet "$DMG" -mountpoint "$MOUNT"
-codesign --verify --strict --deep "$MOUNT/MacUtil.app" || { hdiutil detach -quiet "$MOUNT"; exit 1; }
+codesign --verify --strict --deep "$MOUNT/UniMacHub.app" || { hdiutil detach -quiet "$MOUNT"; exit 1; }
 hdiutil detach -quiet "$MOUNT"
 
 DMG_SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
@@ -74,22 +76,22 @@ NOTES="$(mktemp)"
 trap 'rm -f "$NOTES"' EXIT
 cat > "$NOTES" <<NOTES
 > [!IMPORTANT]
-> **First launch / Перший запуск.** MacUtil is not notarized by Apple, so macOS blocks it the first time.
-> Open MacUtil once, then go to **System Settings → Privacy & Security → Open Anyway**.
+> **First launch / Перший запуск.** UniMacHub is not notarized by Apple, so macOS blocks it the first time.
+> Open UniMacHub once, then go to **System Settings → Privacy & Security → Open Anyway**.
 >
-> MacUtil не нотаризований Apple, тому macOS блокує перший запуск. Відкрийте MacUtil один раз, потім
+> UniMacHub не нотаризований Apple, тому macOS блокує перший запуск. Відкрийте UniMacHub один раз, потім
 > **Системні параметри → Приватність і безпека → Все одно відкрити**.
 >
-> Later updates install themselves from inside MacUtil, without this step.
-> Наступні оновлення MacUtil встановлює сам, уже без цього кроку.
+> Later updates install themselves from inside UniMacHub, without this step.
+> Наступні оновлення UniMacHub встановлює сам, уже без цього кроку.
 >
 > [Step-by-step guide](https://github.com/$REPO#first-launch) · [Покрокова інструкція](https://github.com/$REPO/blob/main/README.uk.md#перший-запуск)
 
 $CHANGES
 ### Install / Встановлення
 
-**Download:** **MacUtil-$VERSION.zip** below, unpack it and move MacUtil to Applications.
-Завантажте **MacUtil-$VERSION.zip** нижче, розпакуйте й перенесіть MacUtil у «Програми».
+**Download:** **UniMacHub-$VERSION.zip** below, unpack it and move UniMacHub to Applications.
+Завантажте **UniMacHub-$VERSION.zip** нижче, розпакуйте й перенесіть UniMacHub у «Програми».
 The DMG is there too; macOS checks a disk image separately, so it asks about Gatekeeper twice.
 
 **Homebrew:**
@@ -103,12 +105,12 @@ macOS 14 Sonoma or later · Apple Silicon and Intel
 
 | File | sha256 |
 |---|---|
-| MacUtil-$VERSION.zip | \`$SHA\` |
-| MacUtil-$VERSION.dmg | \`$DMG_SHA\` |
+| UniMacHub-$VERSION.zip | \`$SHA\` |
+| UniMacHub-$VERSION.dmg | \`$DMG_SHA\` |
 NOTES
 
 gh release create "v$VERSION" "$DMG" "$ZIP" --repo "$REPO" --target "$(git rev-parse HEAD)" \
-    --title "MacUtil $VERSION" --notes-file "$NOTES"
+    --title "UniMacHub $VERSION" --notes-file "$NOTES"
 
 TAP_DIR="$(mktemp -d)"
 trap 'rm -f "$NOTES"; rm -rf "$TAP_DIR"' EXIT
@@ -116,7 +118,7 @@ gh repo clone "$TAP" "$TAP_DIR" -- --quiet
 sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" \
     "$TAP_DIR/Casks/macutil.rb"
 if ! git -C "$TAP_DIR" diff --quiet; then
-    git -C "$TAP_DIR" commit -qam "MacUtil $VERSION"
+    git -C "$TAP_DIR" commit -qam "UniMacHub $VERSION"
     git -C "$TAP_DIR" push -q
 fi
-echo "Released MacUtil $VERSION"
+echo "Released UniMacHub $VERSION"

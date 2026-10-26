@@ -46,7 +46,7 @@ public struct ExFATRecovery: Sendable {
             case let .notExFAT(device):
                 String(localized: "\(device) is not an exFAT disk, so its own records cannot be read.")
             case let .cannotRead(device):
-                String(localized: "MacUtil cannot read \(device).")
+                String(localized: "UniMacHub cannot read \(device).")
             }
         }
     }

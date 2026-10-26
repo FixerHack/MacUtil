@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/icon.png" width="128" height="128" alt="MacUtil icon">
+<img src="docs/icon.png" width="128" height="128" alt="UniMacHub icon">
 
-# MacUtil
+# UniMacHub
 
 **A free, open-source cleaner, optimizer and security analyzer for macOS**
 
@@ -22,9 +22,9 @@ In the spirit of CleanMyMac, OnyX and the Objective-See tools. Native Swift and 
 </div>
 
 > [!IMPORTANT]
-> **First launch:** MacUtil is not notarized by Apple, so macOS blocks it the first time you open it.
+> **First launch:** UniMacHub is not notarized by Apple, so macOS blocks it the first time you open it.
 > Open it once, then go to **System Settings → Privacy & Security → Open Anyway**.
-> You do this once: [later updates install themselves](#updates) from inside MacUtil, without the prompt.
+> You do this once: [later updates install themselves](#updates) from inside UniMacHub, without the prompt.
 > [Step by step ↓](#first-launch)
 
 ## Install
@@ -36,53 +36,53 @@ brew tap fixerhack/macutil
 brew install macutil
 ```
 
-The first command adds the MacUtil tap once; after that `brew install`, `brew upgrade` and `brew uninstall` work with the short name. To remove MacUtil, run `brew uninstall macutil`; add `--zap` to also delete its settings and history.
+The first command adds the UniMacHub tap once; after that `brew install`, `brew upgrade` and `brew uninstall` work with the short name. To remove UniMacHub, run `brew uninstall macutil`; add `--zap` to also delete its settings and history.
 
 Or in one line, without adding the tap first: `brew install --cask fixerhack/macutil/macutil`.
 
 ### Download
 
-1. Open the [latest release](https://github.com/FixerHack/MacUtil/releases/latest) and download **MacUtil-x.y.z.zip**.
-2. Double-click the zip and drag **MacUtil** into your **Applications** folder.
+1. Open the [latest release](https://github.com/FixerHack/MacUtil/releases/latest) and download **UniMacHub-x.y.z.zip**.
+2. Double-click the zip and drag **UniMacHub** into your **Applications** folder.
 3. Follow [First launch](#first-launch) below.
 
 A **DMG** with the same app is attached to every release, with the first-launch steps drawn in its
 window. macOS checks a downloaded disk image on its own, so the DMG asks about Gatekeeper twice:
 once for the image and once for the app. The zip asks once.
 
-<p align="center"><img src="docs/dmg.png" alt="The MacUtil DMG window" width="560"></p>
+<p align="center"><img src="docs/dmg.png" alt="The UniMacHub DMG window" width="560"></p>
 
-Run MacUtil from Applications. Its permissions are tied to that copy.
+Run UniMacHub from Applications. Its permissions are tied to that copy.
 
 ## First launch
 
-MacUtil is signed but not notarized by Apple (notarization needs a paid developer account), so macOS blocks it the first time:
+UniMacHub is signed but not notarized by Apple (notarization needs a paid developer account), so macOS blocks it the first time:
 
 > [!WARNING]
-> 1. Open MacUtil. macOS says it cannot verify the app. Click **Done**, not Move to Trash.
+> 1. Open UniMacHub. macOS says it cannot verify the app. Click **Done**, not Move to Trash.
 > 2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
-> 3. Next to "“MacUtil” was blocked to protect your Mac", click **Open Anyway** and confirm with your password.
+> 3. Next to "“UniMacHub” was blocked to protect your Mac", click **Open Anyway** and confirm with your password.
 
 You do this once. If you prefer the Terminal, this does the same:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/MacUtil.app
+xattr -dr com.apple.quarantine /Applications/UniMacHub.app
 ```
 
-After that, MacUtil walks you through granting **Full Disk Access**. Without it, macOS hides caches, mail and browser data. The guide opens the right settings page, shows where to drag the app and notices by itself when access is granted.
+After that, UniMacHub walks you through granting **Full Disk Access**. Without it, macOS hides caches, mail and browser data. The guide opens the right settings page, shows where to drag the app and notices by itself when access is granted.
 
 ## Updates
 
-MacUtil checks its own GitHub releases once a day and shows a card on the dashboard when a new
+UniMacHub checks its own GitHub releases once a day and shows a card on the dashboard when a new
 version is out. Press **Update Now** and it downloads the release, replaces itself and restarts.
 You can turn the check off, or run it by hand, in **Settings → Updates**.
 
-Because MacUtil downloads the update itself instead of a browser, the new version carries no
+Because UniMacHub downloads the update itself instead of a browser, the new version carries no
 quarantine flag, so it opens without the Gatekeeper prompt from the first install.
 
 Two things are checked before anything is installed: the download must match the sha256 GitHub
 publishes for it, and the new app must satisfy this copy's own code signature requirement. A build
-signed by anyone else is refused, so a tampered download cannot replace your MacUtil.
+signed by anyone else is refused, so a tampered download cannot replace your UniMacHub.
 
 ## Features
 
@@ -163,18 +163,18 @@ records until something writes over them. Reading those records takes seconds an
 under their own names, fragmented ones included.
 
 **Byte by byte** is the fallback for when the records are gone or the disk is another file system.
-MacUtil reads the raw device and recognises files by the bytes they start with, then follows the
+UniMacHub reads the raw device and recognises files by the bytes they start with, then follows the
 structure of each format to its real end — a photo comes back whole rather than as the small
 preview stored inside it.
 
 Recovery by scanning works on memory cards, flash drives, external disks and disk images, where
-a deleted file's contents stay on the disk until something writes over them. MacUtil reads the
+a deleted file's contents stay on the disk until something writes over them. UniMacHub reads the
 raw device, recognises files by the bytes they start with and writes them to a folder you choose
 on **another** disk.
 
 It cannot work on the internal SSD of a modern Mac: macOS tells the drive to discard the blocks of
 a deleted file, and FileVault encrypts what is left. For the internal disk the ways back are the
-Trash, an APFS snapshot, a Time Machine backup — all of which MacUtil covers.
+Trash, an APFS snapshot, a Time Machine backup — all of which UniMacHub covers.
 
 ## Safety and privacy
 
@@ -183,11 +183,11 @@ Trash, an APFS snapshot, a Time Machine backup — all of which MacUtil covers.
 - **Caches of running apps are locked** until you quit the app.
 - **VirusTotal gets only file hashes.** A file is uploaded only when you explicitly ask. Your API key stays in the macOS Keychain.
 - **No telemetry, no accounts, no network calls** except VirusTotal and update checks, both of which you start yourself.
-- Every action is recorded in `~/Library/Application Support/MacUtil/History.jsonl`.
+- Every action is recorded in `~/Library/Application Support/UniMacHub/History.jsonl`.
 
 ### VirusTotal
 
-The security analyzer can check apps against VirusTotal. To enable it, create a free account at [virustotal.com](https://www.virustotal.com), copy your API key from your profile and paste it into **MacUtil → Settings**.
+The security analyzer can check apps against VirusTotal. To enable it, create a free account at [virustotal.com](https://www.virustotal.com), copy your API key from your profile and paste it into **UniMacHub → Settings**.
 
 ## Requirements
 
@@ -205,13 +205,13 @@ free signing certificate described below.
 
 ```bash
 git clone https://github.com/FixerHack/MacUtil.git
-cd MacUtil
+cd UniMacHub
 scripts/install.sh      # optimized build, installed to /Applications and opened
 ```
 
 | Script | What it does |
 |---|---|
-| `scripts/build-app.sh [release]` | Builds `build.noindex/MacUtil.app` (`UNIVERSAL=1` for Apple Silicon + Intel) |
+| `scripts/build-app.sh [release]` | Builds `build.noindex/UniMacHub.app` (`UNIVERSAL=1` for Apple Silicon + Intel) |
 | `scripts/test.sh` | Runs the tests (works without Xcode) |
 | `scripts/check-strings.sh` | Lists interface strings missing a Ukrainian translation |
 | `scripts/snapshot.sh` | Saves a PNG of the app window (debug builds) |
@@ -228,7 +228,7 @@ If `security find-identity -v -p codesigning` lists your certificate as not vali
 `mucli` exposes the core for the Terminal. Every command is read-only:
 
 ```bash
-swift run mucli junk          # what MacUtil would clean
+swift run mucli junk          # what UniMacHub would clean
 swift run mucli security      # security settings, autostart items, signatures
 swift run mucli large ~       # large and old files
 swift run mucli --help
@@ -240,7 +240,7 @@ swift run mucli --help
 Sources/
   CleanerCore/    scanning, junk rules, cleaning, duplicates, search, apps
   SecurityCore/   signatures, permissions, persistence, VirusTotal, settings audit
-  MacUtilApp/     SwiftUI app
+  UniMacHubApp/     SwiftUI app
   mucli/          command-line tool
 Tests/            unit tests for both cores
 ```
@@ -252,4 +252,4 @@ The shape of the request the AppleSMC driver expects was worked out from
 
 ## License
 
-[GPL-3.0](LICENSE). You may use, study, change and share MacUtil. Changed versions you distribute must stay open under the same license.
+[GPL-3.0](LICENSE). You may use, study, change and share UniMacHub. Changed versions you distribute must stay open under the same license.

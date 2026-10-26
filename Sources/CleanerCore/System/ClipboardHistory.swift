@@ -63,8 +63,7 @@ public enum ClipboardHistory {
     }
 
     public static var url: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Application Support/MacUtil/Clipboard.json")
+        AppPaths.file("Clipboard.json")
     }
 
     // MARK: - Reading the pasteboard

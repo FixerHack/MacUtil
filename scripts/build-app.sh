@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Builds build.noindex/MacUtil.app from the Swift package.
+# Builds build.noindex/UniMacHub.app from the Swift package.
 #
-#   scripts/build-app.sh            # debug build → build.noindex/MacUtil.app
+#   scripts/build-app.sh            # debug build → build.noindex/UniMacHub.app
 #   scripts/build-app.sh release    # optimized build
 #   UNIVERSAL=1 scripts/build-app.sh release   # Apple Silicon + Intel
 #
@@ -37,15 +37,15 @@ swift build -c "$CONFIG" --product MacUtil "${ARCH_FLAGS[@]}"
 swift build -c "$CONFIG" --product mucli "${ARCH_FLAGS[@]}"
 BIN_DIR="$(swift build -c "$CONFIG" "${ARCH_FLAGS[@]}" --show-bin-path)"
 
-APP="$ROOT/build.noindex/MacUtil.app"
+APP="$ROOT/build.noindex/UniMacHub.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$BIN_DIR/MacUtil" "$APP/Contents/MacOS/MacUtil"
+cp "$BIN_DIR/MacUtil" "$APP/Contents/MacOS/UniMacHub"
 cp "$BIN_DIR/mucli" "$APP/Contents/Resources/mucli"
 if [[ -n "${UNIVERSAL:-}" ]]; then
     # A silent half-build would ship a release that will not open on half the Macs.
-    for binary in "$APP/Contents/MacOS/MacUtil" "$APP/Contents/Resources/mucli"; do
+    for binary in "$APP/Contents/MacOS/UniMacHub" "$APP/Contents/Resources/mucli"; do
         archs="$(lipo -archs "$binary")"
         for want in arm64 x86_64; do
             [[ "$archs" == *"$want"* ]] || { echo "error: $binary has no $want ($archs)" >&2; exit 1; }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SidebarSection: CaseIterable, Identifiable {
-    case overview, cleanup, organize, space, recovery, search, applications, network, security, optimization
+    case overview, cleanup, storage, applications, files, system, network, security
 
     var id: Self { self }
 
@@ -9,14 +9,39 @@ enum SidebarSection: CaseIterable, Identifiable {
         switch self {
         case .overview: "Overview"
         case .cleanup: "Cleanup"
-        case .organize: "Order"
-        case .space: "Disk Space"
-        case .recovery: "Recovery"
-        case .search: "Search"
+        case .storage: "Storage"
         case .applications: "Applications"
+        case .files: "Files"
+        case .system: "System"
         case .network: "Network"
         case .security: "Security"
-        case .optimization: "Optimization"
+        }
+    }
+
+    /// A word for the whole section, shown under its name while it is open.
+    var summary: LocalizedStringKey {
+        switch self {
+        case .overview: "What your Mac looks like right now."
+        case .cleanup: "What can go, and why it is safe to let it."
+        case .storage: "Where the space went, and how to get it back."
+        case .applications: "What is installed, and what it left behind."
+        case .files: "Finding things, and keeping them in order."
+        case .system: "How macOS behaves, and what runs inside it."
+        case .network: "What this Mac is connected through."
+        case .security: "What is running, signed and allowed."
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .overview: "square.grid.2x2"
+        case .cleanup: "sparkles"
+        case .storage: "internaldrive"
+        case .applications: "app.badge"
+        case .files: "folder"
+        case .system: "gearshape.2"
+        case .network: "network"
+        case .security: "lock.shield"
         }
     }
 
@@ -27,30 +52,46 @@ enum SidebarSection: CaseIterable, Identifiable {
 
 enum Module: CaseIterable, Identifiable, Hashable {
     case dashboard, history, clipboard
-    case systemJunk, developerJunk, trash, privacy, messengers, installers, projectBuilds
-    case spaceLens, largeFiles, duplicates, disks
-    case folderOrganizer
-    case fileRecovery
-    case deepSearch
-    case uninstaller, leftovers, updater, slimming
+    case systemJunk, developerJunk, projectBuilds, messengers, installers, trash, privacy
+    case spaceLens, largeFiles, duplicates, disks, fileRecovery
+    case uninstaller, leftovers, updater, slimming, addOns
+    case folderOrganizer, deepSearch
+    case taskManager, loginItems, maintenance, hiddenSettings, terminal
     case networkAdapters
     case securityAnalyzer
-    case loginItems, maintenance, taskManager, hiddenSettings, terminal, addOns
+
+    // Planned, listed so the shape of the app is honest about where it is going.
+    case menuBarTidy, windowTiling, audioSwitch, displayControl, batteryCare
+    case dockWidgets, batchRename, terminalThemes
+    case networkControl, linkAggregation
+    case firewall, permissions
 
     var id: Self { self }
+
+    /// Not built yet: shown with a mark, and opening one explains what it will do.
+    var isPlanned: Bool {
+        switch self {
+        case .menuBarTidy, .windowTiling, .audioSwitch, .displayControl, .batteryCare,
+             .dockWidgets, .batchRename, .terminalThemes, .networkControl, .linkAggregation,
+             .firewall, .permissions:
+            true
+        default:
+            false
+        }
+    }
 
     var section: SidebarSection {
         switch self {
         case .dashboard, .history, .clipboard: .overview
-        case .systemJunk, .developerJunk, .trash, .privacy, .messengers, .installers, .projectBuilds: .cleanup
-        case .spaceLens, .largeFiles, .duplicates, .disks: .space
-        case .folderOrganizer: .organize
-        case .fileRecovery: .recovery
-        case .deepSearch: .search
-        case .uninstaller, .leftovers, .updater, .slimming: .applications
-        case .networkAdapters: .network
-        case .securityAnalyzer: .security
-        case .loginItems, .maintenance, .taskManager, .hiddenSettings, .terminal, .addOns: .optimization
+        case .systemJunk, .developerJunk, .projectBuilds, .messengers, .installers, .trash, .privacy: .cleanup
+        case .spaceLens, .largeFiles, .duplicates, .disks, .fileRecovery: .storage
+        case .uninstaller, .leftovers, .updater, .slimming, .addOns, .dockWidgets: .applications
+        case .folderOrganizer, .deepSearch, .batchRename: .files
+        case .taskManager, .loginItems, .maintenance, .hiddenSettings, .terminal,
+             .terminalThemes, .menuBarTidy, .windowTiling, .audioSwitch, .displayControl, .batteryCare:
+            .system
+        case .networkAdapters, .networkControl, .linkAggregation: .network
+        case .securityAnalyzer, .firewall, .permissions: .security
         }
     }
 
@@ -85,13 +126,25 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .hiddenSettings: "Hidden Settings"
         case .terminal: "Terminal"
         case .addOns: "System Add-ons"
+        case .menuBarTidy: "Menu Bar"
+        case .windowTiling: "Window Layouts"
+        case .audioSwitch: "Sound Output"
+        case .displayControl: "Displays"
+        case .batteryCare: "Battery"
+        case .dockWidgets: "Dock & Widgets"
+        case .batchRename: "Rename in Bulk"
+        case .terminalThemes: "Terminal Themes"
+        case .networkControl: "Network Settings"
+        case .linkAggregation: "Combine Connections"
+        case .firewall: "Firewall"
+        case .permissions: "App Permissions"
         }
     }
 
     var summary: LocalizedStringKey {
         switch self {
         case .dashboard: "Clean, optimize and protect your Mac."
-        case .history: "Everything MacUtil has removed, with dates, sizes and paths."
+        case .history: "Everything UniMacHub has removed, with dates, sizes and paths."
         case .clipboard: "The last hundred things you copied, instead of only the last one."
         case .systemJunk: "Caches, logs, crash reports and other system leftovers."
         case .developerJunk: "Xcode data, package manager caches, Docker and old node_modules."
@@ -119,6 +172,18 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .hiddenSettings: "macOS settings that are not in System Settings."
         case .terminal: "Settings zsh, Git and ssh already have, in words and switchable."
         case .addOns: "Extensions, plug-ins, software needing Rosetta and files iCloud already holds."
+        case .menuBarTidy: "Hide the icons you do not need, and reach them when you do."
+        case .windowTiling: "Put windows side by side with the keyboard."
+        case .audioSwitch: "Change output and per-app volume without opening Settings."
+        case .displayControl: "Brightness and resolution, including on external screens."
+        case .batteryCare: "Health, cycles, and holding the charge where it wears least."
+        case .dockWidgets: "A Dock of your own, with the apps you choose as live widgets."
+        case .batchRename: "Rename many files at once, by a rule you can see first."
+        case .terminalThemes: "Colours for Terminal, built to be read for hours."
+        case .networkControl: "Change DNS, the order of adapters, and what is switched on."
+        case .linkAggregation: "Use Wi-Fi and Ethernet at once, adding up their speed."
+        case .firewall: "What is allowed to listen, and what is reaching out."
+        case .permissions: "Which apps hold which permissions, in one list."
         }
     }
 
@@ -153,30 +218,51 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .hiddenSettings: "slider.horizontal.3"
         case .terminal: "terminal"
         case .addOns: "puzzlepiece.extension"
+        case .menuBarTidy: "menubar.rectangle"
+        case .windowTiling: "rectangle.split.2x1"
+        case .audioSwitch: "speaker.wave.2"
+        case .displayControl: "display"
+        case .batteryCare: "battery.100percent"
+        case .dockWidgets: "squares.below.rectangle"
+        case .batchRename: "character.cursor.ibeam"
+        case .terminalThemes: "paintpalette"
+        case .networkControl: "dot.radiowaves.left.and.right"
+        case .linkAggregation: "arrow.triangle.merge"
+        case .firewall: "flame"
+        case .permissions: "hand.raised.square"
         }
     }
 
-    /// Roadmap phase from PLAN.md in which the module gets implemented.
-    var plannedPhase: Int {
+    /// What a planned screen says when opened: the shape of the thing, and what it will cost.
+    /// Nil for everything built, which answers for itself on its own screen.
+    var plannedNote: LocalizedStringKey? {
         switch self {
-        case .dashboard: 0
-        case .history: 12
-        case .clipboard: 16
-        case .spaceLens, .largeFiles: 1
-        case .systemJunk, .developerJunk, .trash: 2
-        case .securityAnalyzer: 3
-        case .uninstaller, .leftovers: 4
-        case .duplicates: 5
-        case .deepSearch: 6
-        case .privacy, .loginItems, .maintenance, .taskManager, .hiddenSettings: 8
-        case .messengers: 11
-        case .installers, .projectBuilds: 12
-        case .disks, .fileRecovery: 10
-        case .folderOrganizer: 13
-        case .networkAdapters: 14
-        case .terminal, .addOns: 15
-        case .updater: 9
-        case .slimming: 12
+        case .menuBarTidy:
+            "A crowded menu bar hides what matters. This will put the icons you rarely need behind a divider, and bring them back on a click."
+        case .windowTiling:
+            "Halves, quarters and thirds from the keyboard. This one needs permission to move other apps' windows, which is a larger thing to ask than anything here does today."
+        case .audioSwitch:
+            "Headphones to speakers in one click, and a volume slider for each app rather than one for everything."
+        case .displayControl:
+            "Brightness on an external screen, which macOS leaves to the monitor's own buttons, and a quick change of resolution."
+        case .batteryCare:
+            "Cycles, capacity and wear. Holding the charge below full is what makes a battery last, and that part depends on the Mac's own controller."
+        case .dockWidgets:
+            "A Dock with the apps you choose shown as small live widgets. macOS never gives up its own Dock, so this hides it rather than replacing it, and puts it back when you quit."
+        case .batchRename:
+            "Numbering, find and replace, dates from the file itself — with the whole list of new names shown before a single file moves."
+        case .terminalThemes:
+            "Colour schemes for Terminal that hold up over a long day, applied to its profiles."
+        case .networkControl:
+            "Change DNS servers, reorder the adapters macOS tries, and switch a service off — each needing your password, as these are settings for the whole Mac."
+        case .linkAggregation:
+            "Sending different connections over Wi-Fi and Ethernet at once, so their speeds add up. This needs a virtual network device and administrator rights, which changes how much trust the app is asking for."
+        case .firewall:
+            "What may listen for connections and what is reaching out, with a switch for each."
+        case .permissions:
+            "Camera, microphone, screen, files and automation: which app was granted what, gathered in one list instead of a dozen panes."
+        default:
+            nil
         }
     }
 }

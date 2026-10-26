@@ -38,19 +38,19 @@ public enum SelfUpdate {
             case .network:
                 String(localized: "Could not reach GitHub.")
             case .badDownload:
-                String(localized: "The downloaded file is not a working MacUtil disk image.")
+                String(localized: "The downloaded file is not a working UniMacHub disk image.")
             case .wrongChecksum:
                 String(localized: "The downloaded file does not match what GitHub published. Nothing was installed.")
             case .wrongArchitecture:
                 String(
-                    localized: "This update was not built for this kind of Mac, so it was not installed. Download MacUtil from the releases page instead."
+                    localized: "This update was not built for this kind of Mac, so it was not installed. Download UniMacHub from the releases page instead."
                 )
             case .notSameSigner:
                 String(
-                    localized: "The downloaded MacUtil is signed by someone else, so it was not installed. Download MacUtil from the releases page instead."
+                    localized: "The downloaded UniMacHub is signed by someone else, so it was not installed. Download UniMacHub from the releases page instead."
                 )
             case let .cannotWrite(path):
-                String(localized: "MacUtil cannot update itself at \(path). Move it to your Applications folder and try again.")
+                String(localized: "UniMacHub cannot update itself at \(path). Move it to your Applications folder and try again.")
             case let .failed(message):
                 message
             }
@@ -66,7 +66,7 @@ public enum SelfUpdate {
         var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(repository)/releases/latest")!)
         request.timeoutInterval = 20
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("MacUtil/\(currentVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("UniMacHub/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         guard let (data, response) = try? await session.data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200
         else { throw Failure.network }
@@ -97,7 +97,7 @@ public enum SelfUpdate {
     ) async throws -> URL {
         var request = URLRequest(url: release.downloadURL)
         request.timeoutInterval = 300
-        request.setValue("MacUtil", forHTTPHeaderField: "User-Agent")
+        request.setValue("UniMacHub", forHTTPHeaderField: "User-Agent")
 
         let temporary: URL
         do {
@@ -140,7 +140,7 @@ public enum SelfUpdate {
             throw Failure.cannotWrite(directory.path)
         }
 
-        let mountPoint = FileManager.default.temporaryDirectory.appending(path: "MacUtilUpdate-\(UUID().uuidString)")
+        let mountPoint = FileManager.default.temporaryDirectory.appending(path: "UniMacHubUpdate-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
         guard let attach = await Command.run("/usr/bin/hdiutil", [
             "attach", dmg.path, "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", mountPoint.path,
@@ -185,7 +185,25 @@ public enum SelfUpdate {
             throw await fail(.failed(error.localizedDescription), staged: staged)
         }
         await unmount()
-        return app
+        return rename(app, to: newApp.lastPathComponent)
+    }
+
+    /// Gives the installed copy the name the update carries, when the app has been renamed.
+    ///
+    /// An update replaces the app where it already sits, so a copy installed as MacUtil.app
+    /// would keep that name for good while calling itself something else everywhere inside.
+    /// The move is only attempted when nothing is already using the new name, and a failure
+    /// is not worth reporting: the update itself is in place either way.
+    static func rename(_ app: URL, to wanted: String) -> URL {
+        guard app.lastPathComponent != wanted, !wanted.isEmpty else { return app }
+        let renamed = app.deletingLastPathComponent().appending(path: wanted)
+        guard !FileManager.default.fileExists(atPath: renamed.path(percentEncoded: false)) else { return app }
+        do {
+            try FileManager.default.moveItem(at: app, to: renamed)
+            return renamed
+        } catch {
+            return app
+        }
     }
 
     /// Quits this copy and starts the updated one.
@@ -204,12 +222,12 @@ public enum SelfUpdate {
         var currentCode: SecStaticCode?
         guard SecStaticCodeCreateWithPath(current as CFURL, [], &currentCode) == errSecSuccess,
               let currentCode
-        else { throw Failure.failed(String(localized: "MacUtil cannot read its own signature.")) }
+        else { throw Failure.failed(String(localized: "UniMacHub cannot read its own signature.")) }
 
         var requirement: SecRequirement?
         guard SecCodeCopyDesignatedRequirement(currentCode, [], &requirement) == errSecSuccess,
               let requirement
-        else { throw Failure.failed(String(localized: "MacUtil cannot read its own signature.")) }
+        else { throw Failure.failed(String(localized: "UniMacHub cannot read its own signature.")) }
 
         var candidateCode: SecStaticCode?
         guard SecStaticCodeCreateWithPath(candidate as CFURL, [], &candidateCode) == errSecSuccess,

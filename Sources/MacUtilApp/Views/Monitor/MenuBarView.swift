@@ -28,7 +28,7 @@ struct MenuBarView: View {
                 Image(nsImage: NSApp.applicationIconImage)
                     .resizable()
                     .frame(width: 22, height: 22)
-                Text(verbatim: "MacUtil").font(.headline)
+                Text(verbatim: "UniMacHub").font(.headline)
                 Spacer()
             }
 
@@ -84,7 +84,7 @@ struct MenuBarView: View {
 
             Divider()
             HStack {
-                Button("Open MacUtil") { open(.dashboard) }
+                Button("Open UniMacHub") { open(.dashboard) }
                 Spacer()
                 Button("Smart Scan") {
                     open(.dashboard)
@@ -92,7 +92,7 @@ struct MenuBarView: View {
                 }
                 .prominentButton()
             }
-            Button("Quit MacUtil") { NSApp.terminate(nil) }
+            Button("Quit UniMacHub") { NSApp.terminate(nil) }
                 .buttonStyle(.link)
                 .font(.caption)
         }

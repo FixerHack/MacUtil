@@ -10,15 +10,21 @@ struct ContentView: View {
         NavigationSplitView {
             List(selection: $state.selection) {
                 ForEach(SidebarSection.allCases) { section in
-                    Section(section.title) {
+                    Section {
                         ForEach(section.modules) { module in
-                            Label(module.title, systemImage: module.symbol)
+                            SidebarRow(module: module, isSelected: state.selection == module)
                                 .tag(module)
                         }
+                    } header: {
+                        // Text alone: a header icon collides with the first row as the
+                        // list scrolls underneath it.
+                        Text(section.title)
+                            .font(.caption.weight(.semibold))
+                            .textCase(nil)
                     }
                 }
             }
-            .navigationSplitViewColumnWidth(min: 210, ideal: 230)
+            .navigationSplitViewColumnWidth(min: 215, ideal: 235)
         } detail: {
             Group {
                 switch state.selection ?? .dashboard {
@@ -81,14 +87,41 @@ struct ContentView: View {
                 case .securityAnalyzer:
                     SecurityView(store: state.security)
                 case let module:
-                    ModulePlaceholderView(module: module)
+                    // Everything built has a case above; what is left is on the way.
+                    PlannedView(module: module)
                 }
             }
             // Screens whose content is shorter than the window stay at the top.
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            // Moving between screens fades rather than cutting, which makes a sidebar
+            // of thirty entries feel like one place instead of thirty.
+            .transition(.opacity.combined(with: .offset(y: 6)))
+            .animation(.easeOut(duration: 0.18), value: state.selection)
         }
         .sheet(isPresented: $state.showsPermissionsGuide) {
             PermissionsGuideView()
+        }
+    }
+}
+
+/// One entry in the sidebar: an icon that takes the accent colour when chosen, and a
+/// mark on the screens that are not built yet.
+private struct SidebarRow: View {
+    let module: Module
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Label(module.title, systemImage: module.symbol)
+                .foregroundStyle(module.isPlanned ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                .symbolVariant(isSelected ? .fill : .none)
+            if module.isPlanned {
+                Spacer()
+                Image(systemName: "clock")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                    .help(Text("Coming soon"))
+            }
         }
     }
 }

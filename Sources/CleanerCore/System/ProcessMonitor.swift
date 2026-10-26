@@ -97,7 +97,7 @@ public enum LaunchControl {
             : ["launchctl disable system/\(label)", "launchctl bootout system/\(label) 2>/dev/null ; true"]
         return await AdminRunner.run(
             commands,
-            prompt: String(localized: "MacUtil needs your password to change a background service.")
+            prompt: String(localized: "UniMacHub needs your password to change a background service.")
         )
     }
 }

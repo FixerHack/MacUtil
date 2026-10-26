@@ -51,6 +51,44 @@ import Testing
         #expect(ManagedBlock.read(from: path) == ["setopt AUTO_CD", "HISTSIZE=50000"])
     }
 
+    @Test func stillFindsABlockWrittenUnderTheOldName() throws {
+        // What someone's .zshrc looks like after the app was renamed: our lines are there,
+        // but under the markers the app used to write.
+        let path = try file("""
+        alias g=git
+        # >>> MacUtil >>>
+        # Lines between these markers are MacUtil's. Everything else is yours.
+        setopt AUTO_CD
+        # <<< MacUtil <<<
+        """)
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        #expect(ManagedBlock.read(from: path) == ["setopt AUTO_CD"])
+
+        // Writing again moves it to the new markers without leaving the old pair behind.
+        try ManagedBlock.write(["setopt CORRECT"], to: path)
+        let text = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(!text.contains("MacUtil >>>"))
+        #expect(text.contains(ManagedBlock.begin))
+        #expect(ManagedBlock.read(from: path) == ["setopt CORRECT"])
+    }
+
+    @Test func takesOutABlockLeftUnderTheOldNameEntirely() throws {
+        let path = try file("""
+        export PATH=/opt/bin:$PATH
+        # >>> MacUtil >>>
+        setopt AUTO_CD
+        # <<< MacUtil <<<
+        """)
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        try ManagedBlock.remove(from: path)
+        let text = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(!text.contains("MacUtil"))
+        #expect(!text.contains("AUTO_CD"))
+        #expect(text.hasPrefix("export PATH=/opt/bin:$PATH"))
+    }
+
     @Test func doesNotCreateAFileJustToLeaveItEmpty() throws {
         let path = FileManager.default.temporaryDirectory
             .appending(path: "mc-missing-\(UUID().uuidString)").path(percentEncoded: false)

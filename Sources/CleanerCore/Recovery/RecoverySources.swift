@@ -82,7 +82,7 @@ public enum SnapshotRecovery {
         _ snapshot: LocalSnapshots.Snapshot, of volume: String = "/System/Volumes/Data"
     ) async -> (outcome: DiskOperations.Outcome, mounted: Mounted?) {
         let mountPoint = FileManager.default.temporaryDirectory
-            .appending(path: "MacUtilSnapshot-\(UUID().uuidString)")
+            .appending(path: "UniMacHubSnapshot-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
 
         let command = "/sbin/mount_apfs -o ro -s \(snapshot.name) \(volume) \(mountPoint.path)"
@@ -96,7 +96,7 @@ public enum SnapshotRecovery {
             )
         }
         let elevated = await AdminRunner.run([command], prompt: String(
-            localized: "MacUtil needs your password to open this snapshot for reading."
+            localized: "UniMacHub needs your password to open this snapshot for reading."
         ))
         let outcome = DiskOperations.Outcome(
             succeeded: elevated.succeeded, output: elevated.text, wasCancelled: elevated.wasCancelled, command: command
@@ -108,7 +108,7 @@ public enum SnapshotRecovery {
         let plain = await Command.run("/sbin/umount", [mounted.mountPoint], timeout: .seconds(60))
         if plain?.status != 0 {
             _ = await AdminRunner.run(["/sbin/umount \(mounted.mountPoint)"], prompt: String(
-                localized: "MacUtil needs your password to close this snapshot."
+                localized: "UniMacHub needs your password to close this snapshot."
             ))
         }
         try? FileManager.default.removeItem(at: URL(filePath: mounted.mountPoint))
@@ -171,7 +171,7 @@ public enum TimeMachineRecovery {
             return DiskOperations.Outcome(succeeded: true, output: destination.path, wasCancelled: false, command: command)
         }
         let elevated = await AdminRunner.run([command], prompt: String(
-            localized: "MacUtil needs your password to restore this file from the backup."
+            localized: "UniMacHub needs your password to restore this file from the backup."
         ))
         return DiskOperations.Outcome(
             succeeded: elevated.succeeded, output: elevated.succeeded ? destination.path : elevated.text,

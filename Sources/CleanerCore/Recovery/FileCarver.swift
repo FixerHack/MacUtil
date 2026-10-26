@@ -157,7 +157,7 @@ public struct FileCarver: Sendable {
         public var errorDescription: String? {
             switch self {
             case let .cannotRead(device):
-                String(localized: "MacUtil cannot read \(device).")
+                String(localized: "UniMacHub cannot read \(device).")
             case let .notAllowed(device):
                 String(localized: "Reading \(device) needs an administrator password.")
             }

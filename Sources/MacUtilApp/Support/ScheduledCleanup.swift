@@ -56,7 +56,7 @@ enum ScheduledCleanup {
 
         Notifications.post(
             id: "scheduledCleanup",
-            title: String(localized: "MacUtil cleaned up"),
+            title: String(localized: "UniMacHub cleaned up"),
             body: String(localized: "\(result.freedBytes.formatted(.byteCount(style: .file))) moved to the Trash, where you can still get it back.")
         )
         return result.freedBytes

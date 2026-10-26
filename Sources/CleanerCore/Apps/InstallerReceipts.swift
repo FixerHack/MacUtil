@@ -134,7 +134,7 @@ public enum InstallerReceipts {
             + ["/usr/sbin/pkgutil --forget \(shellQuoted(contents.receipt.packageID))"]
         return await AdminRunner.run(
             commands,
-            prompt: String(localized: "MacUtil needs your password to remove what this installer put on your Mac.")
+            prompt: String(localized: "UniMacHub needs your password to remove what this installer put on your Mac.")
         )
     }
 
@@ -142,7 +142,7 @@ public enum InstallerReceipts {
     public static func forget(_ receipt: InstallerReceipt) async -> AdminRunner.Output {
         await AdminRunner.run(
             ["/usr/sbin/pkgutil --forget \(shellQuoted(receipt.packageID))"],
-            prompt: String(localized: "MacUtil needs your password to forget this installer receipt.")
+            prompt: String(localized: "UniMacHub needs your password to forget this installer receipt.")
         )
     }
 

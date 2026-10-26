@@ -14,7 +14,7 @@ struct UpdateCard: View {
             card {
                 VStack(alignment: .leading, spacing: 10) {
                     header(
-                        title: "MacUtil \(release.version) is available",
+                        title: "UniMacHub \(release.version) is available",
                         detail: "You have \(MacUtilInfo.version). The update is \(release.size.formatted(.byteCount(style: .file)))."
                     )
                     if let error = store.lastError {
@@ -55,8 +55,8 @@ struct UpdateCard: View {
             card {
                 VStack(alignment: .leading, spacing: 10) {
                     header(
-                        title: "MacUtil is updated",
-                        detail: "Restart MacUtil to start using the new version.",
+                        title: "UniMacHub is updated",
+                        detail: "Restart UniMacHub to start using the new version.",
                         symbol: "checkmark.circle.fill", color: .green
                     )
                     HStack {
@@ -116,7 +116,7 @@ struct UpdateSettings: View {
     var body: some View {
         let store = state.selfUpdate
         Toggle("Check for updates automatically", isOn: $automatic)
-        LabeledContent("MacUtil \(MacUtilInfo.version)") {
+        LabeledContent("UniMacHub \(MacUtilInfo.version)") {
             HStack(spacing: 10) {
                 switch store.phase {
                 case .checking:
@@ -147,7 +147,7 @@ struct UpdateSettings: View {
                 .foregroundStyle(.orange)
         }
         Text(
-            "MacUtil downloads updates from its GitHub releases and installs only files signed with the same certificate as this copy. Updates installed this way open without the Gatekeeper prompt you saw the first time."
+            "UniMacHub downloads updates from its GitHub releases and installs only files signed with the same certificate as this copy. Updates installed this way open without the Gatekeeper prompt you saw the first time."
         )
         .font(.callout)
         .foregroundStyle(.secondary)
