@@ -10,6 +10,7 @@ struct ContentView: View {
     @Environment(AppState.self) private var state
 
     @State private var welcoming = !UserDefaults.standard.bool(forKey: WelcomeView.seenKey)
+    @State private var finding = false
 
     var body: some View {
         @Bindable var state = state
@@ -27,6 +28,20 @@ struct ContentView: View {
     private var main: some View {
         @Bindable var state = state
 
+        return ZStack(alignment: .top) {
+            stack
+            if finding {
+                QuickFind(isShown: $finding)
+                    .padding(.top, 70)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(1)
+            }
+        }
+    }
+
+    private var stack: some View {
+        @Bindable var state = state
+
         return NavigationStack(path: $state.path) {
             HubView()
                 .navigationDestination(for: Module.self) { module in
@@ -42,6 +57,28 @@ struct ContentView: View {
     }
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        if let module = state.path.last {
+            ToolbarItem {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        state.toggleFavourite(module)
+                    }
+                } label: {
+                    Image(systemName: state.isFavourite(module) ? "star.fill" : "star")
+                        .foregroundStyle(state.isFavourite(module) ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(.secondary))
+                }
+                .help(state.isFavourite(module) ? Text("Remove from the hub") : Text("Keep on the hub"))
+            }
+        }
+        ToolbarItem {
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) { finding = true }
+            } label: {
+                Image(systemName: "magnifyingglass")
+            }
+            .keyboardShortcut("f", modifiers: .command)
+            .help(Text("Find a tool"))
+        }
         ToolbarItem {
             Menu {
                 Button("Dashboard", systemImage: "gauge.with.dots.needle.67percent") {

@@ -20,6 +20,43 @@ final class AppState {
     func open(_ module: Module) {
         path = module == .hub ? [] : [module]
     }
+
+    // MARK: - Favourites
+
+    static let favouritesKey = "favouriteModules"
+
+    /// Tools kept to hand, in the order they were pinned.
+    private(set) var favourites: [Module] = (UserDefaults.standard.stringArray(forKey: favouritesKey) ?? [])
+        .compactMap(Module.named)
+
+    func isFavourite(_ module: Module) -> Bool { favourites.contains(module) }
+
+    func toggleFavourite(_ module: Module) {
+        if let index = favourites.firstIndex(of: module) {
+            favourites.remove(at: index)
+        } else {
+            favourites.append(module)
+        }
+        UserDefaults.standard.set(favourites.map(\.key), forKey: Self.favouritesKey)
+    }
+
+    /// Tools whose name contains what was typed, best match first.
+    func matches(_ text: String) -> [Module] {
+        let needle = text.trimmingCharacters(in: .whitespaces)
+        guard !needle.isEmpty else { return [] }
+        let titles = Module.allCases.filter { $0 != .hub }
+            .map { (module: $0, title: $0.titleText) }
+        // A name that begins with what was typed is the likelier answer than one that
+        // merely contains it somewhere, so those come first.
+        func begins(_ title: String) -> Bool {
+            title.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive, .anchored]) != nil
+        }
+        let starting = titles.filter { begins($0.title) }
+        let containing = titles.filter {
+            !begins($0.title) && $0.title.localizedCaseInsensitiveContains(needle)
+        }
+        return (starting + containing).map(\.module)
+    }
     let scans = ScanStore()
     let systemJunk = JunkStore(group: .system)
     let developerJunk = JunkStore(group: .developer)

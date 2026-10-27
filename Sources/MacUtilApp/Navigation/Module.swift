@@ -69,6 +69,14 @@ enum Module: CaseIterable, Identifiable, Hashable {
 
     var id: Self { self }
 
+    /// A stable name to store a choice under. The case names are the app's own and do not
+    /// change when a title is reworded or translated.
+    var key: String { String(describing: self) }
+
+    static func named(_ key: String) -> Module? {
+        allCases.first { $0.key == key }
+    }
+
     /// Not built yet: shown with a mark, and opening one explains what it will do.
     var isPlanned: Bool {
         switch self {
@@ -140,6 +148,55 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .linkAggregation: "Combine Connections"
         case .firewall: "Firewall"
         case .permissions: "App Permissions"
+        }
+    }
+
+    /// The title as text, for searching. Beside the one above on purpose: the compiler
+    /// reads translations out of that switch and cannot read them out of a String.
+    var titleText: String {
+        switch self {
+        case .hub: String(localized: "Hub")
+        case .dashboard: String(localized: "Dashboard")
+        case .history: String(localized: "History")
+        case .clipboard: String(localized: "Clipboard History")
+        case .systemJunk: String(localized: "System Junk")
+        case .developerJunk: String(localized: "Developer Junk")
+        case .trash: String(localized: "Trash Bins")
+        case .privacy: String(localized: "Privacy")
+        case .messengers: String(localized: "Messenger Downloads")
+        case .installers: String(localized: "Installer Files")
+        case .projectBuilds: String(localized: "Project Build Files")
+        case .spaceLens: String(localized: "Space Lens")
+        case .largeFiles: String(localized: "Large & Old Files")
+        case .duplicates: String(localized: "Duplicates")
+        case .disks: String(localized: "Disk Utilities")
+        case .folderOrganizer: String(localized: "Keep Folders Tidy")
+        case .fileRecovery: String(localized: "File Recovery")
+        case .deepSearch: String(localized: "Deep Search")
+        case .uninstaller: String(localized: "Uninstaller")
+        case .leftovers: String(localized: "Leftovers")
+        case .updater: String(localized: "Updater")
+        case .slimming: String(localized: "Slim Down Apps")
+        case .networkAdapters: String(localized: "Network Adapters")
+        case .securityAnalyzer: String(localized: "Security Analyzer")
+        case .loginItems: String(localized: "Login Items")
+        case .maintenance: String(localized: "Maintenance")
+        case .taskManager: String(localized: "Task Manager")
+        case .hiddenSettings: String(localized: "Hidden Settings")
+        case .terminal: String(localized: "Terminal")
+        case .addOns: String(localized: "System Add-ons")
+        case .menuBarTidy: String(localized: "Menu Bar")
+        case .windowTiling: String(localized: "Window Layouts")
+        case .audioSwitch: String(localized: "Sound Output")
+        case .displayControl: String(localized: "Displays")
+        case .batteryCare: String(localized: "Battery")
+        case .dockWidgets: String(localized: "Dock & Widgets")
+        case .batchRename: String(localized: "Rename in Bulk")
+        case .terminalThemes: String(localized: "Terminal Themes")
+        case .networkControl: String(localized: "Network Settings")
+        case .linkAggregation: String(localized: "Combine Connections")
+        case .firewall: String(localized: "Firewall")
+        case .permissions: String(localized: "App Permissions")
         }
     }
 
