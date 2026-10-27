@@ -17,14 +17,24 @@ final class MenuBarMonitor {
     /// How long the processor has been busy without a break.
     private var busySince: Date?
 
+    /// Whether the sensors are read at all. Off, nothing is sampled: the setting is a
+    /// promise about what the app does, not only about what it shows.
+    static var collectsStats: Bool {
+        UserDefaults.standard.object(forKey: Preferences.collectsStats) as? Bool ?? true
+    }
+
     func start() {
         guard timer == nil else { return }
         timer = Task {
             while !Task.isCancelled {
-                let stats = stats
-                sample = await Task.detached { stats.sample() }.value
-                checkDiskSpace()
-                checkHardware()
+                if Self.collectsStats {
+                    let stats = stats
+                    sample = await Task.detached { stats.sample() }.value
+                    checkDiskSpace()
+                    checkHardware()
+                }
+                // Switched off, nothing is read and nothing is written: the last reading
+                // simply stops changing, which the menu bar says for itself.
                 try? await Task.sleep(for: .seconds(3))
             }
         }
@@ -108,6 +118,7 @@ enum Preferences {
     static let cleanupSchedule = "cleanupSchedule"
     static let lastScheduledCleanup = "lastScheduledCleanup"
     static let lastUpdateCheck = "lastUpdateCheck"
+    static let collectsStats = "collectsStats"
 }
 
 enum Notifications {

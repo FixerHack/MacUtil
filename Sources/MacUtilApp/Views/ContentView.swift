@@ -31,10 +31,14 @@ struct ContentView: View {
         return ZStack(alignment: .top) {
             stack
             if finding {
+                Color.black.opacity(0.18)
+                    .ignoresSafeArea()
+                    .onTapGesture { withAnimation(.easeOut(duration: 0.15)) { finding = false } }
+                    .zIndex(1)
                 QuickFind(isShown: $finding)
                     .padding(.top, 70)
                     .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(1)
+                    .zIndex(2)
             }
         }
     }
@@ -45,14 +49,30 @@ struct ContentView: View {
         return NavigationStack(path: $state.path) {
             HubView()
                 .navigationDestination(for: Module.self) { module in
-                    screen(for: module)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        .toolbar { toolbar }
+                    VStack(spacing: 0) {
+                        SectionStrip(module: module)
+                        screen(for: module)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    }
+                    .toolbar { home }
+                    .toolbar { toolbar }
                 }
                 .toolbar { toolbar }
         }
         .sheet(isPresented: $state.showsPermissionsGuide) {
             PermissionsGuideView()
+        }
+    }
+
+    @ToolbarContentBuilder private var home: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Button {
+                state.open(.hub)
+            } label: {
+                Image(systemName: "house")
+            }
+            .help(Text("Back to the hub"))
+            .keyboardShortcut("0", modifiers: .command)
         }
     }
 
@@ -84,9 +104,8 @@ struct ContentView: View {
                 Button("Dashboard", systemImage: "gauge.with.dots.needle.67percent") {
                     state.open(.dashboard)
                 }
-                Button("Settings…", systemImage: "gearshape") {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                }
+                Button("Settings", systemImage: "gearshape") { state.open(.settings) }
+                Button("Check Everything", systemImage: "wand.and.sparkles") { state.open(.smartScan) }
                 Divider()
                 Button("Quit UniMacHub", systemImage: "power") { NSApp.terminate(nil) }
             } label: {
@@ -101,6 +120,10 @@ struct ContentView: View {
         switch module {
         case .hub:
             HubView()
+        case .smartScan:
+            SmartScanView()
+        case .settings:
+            SettingsView()
         case .dashboard:
             DashboardView()
         case .history:
@@ -162,6 +185,48 @@ struct ContentView: View {
         case let module:
             // Everything built has a case above; what is left is on the way.
             PlannedView(module: module)
+        }
+    }
+}
+
+/// The other tools of the section you are in, along the top.
+///
+/// Having chosen a section from the ring you are usually not done with it: the next thing
+/// you want is its neighbour, not a trip back to the middle.
+private struct SectionStrip: View {
+    @Environment(AppState.self) private var state
+    let module: Module
+
+    private var siblings: [Module] {
+        module.section.modules.filter { $0 != module }
+    }
+
+    var body: some View {
+        if !siblings.isEmpty {
+            ScrollView(.horizontal) {
+                HStack(spacing: 7) {
+                    ForEach(siblings) { sibling in
+                        Button {
+                            state.open(sibling)
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: sibling.symbol).font(.caption)
+                                Text(sibling.title).font(.caption)
+                            }
+                            .foregroundStyle(sibling.isPlanned ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(.quaternary.opacity(0.4), in: .capsule)
+                            .contentShape(.capsule)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+            }
+            .scrollIndicators(.never)
+            Divider()
         }
     }
 }

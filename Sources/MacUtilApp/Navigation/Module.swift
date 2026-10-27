@@ -52,7 +52,7 @@ enum SidebarSection: CaseIterable, Identifiable {
 }
 
 enum Module: CaseIterable, Identifiable, Hashable {
-    case hub, dashboard, history, clipboard
+    case hub, smartScan, dashboard, history, clipboard, settings
     case systemJunk, developerJunk, projectBuilds, messengers, installers, trash, privacy
     case spaceLens, largeFiles, duplicates, disks, fileRecovery
     case uninstaller, leftovers, updater, slimming, addOns
@@ -91,7 +91,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
 
     var section: SidebarSection {
         switch self {
-        case .hub, .dashboard, .history, .clipboard: .overview
+        case .hub, .smartScan, .dashboard, .history, .clipboard, .settings: .overview
         case .systemJunk, .developerJunk, .projectBuilds, .messengers, .installers, .trash, .privacy: .cleanup
         case .spaceLens, .largeFiles, .duplicates, .disks, .fileRecovery: .storage
         case .uninstaller, .leftovers, .updater, .slimming, .addOns, .dockWidgets: .applications
@@ -107,6 +107,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var title: LocalizedStringKey {
         switch self {
         case .hub: "Hub"
+        case .smartScan: "Check Everything"
+        case .settings: "Settings"
         case .dashboard: "Dashboard"
         case .history: "History"
         case .clipboard: "Clipboard History"
@@ -156,6 +158,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var titleText: String {
         switch self {
         case .hub: String(localized: "Hub")
+        case .smartScan: String(localized: "Check Everything")
+        case .settings: String(localized: "Settings")
         case .dashboard: String(localized: "Dashboard")
         case .history: String(localized: "History")
         case .clipboard: String(localized: "Clipboard History")
@@ -203,6 +207,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var summary: LocalizedStringKey {
         switch self {
         case .hub: "Everything this Mac can be told, in one ring."
+        case .smartScan: "One pass over the whole Mac, and what to do about what it finds."
+        case .settings: "Language, the menu bar, colours, and what is kept."
         case .dashboard: "Clean, optimize and protect your Mac."
         case .history: "Everything UniMacHub has removed, with dates, sizes and paths."
         case .clipboard: "The last hundred things you copied, instead of only the last one."
@@ -250,6 +256,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var symbol: String {
         switch self {
         case .hub: "circle.hexagongrid"
+        case .smartScan: "wand.and.sparkles"
+        case .settings: "gearshape"
         case .dashboard: "gauge.with.dots.needle.67percent"
         case .history: "list.bullet.rectangle.portrait"
         case .clipboard: "doc.on.clipboard"

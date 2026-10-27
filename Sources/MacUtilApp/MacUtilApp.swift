@@ -27,11 +27,6 @@ struct MacUtilApp: App {
             CommandGroup(replacing: .newItem) {}
         }
 
-        Settings {
-            SettingsView()
-                .environment(state)
-        }
-
         MenuBarExtra(isInserted: $showsMenuBar) {
             MenuBarView(monitor: state.monitor)
                 .environment(state)

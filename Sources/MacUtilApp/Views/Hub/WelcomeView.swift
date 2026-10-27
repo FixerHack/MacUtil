@@ -1,3 +1,5 @@
+import AppKit
+import CleanerCore
 import SwiftUI
 
 /// What the app says the first time it is opened, and never again unasked.
@@ -11,11 +13,17 @@ struct WelcomeView: View {
     let finish: () -> Void
     @State private var step = 0
     @State private var ringShown = false
+    @State private var access = FullDiskAccess.status()
+    /// The ring grows into the hub it is about to become.
+    @State private var leaving = false
 
     private struct Card {
         let title: LocalizedStringKey
         let text: LocalizedStringKey
     }
+
+    private var permissionsStep: Int { cards.count }
+    private var lastStep: Int { cards.count }
 
     private let cards: [Card] = [
         Card(
@@ -39,18 +47,22 @@ struct WelcomeView: View {
             VStack(spacing: 34) {
                 ring
                     .frame(width: 168, height: 168)
+                    .scaleEffect(leaving ? 3.4 : 1)
+                    .opacity(leaving ? 0 : 1)
 
                 VStack(spacing: 12) {
                     Text(verbatim: "UniMacHub")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                         .foregroundStyle(Palette.accentGradient)
 
-                    card
-                        .frame(maxWidth: 440, minHeight: 112, alignment: .top)
+                    Group {
+                        if step == permissionsStep { permissions } else { card }
+                    }
+                    .frame(maxWidth: 460, minHeight: 150, alignment: .top)
                 }
 
                 HStack(spacing: 7) {
-                    ForEach(cards.indices, id: \.self) { index in
+                    ForEach(0 ... cards.count, id: \.self) { index in
                         Capsule()
                             .fill(index == step ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(.quaternary))
                             .frame(width: index == step ? 20 : 7, height: 7)
@@ -62,8 +74,8 @@ struct WelcomeView: View {
                     Button("Skip") { done() }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
-                    Button(step == cards.count - 1 ? "Start" : "Next") {
-                        if step == cards.count - 1 {
+                    Button(step == lastStep ? "Start" : "Next") {
+                        if step == lastStep {
                             done()
                         } else {
                             withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { step += 1 }
@@ -120,8 +132,78 @@ struct WelcomeView: View {
         ))
     }
 
+    /// The ring swells and fades as the hub takes over, so the two read as one thing.
     private func done() {
         UserDefaults.standard.set(true, forKey: Self.seenKey)
-        finish()
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) { leaving = true }
+        Task {
+            try? await Task.sleep(for: .milliseconds(430))
+            finish()
+        }
+    }
+
+    /// What the app will ask for, said before macOS asks it.
+    private var permissions: some View {
+        VStack(spacing: 12) {
+            Text("What it will ask for")
+                .font(.title3.weight(.semibold))
+            Text("Nothing is asked for in advance. Each permission is requested by the tool that needs it, when you use it.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(spacing: 8) {
+                permission(
+                    symbol: "externaldrive", title: "Full Disk Access",
+                    detail: "To see caches, mail and browser data. Without it, part of what is there is simply missed.",
+                    granted: access == .granted
+                )
+                permission(
+                    symbol: "bell.badge", title: "Notifications",
+                    detail: "Only for a scan that finished or a disk about to fill up.",
+                    granted: nil
+                )
+                permission(
+                    symbol: "key", title: "Your password",
+                    detail: "Asked by macOS itself, each time, for the few things that need an administrator.",
+                    granted: nil
+                )
+            }
+
+            if access != .granted {
+                Button("Set Up Full Disk Access…") {
+                    if let url = URL(
+                        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+                    ) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .prominentButton()
+            }
+        }
+        .onAppear { access = FullDiskAccess.status() }
+    }
+
+    private func permission(
+        symbol: String, title: LocalizedStringKey, detail: LocalizedStringKey, granted: Bool?
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .foregroundStyle(Palette.accentLight)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 6) {
+                    Text(title).font(.callout.weight(.medium))
+                    if granted == true {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                }
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+        }
     }
 }

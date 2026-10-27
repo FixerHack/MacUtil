@@ -11,6 +11,8 @@ struct SettingsView: View {
     @AppStorage(Preferences.hardwareAlerts) private var hardwareAlerts = false
     @AppStorage(Preferences.cleanupSchedule) private var cleanupSchedule = ScheduledCleanup.Schedule.never.rawValue
     @AppStorage(Preferences.reminder) private var reminder = Notifications.Reminder.never.rawValue
+    @AppStorage(Palette.key) private var scheme = Palette.Scheme.blue.rawValue
+    @AppStorage(Preferences.collectsStats) private var collectsStats = true
     @State private var language = AppLanguage.current
     @State private var needsRestart = false
 
@@ -105,6 +107,28 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Appearance") {
+                Picker("Colour", selection: $scheme) {
+                    ForEach(Palette.Scheme.allCases) { option in
+                        HStack(spacing: 7) {
+                            Circle().fill(option.accent).frame(width: 11, height: 11)
+                            Text(option.title)
+                        }
+                        .tag(option.rawValue)
+                    }
+                }
+                Text("Everything the app draws in colour follows this. Red, orange and green keep their meanings.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("What is measured") {
+                Toggle("Read the sensors for the menu bar", isOn: $collectsStats)
+                Text("Processor, memory, disk, network, temperature and fans, read a few times a minute while the menu bar item is shown. Switched off, the menu bar shows what it can without them and nothing is sampled.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Protected places") {
                 ProtectedPathsSettings()
             }
@@ -118,8 +142,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460)
-        .fixedSize(horizontal: false, vertical: true)
+        .navigationTitle("Settings")
     }
 }
 
