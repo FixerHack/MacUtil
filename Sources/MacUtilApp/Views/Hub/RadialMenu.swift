@@ -34,11 +34,19 @@ struct AnnularSector: Shape, Equatable {
 ///
 /// Two levels and no more. The outer ring shows the sections; choosing one turns the ring
 /// over to that section's screens, and the middle goes back. Deeper than that and a circle
-/// stops being easier to read than a list — which is still there in the sidebar for anyone
-/// who would rather point straight at a name.
+/// stops being easier to read than a list — which is still there in search (⌘F) for anyone
+/// who would rather type a name.
+/// A ring entry's name and what it is for.
+struct RingHint: Equatable {
+    let title: LocalizedStringKey
+    let text: LocalizedStringKey
+}
+
 struct RadialMenu: View {
     /// The section being shown, or nil while the sections themselves are.
     @Binding var opened: SidebarSection?
+    /// What the cursor is over, for the hub to explain underneath.
+    @Binding var pointedAt: RingHint?
     let select: (Module) -> Void
 
     @State private var hovered: Int?
@@ -63,14 +71,7 @@ struct RadialMenu: View {
                 }
                 core(side: side)
                     .position(centre)
-
-                if let hovered, entries.indices.contains(hovered) {
-                    plaque(entries[hovered])
-                        .position(x: centre.x, y: centre.y + side / 2 + 26)
-                        .transition(.opacity.combined(with: .offset(y: -6)))
-                }
             }
-            .animation(.easeOut(duration: 0.14), value: hovered)
             .frame(width: geometry.size.width, height: geometry.size.height)
             // One layer decides what was pointed at, from the angle and the distance.
             // Eight full-size views stacked on top of one another cannot: whichever is
@@ -89,6 +90,16 @@ struct RadialMenu: View {
             )
         }
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: opened)
+        .onChange(of: hovered) { report() }
+        .onChange(of: opened) { report() }
+    }
+
+    private func report() {
+        if let hovered, entries.indices.contains(hovered) {
+            pointedAt = RingHint(title: entries[hovered].title, text: entries[hovered].hint)
+        } else {
+            pointedAt = nil
+        }
     }
 
     /// Which segment a point falls in, or nil for the core and for outside the ring.
@@ -179,25 +190,6 @@ struct RadialMenu: View {
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
-    }
-
-    /// What the thing under the cursor is for, in one line, where it will not cover the ring.
-    private func plaque(
-        _ entry: (title: LocalizedStringKey, symbol: String, planned: Bool, hint: LocalizedStringKey)
-    ) -> some View {
-        VStack(spacing: 2) {
-            Text(entry.title).font(.callout.weight(.semibold))
-            Text(entry.hint)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
-        .frame(maxWidth: 340)
-        .glassCard(cornerRadius: 10)
-        .allowsHitTesting(false)
     }
 
     private func core(side: CGFloat) -> some View {
