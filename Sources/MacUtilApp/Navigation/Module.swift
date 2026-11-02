@@ -302,6 +302,37 @@ enum Module: CaseIterable, Identifiable, Hashable {
         }
     }
 
+    /// The one thing worth knowing before using a tool, said once on the first visit.
+    /// Nil where the summary already says everything there is to say.
+    var firstVisitNote: LocalizedStringKey? {
+        switch self {
+        case .systemJunk, .developerJunk, .privacy:
+            "Everything found is listed before anything goes. What is safe to lose is ticked already; the rest is left for you to look at."
+        case .projectBuilds:
+            "A folder called build or dist is made by a tool in one project and written by hand in another, so those are never ticked for you."
+        case .uninstaller:
+            "Each leftover says why it was matched. An app Homebrew installed is removed by Homebrew, which is the only way its records stay true."
+        case .slimming:
+            "This cannot be undone without reinstalling, and an update brings the removed half back. Leave out anything you open with Rosetta."
+        case .fileRecovery:
+            "Recovery works on external media. The internal disk discards deleted blocks as it goes, so there is nothing left there to find."
+        case .disks:
+            "The disk macOS is running from is never offered for anything destructive, whatever is selected."
+        case .folderOrganizer:
+            "Nothing moves until the whole plan is on screen, and a sort can be put back in one press."
+        case .terminal:
+            "Everything written goes between two marked lines in your own files. Turning a setting off takes its lines back out and leaves the rest as it was."
+        case .clipboard:
+            "Anything a password manager marks as concealed is skipped, and the list never leaves this Mac."
+        case .taskManager:
+            "Quitting asks the program to stop and save. Forcing it does not, and anything unsaved is lost."
+        case .securityAnalyzer:
+            "A finding is a question, not a verdict. Settling one with a clean VirusTotal result or your own judgement keeps it settled until the file changes."
+        default:
+            nil
+        }
+    }
+
     /// What a planned screen says when opened: the shape of the thing, and what it will cost.
     /// Nil for everything built, which answers for itself on its own screen.
     var plannedNote: LocalizedStringKey? {

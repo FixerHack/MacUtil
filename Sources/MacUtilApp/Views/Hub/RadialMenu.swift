@@ -44,11 +44,11 @@ struct RadialMenu: View {
     @State private var hovered: Int?
     @Namespace private var ring
 
-    private var entries: [(title: LocalizedStringKey, symbol: String, planned: Bool)] {
+    private var entries: [(title: LocalizedStringKey, symbol: String, planned: Bool, hint: LocalizedStringKey)] {
         if let opened {
-            opened.modules.map { ($0.title, $0.symbol, $0.isPlanned) }
+            opened.modules.map { ($0.title, $0.symbol, $0.isPlanned, $0.summary) }
         } else {
-            SidebarSection.allCases.map { ($0.title, $0.symbol, false) }
+            SidebarSection.allCases.map { ($0.title, $0.symbol, false, $0.summary) }
         }
     }
 
@@ -63,7 +63,14 @@ struct RadialMenu: View {
                 }
                 core(side: side)
                     .position(centre)
+
+                if let hovered, entries.indices.contains(hovered) {
+                    plaque(entries[hovered])
+                        .position(x: centre.x, y: centre.y + side / 2 + 26)
+                        .transition(.opacity.combined(with: .offset(y: -6)))
+                }
             }
+            .animation(.easeOut(duration: 0.14), value: hovered)
             .frame(width: geometry.size.width, height: geometry.size.height)
             // One layer decides what was pointed at, from the angle and the distance.
             // Eight full-size views stacked on top of one another cannot: whichever is
@@ -116,7 +123,7 @@ struct RadialMenu: View {
     private let outer = 0.92
 
     private func segment(
-        index: Int, entry: (title: LocalizedStringKey, symbol: String, planned: Bool),
+        index: Int, entry: (title: LocalizedStringKey, symbol: String, planned: Bool, hint: LocalizedStringKey),
         side: CGFloat, centre: CGPoint
     ) -> some View {
         let start = Double(index) * sweep
@@ -172,6 +179,25 @@ struct RadialMenu: View {
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
+    }
+
+    /// What the thing under the cursor is for, in one line, where it will not cover the ring.
+    private func plaque(
+        _ entry: (title: LocalizedStringKey, symbol: String, planned: Bool, hint: LocalizedStringKey)
+    ) -> some View {
+        VStack(spacing: 2) {
+            Text(entry.title).font(.callout.weight(.semibold))
+            Text(entry.hint)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .frame(maxWidth: 340)
+        .glassCard(cornerRadius: 10)
+        .allowsHitTesting(false)
     }
 
     private func core(side: CGFloat) -> some View {

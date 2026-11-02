@@ -1,29 +1,28 @@
 import AppKit
 import CleanerCore
 import SwiftUI
+import UserNotifications
 
-/// What the app says the first time it is opened, and never again unasked.
+/// What the app says the first time it is opened, and whenever it is asked for again.
 ///
-/// Three short cards and a ring that draws itself. It exists to answer one question —
-/// what is this and where do I start — not to be sat through, so every step is skippable
-/// and the whole thing is over in well under a minute.
+/// Four steps. The ring builds itself as they go, a quarter at a time, and opens into the
+/// hub at the end. The last step is the only one that asks for anything, and it will not
+/// let go until the asking is done — a permission granted later, from a screen that no
+/// longer explains why, is a permission granted blind.
 struct WelcomeView: View {
     static let seenKey = "welcomeSeen"
 
     let finish: () -> Void
     @State private var step = 0
-    @State private var ringShown = false
-    @State private var access = FullDiskAccess.status()
-    /// The ring grows into the hub it is about to become.
+    @State private var shown = false
     @State private var leaving = false
+    @State private var accepted = false
+    @State private var setup = SetupState()
 
     private struct Card {
         let title: LocalizedStringKey
         let text: LocalizedStringKey
     }
-
-    private var permissionsStep: Int { cards.count }
-    private var lastStep: Int { cards.count }
 
     private let cards: [Card] = [
         Card(
@@ -40,80 +39,79 @@ struct WelcomeView: View {
         ),
     ]
 
+    private var lastStep: Int { cards.count }
+    private var onSetup: Bool { step == lastStep }
+    private var canContinue: Bool { !onSetup || (setup.isComplete && accepted) }
+
     var body: some View {
         ZStack {
             Backdrop()
 
-            VStack(spacing: 34) {
+            VStack(spacing: 26) {
                 ring
-                    .frame(width: 168, height: 168)
-                    .scaleEffect(leaving ? 3.4 : 1)
+                    .frame(width: 190, height: 190)
+                    .scaleEffect(leaving ? 3.6 : 1)
                     .opacity(leaving ? 0 : 1)
 
-                VStack(spacing: 12) {
-                    Text(verbatim: "UniMacHub")
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Palette.accentGradient)
+                Text(verbatim: "UniMacHub")
+                    .font(.system(size: 32, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Palette.accentGradient)
+                    .opacity(leaving ? 0 : 1)
 
-                    Group {
-                        if step == permissionsStep { permissions } else { card }
-                    }
-                    .frame(maxWidth: 460, minHeight: 150, alignment: .top)
+                Group {
+                    if onSetup { SetupStep(setup: $setup, accepted: $accepted) } else { card }
                 }
+                .frame(maxWidth: 520, alignment: .top)
+                .opacity(leaving ? 0 : 1)
 
-                HStack(spacing: 7) {
-                    ForEach(0 ... cards.count, id: \.self) { index in
-                        Capsule()
-                            .fill(index == step ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(.quaternary))
-                            .frame(width: index == step ? 20 : 7, height: 7)
-                    }
-                }
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: step)
+                dots
+                    .opacity(leaving ? 0 : 1)
 
-                HStack(spacing: 12) {
-                    Button("Skip") { done() }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                    Button(step == lastStep ? "Start" : "Next") {
-                        if step == lastStep {
-                            done()
-                        } else {
-                            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { step += 1 }
-                        }
-                    }
+                Button(onSetup ? "Start" : "Next") { advance() }
                     .prominentButton()
                     .controlSize(.large)
-                }
+                    .disabled(!canContinue)
+                    .opacity(leaving ? 0 : 1)
             }
-            .padding(44)
+            .padding(40)
         }
         .onAppear {
-            withAnimation(.spring(response: 0.9, dampingFraction: 0.7)) { ringShown = true }
+            withAnimation(.spring(response: 0.9, dampingFraction: 0.7)) { shown = true }
         }
     }
 
-    /// The ring from the hub, drawn once as an introduction to itself.
+    // MARK: - The ring
+
+    /// How much of the ring is drawn: a quarter more at every step, whole at the end.
+    private var segments: Int {
+        guard shown else { return 0 }
+        return min(8, (step + 1) * 2)
+    }
+
     private var ring: some View {
         ZStack {
             ForEach(0 ..< 8, id: \.self) { index in
-                AnnularSector(start: Double(index) * 45, sweep: 45, inner: 0.42, outer: 0.95)
-                    .fill(Palette.accent.opacity(ringShown ? 0.28 : 0))
+                let drawn = index < segments
+                AnnularSector(start: Double(index) * 45, sweep: 45, inner: 0.44, outer: 0.96)
+                    .fill(Palette.accent.opacity(drawn ? 0.3 : 0.04))
                     .overlay(
-                        AnnularSector(start: Double(index) * 45, sweep: 45, inner: 0.42, outer: 0.95)
-                            .stroke(Palette.accentLight.opacity(ringShown ? 0.55 : 0), lineWidth: 1.4)
+                        AnnularSector(start: Double(index) * 45, sweep: 45, inner: 0.44, outer: 0.96)
+                            .stroke(Palette.accentLight.opacity(drawn ? 0.6 : 0.08), lineWidth: 1.4)
                     )
-                    .scaleEffect(ringShown ? 1 : 0.55)
+                    .scaleEffect(drawn ? 1 : 0.9)
                     .animation(
-                        .spring(response: 0.7, dampingFraction: 0.68).delay(Double(index) * 0.06),
-                        value: ringShown
+                        .spring(response: 0.55, dampingFraction: 0.7).delay(Double(index % 2) * 0.07),
+                        value: segments
                     )
             }
             Image(systemName: "circle.hexagongrid")
-                .font(.system(size: 34, weight: .ultraLight))
+                .font(.system(size: 36, weight: .ultraLight))
                 .foregroundStyle(Palette.accentLight)
-                .opacity(ringShown ? 1 : 0)
-                .animation(.easeOut(duration: 0.5).delay(0.45), value: ringShown)
+                .opacity(shown ? 1 : 0)
         }
+        // The last press spins it once as it opens out into the hub.
+        .rotationEffect(.degrees(leaving ? 45 : 0))
+        .animation(.spring(response: 0.6, dampingFraction: 0.85), value: leaving)
     }
 
     private var card: some View {
@@ -132,78 +130,145 @@ struct WelcomeView: View {
         ))
     }
 
-    /// The ring swells and fades as the hub takes over, so the two read as one thing.
+    private var dots: some View {
+        HStack(spacing: 7) {
+            ForEach(0 ... cards.count, id: \.self) { index in
+                Capsule()
+                    .fill(index == step ? AnyShapeStyle(Palette.accent) : AnyShapeStyle(.quaternary))
+                    .frame(width: index == step ? 20 : 7, height: 7)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: step)
+    }
+
+    // MARK: - Moving on
+
+    private func advance() {
+        if onSetup {
+            done()
+        } else {
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { step += 1 }
+        }
+    }
+
     private func done() {
         UserDefaults.standard.set(true, forKey: Self.seenKey)
         withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) { leaving = true }
         Task {
-            try? await Task.sleep(for: .milliseconds(430))
+            try? await Task.sleep(for: .milliseconds(450))
             finish()
         }
     }
+}
 
-    /// What the app will ask for, said before macOS asks it.
-    private var permissions: some View {
-        VStack(spacing: 12) {
-            Text("What it will ask for")
+/// What has been set up, and what is still waiting.
+struct SetupState {
+    var fullDisk = FullDiskAccess.status() == .granted
+    var notifications = false
+    var automation = false
+
+    var isComplete: Bool { fullDisk && notifications && automation }
+}
+
+/// The last step: three things to arrange, and one line to agree to.
+private struct SetupStep: View {
+    @Binding var setup: SetupState
+    @Binding var accepted: Bool
+    @State private var asking = false
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text("Before you start")
                 .font(.title3.weight(.semibold))
-            Text("Nothing is asked for in advance. Each permission is requested by the tool that needs it, when you use it.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
 
             VStack(spacing: 8) {
-                permission(
-                    symbol: "externaldrive", title: "Full Disk Access",
-                    detail: "To see caches, mail and browser data. Without it, part of what is there is simply missed.",
-                    granted: access == .granted
-                )
-                permission(
-                    symbol: "bell.badge", title: "Notifications",
-                    detail: "Only for a scan that finished or a disk about to fill up.",
-                    granted: nil
-                )
-                permission(
-                    symbol: "key", title: "Your password",
-                    detail: "Asked by macOS itself, each time, for the few things that need an administrator.",
-                    granted: nil
-                )
-            }
-
-            if access != .granted {
-                Button("Set Up Full Disk Access…") {
+                SetupRow(
+                    symbol: "externaldrive",
+                    title: "Full Disk Access",
+                    hint: "Caches, mail and browser data live where macOS asks before letting anything look. Without this, part of what is there is simply missed.",
+                    done: setup.fullDisk,
+                    action: "Open Settings"
+                ) {
                     if let url = URL(
                         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
                     ) {
                         NSWorkspace.shared.open(url)
                     }
                 }
-                .prominentButton()
-            }
-        }
-        .onAppear { access = FullDiskAccess.status() }
-    }
-
-    private func permission(
-        symbol: String, title: LocalizedStringKey, detail: LocalizedStringKey, granted: Bool?
-    ) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: symbol)
-                .foregroundStyle(Palette.accentLight)
-                .frame(width: 20)
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(title).font(.callout.weight(.medium))
-                    if granted == true {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.green)
+                SetupRow(
+                    symbol: "bell.badge",
+                    title: "Notifications",
+                    hint: "Only for a scan that finished while you were elsewhere, or a disk about to fill up.",
+                    done: setup.notifications,
+                    action: "Allow"
+                ) {
+                    Task {
+                        _ = await Notifications.requestPermission()
+                        setup.notifications = true
                     }
                 }
-                Text(detail).font(.caption).foregroundStyle(.secondary)
+                SetupRow(
+                    symbol: "wand.and.rays",
+                    title: "Automation",
+                    hint: "To ask Finder to move an app that belongs to an administrator. Finder asks for your password itself.",
+                    done: setup.automation,
+                    action: "Allow"
+                ) {
+                    Task {
+                        // Touching Finder once is what makes macOS show its own prompt.
+                        _ = await Command.run(
+                            "/usr/bin/osascript", ["-e", "tell application \"Finder\" to return name"],
+                            timeout: .seconds(30)
+                        )
+                        setup.automation = true
+                    }
+                }
+            }
+
+            Toggle(isOn: $accepted) {
+                Text("I understand that UniMacHub removes and changes things on this Mac at my direction, and that I am responsible for what I tell it to do.")
+                    .font(.caption)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+            .toggleStyle(.checkbox)
+            .padding(.top, 2)
         }
+        .onAppear { setup.fullDisk = FullDiskAccess.status() == .granted }
+        // Coming back from System Settings is the moment to look again.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            setup.fullDisk = FullDiskAccess.status() == .granted
+        }
+    }
+}
+
+/// One thing to arrange: what it is, why, and a button that arranges it.
+private struct SetupRow: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    let hint: LocalizedStringKey
+    let done: Bool
+    let action: LocalizedStringKey
+    let perform: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 11) {
+            Image(systemName: done ? "checkmark.circle.fill" : symbol)
+                .foregroundStyle(done ? AnyShapeStyle(.green) : AnyShapeStyle(Palette.accentLight))
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.callout.weight(.medium))
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            if !done {
+                Button(action, action: perform)
+                    .controlSize(.small)
+            }
+        }
+        .padding(10)
+        .glassCard(cornerRadius: 10)
     }
 }

@@ -54,6 +54,7 @@ struct ContentView: View {
                         screen(for: module)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
+                    .introduces(module)
                     .toolbar { home }
                     .toolbar { toolbar }
                 }

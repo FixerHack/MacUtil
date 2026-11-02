@@ -15,6 +15,7 @@ struct SettingsView: View {
     @AppStorage(Preferences.collectsStats) private var collectsStats = true
     @State private var language = AppLanguage.current
     @State private var needsRestart = false
+    @State private var restartNeeded = false
 
     var body: some View {
         Form {
@@ -27,6 +28,15 @@ struct SettingsView: View {
             .onChange(of: language) { _, newValue in
                 newValue.apply()
                 needsRestart = true
+            }
+
+            if restartNeeded {
+                HStack {
+                    Text("The welcome will show when UniMacHub next opens.")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Restart Now") { AppLanguage.relaunch() }
+                }
             }
 
             if needsRestart {
@@ -105,6 +115,21 @@ struct SettingsView: View {
                     Text("Every week").tag(Notifications.Reminder.weekly)
                     Text("Every month").tag(Notifications.Reminder.monthly)
                 }
+            }
+
+            Section("Getting started") {
+                LabeledContent("Introductions") {
+                    HStack(spacing: 10) {
+                        Button("Show the Welcome Again") {
+                            UserDefaults.standard.removeObject(forKey: WelcomeView.seenKey)
+                            restartNeeded = true
+                        }
+                        Button("Explain Tools Again") { FirstVisit.forgetAll() }
+                    }
+                }
+                Text("The welcome returns the next time UniMacHub opens. Each tool explains itself once more the next time you go to it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Appearance") {
