@@ -44,6 +44,12 @@ struct HubView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                if pointedAt.locked {
+                    Label("Needs Full Disk Access", systemImage: "lock.fill")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.orange)
+                        .padding(.top, 2)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)

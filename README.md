@@ -32,13 +32,14 @@ In the spirit of CleanMyMac, OnyX and the Objective-See tools. Native Swift and 
 ### Homebrew (recommended)
 
 ```bash
-brew tap fixerhack/macutil
-brew install macutil
+brew tap fixerhack/unimachub
+brew trust fixerhack/unimachub
+brew install --cask unimachub
 ```
 
-The first command adds the UniMacHub tap once; after that `brew install`, `brew upgrade` and `brew uninstall` work with the short name. To remove UniMacHub, run `brew uninstall macutil`; add `--zap` to also delete its settings and history.
+The first two commands add the UniMacHub tap once: Homebrew loads a cask from a tap outside its own only after `brew trust`. After that `brew upgrade` and `brew uninstall` work with the short name. To remove UniMacHub, run `brew uninstall unimachub`; add `--zap` to also delete its settings and history.
 
-Or in one line, without adding the tap first: `brew install --cask fixerhack/macutil/macutil`.
+Installed as `macutil` before the rename? `brew upgrade` carries it over to `unimachub`.
 
 ### Download
 

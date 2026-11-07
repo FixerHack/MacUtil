@@ -8,7 +8,8 @@ import UserNotifications
 /// Four steps. The ring builds itself as they go, a quarter at a time, and opens into the
 /// hub at the end. The last step is the only one that asks for anything, and it will not
 /// let go until the asking is done — a permission granted later, from a screen that no
-/// longer explains why, is a permission granted blind.
+/// longer explains why, is a permission granted blind. Full Disk Access is the exception:
+/// it can be put off, and the tools that need it stay locked until it is given.
 struct WelcomeView: View {
     static let seenKey = "welcomeSeen"
 
@@ -167,7 +168,9 @@ struct SetupState {
     var notifications = false
     var automation = false
 
-    var isComplete: Bool { fullDisk && notifications && automation }
+    /// Full Disk Access is not part of it: without it the app still opens, with the tools
+    /// that need it locked and saying so.
+    var isComplete: Bool { notifications && automation }
 }
 
 /// The last step: three things to arrange, and one line to agree to.
@@ -187,7 +190,8 @@ private struct SetupStep: View {
                     title: "Full Disk Access",
                     hint: "Caches, mail and browser data live where macOS asks before letting anything look. Without this, part of what is there is simply missed.",
                     done: setup.fullDisk,
-                    action: "Open Settings"
+                    action: "Open Settings",
+                    later: "Can wait. Until then the tools that need it are locked, and each one says how to unlock it."
                 ) {
                     if let url = URL(
                         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
@@ -248,6 +252,8 @@ private struct SetupRow: View {
     let hint: LocalizedStringKey
     let done: Bool
     let action: LocalizedStringKey
+    /// What happens if this is left for now, for the one step that may be.
+    var later: LocalizedStringKey?
     let perform: () -> Void
 
     var body: some View {
@@ -261,6 +267,13 @@ private struct SetupRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let later, !done {
+                    Label(later, systemImage: "lock")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                }
             }
             Spacer(minLength: 8)
             if !done {

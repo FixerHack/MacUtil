@@ -1424,3 +1424,7 @@
 "Anything a password manager marks as concealed is skipped, and the list never leaves this Mac." = "Усе, що менеджер паролів позначає як приховане, пропускається, а список не залишає цього Mac.";
 "Quitting asks the program to stop and save. Forcing it does not, and anything unsaved is lost." = "Завершення просить програму зупинитися й зберегти. Примусове — ні, і все незбережене втрачається.";
 "A finding is a question, not a verdict. Settling one with a clean VirusTotal result or your own judgement keeps it settled until the file changes." = "Знахідка — це питання, а не вирок. Закрите чистим висновком VirusTotal або вашим власним рішенням лишається закритим, доки файл не зміниться.";
+"%@ needs Full Disk Access" = "%@: потрібен повний доступ до диска";
+"Can wait. Until then the tools that need it are locked, and each one says how to unlock it." = "Можна пізніше. Доти інструменти, яким він потрібен, заблоковані, і кожен підкаже, як його розблокувати.";
+"Switch UniMacHub on in the list, then come back here. It unlocks by itself." = "Увімкніть UniMacHub у списку й поверніться сюди. Інструмент розблокується сам.";
+"What it looks through is kept where macOS lets only trusted apps read. Without access the scan would still finish, just with part of the answer missing, so it waits until access is given." = "Те, що він переглядає, лежить там, куди macOS пускає лише довірені програми. Без доступу сканування все одно завершилося б, тільки з неповною відповіддю, тому інструмент чекає, доки доступ надано.";

@@ -51,8 +51,10 @@ struct ContentView: View {
                 .navigationDestination(for: Module.self) { module in
                     VStack(spacing: 0) {
                         SectionStrip(module: module)
-                        screen(for: module)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        Group {
+                            if state.isLocked(module) { LockedView(module: module) } else { screen(for: module) }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
                     .introduces(module)
                     .toolbar { home }
@@ -213,6 +215,9 @@ private struct SectionStrip: View {
                             HStack(spacing: 5) {
                                 Image(systemName: sibling.symbol).font(.caption)
                                 Text(sibling.title).font(.caption)
+                                if state.isLocked(sibling) {
+                                    Image(systemName: "lock.fill").font(.caption2).foregroundStyle(.orange)
+                                }
                             }
                             .foregroundStyle(sibling.isPlanned ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
                             .padding(.horizontal, 10)

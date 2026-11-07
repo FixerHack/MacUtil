@@ -21,7 +21,7 @@ import Testing
             try? FileManager.default.removeItem(at: output)
         }
 
-        let created = await DiskImages.create(
+        let created = await TestImages.create(
             at: image, volumeName: "MUCARD", size: 120 * 1024 * 1024, format: .exFAT
         )
         try #require(created.succeeded)
@@ -69,7 +69,7 @@ import Testing
         let image = FileManager.default.temporaryDirectory.appending(path: "mu-hfs-\(UUID().uuidString).dmg")
         defer { try? FileManager.default.removeItem(at: image) }
 
-        let created = await DiskImages.create(
+        let created = await TestImages.create(
             at: image, volumeName: "MUHFS", size: 60 * 1024 * 1024, format: .macOSExtended
         )
         try #require(created.succeeded)

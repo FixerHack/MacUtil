@@ -32,13 +32,14 @@
 ### Homebrew (рекомендовано)
 
 ```bash
-brew tap fixerhack/macutil
-brew install macutil
+brew tap fixerhack/unimachub
+brew trust fixerhack/unimachub
+brew install --cask unimachub
 ```
 
-Перша команда один раз додає tap UniMacHub. Після цього `brew install`, `brew upgrade` і `brew uninstall` працюють з коротким іменем. Видалити: `brew uninstall macutil`. Додайте `--zap`, щоб прибрати також налаштування та історію.
+Перші дві команди один раз додають tap UniMacHub: cask зі стороннього tap Homebrew завантажує лише після `brew trust`. Після цього `brew upgrade` і `brew uninstall` працюють з коротким іменем. Видалити: `brew uninstall unimachub`. Додайте `--zap`, щоб прибрати також налаштування та історію.
 
-Або одним рядком, без окремого додавання tap: `brew install --cask fixerhack/macutil/macutil`.
+Встановлювали як `macutil` до перейменування? `brew upgrade` перенесе його на `unimachub`.
 
 ### Завантаження
 

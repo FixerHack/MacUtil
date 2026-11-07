@@ -140,18 +140,35 @@ struct DiskInventoryTests {
     /// instead runs `diskutil` several times per attempt, and while the rest of the suite is
     /// scanning and carving that takes seconds — so a wait spent querying managed only a few
     /// attempts before giving up, which is how this failed under a full test run and nowhere else.
-    private func disk(withVolume name: String, within seconds: TimeInterval = 30) async -> StorageDisk? {
-        let mountPoint = "/Volumes/\(name)"
+    ///
+    /// It still gave up once since, after thirty seconds, and five clean runs and three more
+    /// with every core busy did not bring it back. So a failure now says which half it was:
+    /// the volume never mounting, or mounting where `diskutil` would not report it.
+    private func disk(
+        withVolume name: String, mountedAt reported: String?, within seconds: TimeInterval = 30
+    ) async -> StorageDisk? {
+        let mountPoint = reported ?? "/Volumes/\(name)"
         let mounted = Date().addingTimeInterval(seconds)
         while !FileManager.default.fileExists(atPath: mountPoint), Date() < mounted {
             try? await Task.sleep(for: .milliseconds(200))
         }
+        guard FileManager.default.fileExists(atPath: mountPoint) else {
+            Issue.record("\(mountPoint) did not appear within \(Int(seconds)) s")
+            return nil
+        }
 
         let deadline = Date().addingTimeInterval(seconds)
+        var attempts = 0
         while true {
+            attempts += 1
             let disks = await DiskInventory.load()
             if let disk = disks.first(where: { $0.volumes.contains { $0.name == name } }) { return disk }
-            guard Date() < deadline else { return nil }
+            guard Date() < deadline else {
+                Issue.record(
+                    "Mounted at \(mountPoint), but diskutil did not list \(name) in \(attempts) attempts; it saw \(disks.count) disks"
+                )
+                return nil
+            }
             try? await Task.sleep(for: .milliseconds(300))
         }
     }
@@ -164,7 +181,7 @@ struct DiskInventoryTests {
         // attached at once, and macOS quietly mounts the second as "MUTest 1" — which a
         // search for "MUTest" then never finds.
         let name = "MUTest-\(UUID().uuidString.prefix(8))"
-        let created = await DiskImages.create(at: image, volumeName: name, size: 200 * 1024 * 1024)
+        let created = await TestImages.create(at: image, volumeName: name, size: 200 * 1024 * 1024)
         try #require(created.succeeded)
         let (outcome, attached) = await DiskImages.attach(image)
         try #require(outcome.succeeded)
@@ -173,7 +190,7 @@ struct DiskInventoryTests {
         // Detached before this returns, whatever happened. `defer` cannot await, and a
         // Task in one lets the next test begin while this image is still attached.
         do {
-            let disk = try #require(await disk(withVolume: name))
+            let disk = try #require(await disk(withVolume: name, mountedAt: attached?.mountPoint))
             let volume = try #require(disk.volumes.filter { $0.name == name }.first)
             try await body(disk, volume)
         } catch {
@@ -385,7 +402,9 @@ struct MessengerDownloadTests {
     }
 }
 
-struct HandyToolTests {
+/// One after the other: both keep-awake tests share the one `KeepAwake`, and run side by
+/// side the second one's `stop()` could land between the first one's start and its check.
+@Suite(.serialized) struct HandyToolTests {
     @Test func holdsSleepOffAndLetsGo() {
         let awake = KeepAwake.shared
         #expect(awake.start(.system, minutes: 1))

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds a universal UniMacHub.app, packs it as a DMG and a zip, publishes a GitHub
-# release and points the Homebrew cask in FixerHack/homebrew-macutil at the DMG.
+# release and points the Homebrew cask in FixerHack/homebrew-unimachub at the zip.
 #
 #   scripts/release.sh           # build only: build.noindex/UniMacHub-<version>.dmg and .zip
 #   scripts/release.sh publish   # also create the GitHub release and update the cask
@@ -14,7 +14,7 @@ cd "$ROOT"
 # Renaming the repository on GitHub leaves a redirect behind, so copies already
 # installed keep finding updates. Change this when the repository is renamed.
 REPO="FixerHack/MacUtil"
-TAP="FixerHack/homebrew-macutil"
+TAP="FixerHack/homebrew-unimachub"
 VERSION="$(sed -n 's/.*version = "\(.*\)".*/\1/p' Sources/CleanerCore/MacUtilInfo.swift)"
 APP="build.noindex/UniMacHub.app"
 ZIP="build.noindex/UniMacHub-$VERSION.zip"
@@ -97,8 +97,9 @@ The DMG is there too; macOS checks a disk image separately, so it asks about Gat
 **Homebrew:**
 
 \`\`\`bash
-brew tap fixerhack/macutil
-brew install macutil
+brew tap fixerhack/unimachub
+brew trust fixerhack/unimachub
+brew install --cask unimachub
 \`\`\`
 
 macOS 14 Sonoma or later · Apple Silicon and Intel
@@ -115,8 +116,13 @@ gh release create "v$VERSION" "$DMG" "$ZIP" --repo "$REPO" --target "$(git rev-p
 TAP_DIR="$(mktemp -d)"
 trap 'rm -f "$NOTES"; rm -rf "$TAP_DIR"' EXIT
 gh repo clone "$TAP" "$TAP_DIR" -- --quiet
+# The url and app lines are set too: 0.9.0, the last release as MacUtil, was published
+# under the old file name and installed under the new one.
 sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" \
-    "$TAP_DIR/Casks/macutil.rb"
+    -e 's|/MacUtil-#{version}\.zip"|/UniMacHub-#{version}.zip"|' \
+    -e 's|^  app ".*"$|  app "UniMacHub.app"|' \
+    -e '/# 0.9.0 was the last release/,/which is what is there\./d' \
+    "$TAP_DIR/Casks/unimachub.rb"
 if ! git -C "$TAP_DIR" diff --quiet; then
     git -C "$TAP_DIR" commit -qam "UniMacHub $VERSION"
     git -C "$TAP_DIR" push -q

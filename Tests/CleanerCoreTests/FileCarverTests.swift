@@ -89,7 +89,7 @@ import Testing
         }
 
         // ExFAT, like a camera card: deleting a file leaves its contents in place.
-        let created = await DiskImages.create(
+        let created = await TestImages.create(
             at: image, volumeName: "MUCarve", size: 120 * 1024 * 1024, format: .exFAT
         )
         try #require(created.succeeded)

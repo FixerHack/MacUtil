@@ -89,6 +89,22 @@ enum Module: CaseIterable, Identifiable, Hashable {
         }
     }
 
+    /// Tools whose answer would be wrong, not merely shorter, without Full Disk Access.
+    ///
+    /// Each of these reads the libraries, containers or Trash that macOS hides from an app
+    /// it has not been told to trust. A scan there without access does not fail — it comes
+    /// back small and looks finished, which is worse — so they are locked until it is given.
+    var needsFullDiskAccess: Bool {
+        switch self {
+        case .smartScan, .systemJunk, .messengers, .trash, .privacy,
+             .spaceLens, .largeFiles, .duplicates,
+             .uninstaller, .leftovers, .deepSearch:
+            true
+        default:
+            false
+        }
+    }
+
     var section: SidebarSection {
         switch self {
         case .hub, .smartScan, .dashboard, .history, .clipboard, .settings: .overview

@@ -40,6 +40,7 @@ struct AnnularSector: Shape, Equatable {
 struct RingHint: Equatable {
     let title: LocalizedStringKey
     let text: LocalizedStringKey
+    var locked = false
 }
 
 struct RadialMenu: View {
@@ -49,14 +50,28 @@ struct RadialMenu: View {
     @Binding var pointedAt: RingHint?
     let select: (Module) -> Void
 
+    @Environment(AppState.self) private var state
     @State private var hovered: Int?
     @Namespace private var ring
 
-    private var entries: [(title: LocalizedStringKey, symbol: String, planned: Bool, hint: LocalizedStringKey)] {
+    private struct Entry {
+        let title: LocalizedStringKey
+        let symbol: String
+        let planned: Bool
+        /// Waiting on Full Disk Access.
+        let locked: Bool
+        let hint: LocalizedStringKey
+    }
+
+    private var entries: [Entry] {
         if let opened {
-            opened.modules.map { ($0.title, $0.symbol, $0.isPlanned, $0.summary) }
+            opened.modules.map {
+                Entry(title: $0.title, symbol: $0.symbol, planned: $0.isPlanned, locked: state.isLocked($0), hint: $0.summary)
+            }
         } else {
-            SidebarSection.allCases.map { ($0.title, $0.symbol, false, $0.summary) }
+            SidebarSection.allCases.map {
+                Entry(title: $0.title, symbol: $0.symbol, planned: false, locked: false, hint: $0.summary)
+            }
         }
     }
 
@@ -96,7 +111,8 @@ struct RadialMenu: View {
 
     private func report() {
         if let hovered, entries.indices.contains(hovered) {
-            pointedAt = RingHint(title: entries[hovered].title, text: entries[hovered].hint)
+            let entry = entries[hovered]
+            pointedAt = RingHint(title: entry.title, text: entry.hint, locked: entry.locked)
         } else {
             pointedAt = nil
         }
@@ -134,7 +150,7 @@ struct RadialMenu: View {
     private let outer = 0.92
 
     private func segment(
-        index: Int, entry: (title: LocalizedStringKey, symbol: String, planned: Bool, hint: LocalizedStringKey),
+        index: Int, entry: Entry,
         side: CGFloat, centre: CGPoint
     ) -> some View {
         let start = Double(index) * sweep
@@ -164,6 +180,14 @@ struct RadialMenu: View {
             VStack(spacing: 5) {
                 Image(systemName: entry.symbol)
                     .font(.system(size: side * 0.045, weight: .light))
+                    .overlay(alignment: .bottomTrailing) {
+                        if entry.locked {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: side * 0.02, weight: .semibold))
+                                .foregroundStyle(.orange)
+                                .offset(x: side * 0.014, y: side * 0.006)
+                        }
+                    }
                 Text(entry.title)
                     .font(.system(size: side * 0.024, weight: .medium))
                     .lineLimit(1)
