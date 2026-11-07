@@ -1428,3 +1428,4 @@
 "Can wait. Until then the tools that need it are locked, and each one says how to unlock it." = "Можна пізніше. Доти інструменти, яким він потрібен, заблоковані, і кожен підкаже, як його розблокувати.";
 "Switch UniMacHub on in the list, then come back here. It unlocks by itself." = "Увімкніть UniMacHub у списку й поверніться сюди. Інструмент розблокується сам.";
 "What it looks through is kept where macOS lets only trusted apps read. Without access the scan would still finish, just with part of the answer missing, so it waits until access is given." = "Те, що він переглядає, лежить там, куди macOS пускає лише довірені програми. Без доступу сканування все одно завершилося б, тільки з неповною відповіддю, тому інструмент чекає, доки доступ надано.";
+"Turned off. macOS asks only once, so it is switched on in System Settings." = "Вимкнено. macOS питає лише раз, тому вмикається це в Системних параметрах.";

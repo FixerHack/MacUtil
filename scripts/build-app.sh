@@ -67,6 +67,7 @@ if [[ -z "$IDENTITY" ]]; then
     IDENTITY="-"
     echo "note: no signing certificate found, signing ad-hoc (Full Disk Access resets on each rebuild)"
 fi
-codesign --force --options runtime --timestamp=none --sign "$IDENTITY" "$APP"
+codesign --force --options runtime --timestamp=none --entitlements Resources/UniMacHub.entitlements \
+    --sign "$IDENTITY" "$APP"
 
 echo "Built $APP ($VERSION build $BUILD_NUMBER, signed: $IDENTITY)"

@@ -1,7 +1,6 @@
 import AppKit
 import CleanerCore
 import SwiftUI
-import UserNotifications
 
 /// What the app says the first time it is opened, and whenever it is asked for again.
 ///
@@ -162,22 +161,29 @@ struct WelcomeView: View {
     }
 }
 
-/// What has been set up, and what is still waiting.
+/// What has been set up, and what is still waiting — as macOS has it, not as we last left it.
 struct SetupState {
     var fullDisk = FullDiskAccess.status() == .granted
-    var notifications = false
-    var automation = false
+    var notifications = Grant.notAsked
+    var automation = Grant.notAsked
 
-    /// Full Disk Access is not part of it: without it the app still opens, with the tools
-    /// that need it locked and saying so.
-    var isComplete: Bool { notifications && automation }
+    /// Every question answered, whichever way. Full Disk Access is not part of it: without
+    /// it the app still opens, with the tools that need it locked and saying so.
+    var isComplete: Bool { notifications.isAnswered && automation.isAnswered }
+
+    static func current() async -> SetupState {
+        SetupState(
+            fullDisk: FullDiskAccess.status() == .granted,
+            notifications: await Permissions.notifications(),
+            automation: await Permissions.automation()
+        )
+    }
 }
 
 /// The last step: three things to arrange, and one line to agree to.
 private struct SetupStep: View {
     @Binding var setup: SetupState
     @Binding var accepted: Bool
-    @State private var asking = false
 
     var body: some View {
         VStack(spacing: 14) {
@@ -189,43 +195,35 @@ private struct SetupStep: View {
                     symbol: "externaldrive",
                     title: "Full Disk Access",
                     hint: "Caches, mail and browser data live where macOS asks before letting anything look. Without this, part of what is there is simply missed.",
-                    done: setup.fullDisk,
+                    grant: setup.fullDisk ? .granted : .notAsked,
                     action: "Open Settings",
                     later: "Can wait. Until then the tools that need it are locked, and each one says how to unlock it."
                 ) {
-                    if let url = URL(
-                        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
-                    ) {
-                        NSWorkspace.shared.open(url)
-                    }
+                    NSWorkspace.shared.open(FullDiskAccess.settingsURL)
+                } settings: {
+                    NSWorkspace.shared.open(FullDiskAccess.settingsURL)
                 }
                 SetupRow(
                     symbol: "bell.badge",
                     title: "Notifications",
                     hint: "Only for a scan that finished while you were elsewhere, or a disk about to fill up.",
-                    done: setup.notifications,
+                    grant: setup.notifications,
                     action: "Allow"
                 ) {
-                    Task {
-                        _ = await Notifications.requestPermission()
-                        setup.notifications = true
-                    }
+                    Task { setup.notifications = await Permissions.requestNotifications() }
+                } settings: {
+                    NSWorkspace.shared.open(Permissions.notificationSettingsURL)
                 }
                 SetupRow(
                     symbol: "wand.and.rays",
                     title: "Automation",
                     hint: "To ask Finder to move an app that belongs to an administrator. Finder asks for your password itself.",
-                    done: setup.automation,
+                    grant: setup.automation,
                     action: "Allow"
                 ) {
-                    Task {
-                        // Touching Finder once is what makes macOS show its own prompt.
-                        _ = await Command.run(
-                            "/usr/bin/osascript", ["-e", "tell application \"Finder\" to return name"],
-                            timeout: .seconds(30)
-                        )
-                        setup.automation = true
-                    }
+                    Task { setup.automation = await Permissions.requestAutomation() }
+                } settings: {
+                    NSWorkspace.shared.open(Permissions.automationSettingsURL)
                 }
             }
 
@@ -237,10 +235,10 @@ private struct SetupStep: View {
             .toggleStyle(.checkbox)
             .padding(.top, 2)
         }
-        .onAppear { setup.fullDisk = FullDiskAccess.status() == .granted }
+        .task { setup = await .current() }
         // Coming back from System Settings is the moment to look again.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            setup.fullDisk = FullDiskAccess.status() == .granted
+            Task { setup = await .current() }
         }
     }
 }
@@ -250,16 +248,18 @@ private struct SetupRow: View {
     let symbol: String
     let title: LocalizedStringKey
     let hint: LocalizedStringKey
-    let done: Bool
+    let grant: Grant
     let action: LocalizedStringKey
     /// What happens if this is left for now, for the one step that may be.
     var later: LocalizedStringKey?
     let perform: () -> Void
+    /// Where to change an answer already given; macOS will not ask a second time.
+    let settings: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 11) {
-            Image(systemName: done ? "checkmark.circle.fill" : symbol)
-                .foregroundStyle(done ? AnyShapeStyle(.green) : AnyShapeStyle(Palette.accentLight))
+            Image(systemName: icon)
+                .foregroundStyle(tint)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.callout.weight(.medium))
@@ -267,7 +267,13 @@ private struct SetupRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if let later, !done {
+                if grant == .denied {
+                    Label("Turned off. macOS asks only once, so it is switched on in System Settings.", systemImage: "info.circle")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                } else if let later, grant != .granted {
                     Label(later, systemImage: "lock")
                         .font(.caption2)
                         .foregroundStyle(.orange)
@@ -276,12 +282,33 @@ private struct SetupRow: View {
                 }
             }
             Spacer(minLength: 8)
-            if !done {
-                Button(action, action: perform)
-                    .controlSize(.small)
+            switch grant {
+            case .granted:
+                EmptyView()
+            case .denied:
+                Button("Open Settings", action: settings).controlSize(.small)
+            case .notAsked:
+                Button(action, action: perform).controlSize(.small)
             }
         }
         .padding(10)
         .glassCard(cornerRadius: 10)
+        .animation(.easeOut(duration: 0.2), value: grant)
+    }
+
+    private var icon: String {
+        switch grant {
+        case .granted: "checkmark.circle.fill"
+        case .denied: "exclamationmark.circle"
+        case .notAsked: symbol
+        }
+    }
+
+    private var tint: AnyShapeStyle {
+        switch grant {
+        case .granted: AnyShapeStyle(.green)
+        case .denied: AnyShapeStyle(.orange)
+        case .notAsked: AnyShapeStyle(Palette.accentLight)
+        }
     }
 }
