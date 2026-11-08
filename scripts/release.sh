@@ -42,6 +42,9 @@ hdiutil verify -quiet "$DMG"
 MOUNT="$(mktemp -d)"
 hdiutil attach -nobrowse -readonly -quiet "$DMG" -mountpoint "$MOUNT"
 codesign --verify --strict --deep "$MOUNT/UniMacHub.app" || { hdiutil detach -quiet "$MOUNT"; exit 1; }
+# What a copy still installed as MacUtil.app looks for when it updates itself.
+[[ "$(readlink "$MOUNT/MacUtil.app")" == "UniMacHub.app" ]] \
+    || { echo "error: MacUtil.app in the image does not point at UniMacHub.app" >&2; hdiutil detach -quiet "$MOUNT"; exit 1; }
 hdiutil detach -quiet "$MOUNT"
 
 DMG_SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"

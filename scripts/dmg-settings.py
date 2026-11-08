@@ -1,4 +1,4 @@
-# dmgbuild settings for the MacUtil disk image; scripts/release.sh passes -D app=… -D root=….
+# dmgbuild settings for the UniMacHub disk image; scripts/release.sh passes -D app=… -D root=….
 # Icon positions must match appCenter and applicationsCenter in scripts/make-dmg-background.swift.
 import os.path
 
@@ -9,7 +9,11 @@ app_name = os.path.basename(app)
 format = "ULFO"
 filesystem = "APFS"
 files = [app]
-symlinks = {"Applications": "/Applications"}
+# A copy installed as MacUtil.app (0.9.0 and earlier) updates itself by looking for its own
+# name in the image, so the old name points at the app. ditto follows it and copies the real
+# bundle. Kept out of sight below rather than hidden: hiding writes Finder info, which the
+# note at the end warns about.
+symlinks = {"Applications": "/Applications", "MacUtil.app": app_name}
 icon = os.path.join(app, "Contents/Resources/AppIcon.icns")
 
 background = os.path.join(root, "Resources/DMG/background.tiff")
@@ -31,6 +35,7 @@ icon_locations = {
     # Out of sight for people who show hidden files in Finder.
     ".background.tiff": (1000, 1000),
     ".VolumeIcon.icns": (1000, 1000),
+    "MacUtil.app": (1000, 1000),
 }
 # No hide_extensions: it writes Finder info onto the app bundle, which breaks strict
 # signature checks and can make Gatekeeper call the app damaged.

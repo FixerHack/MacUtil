@@ -107,7 +107,7 @@ public enum SelfUpdate {
         }
 
         let file = FileManager.default.temporaryDirectory
-            .appending(path: "MacUtil-\(release.version)-\(UUID().uuidString).dmg")
+            .appending(path: "UniMacHub-\(release.version)-\(UUID().uuidString).dmg")
         try? FileManager.default.removeItem(at: file)
         do {
             try FileManager.default.moveItem(at: temporary, to: file)
@@ -160,6 +160,9 @@ public enum SelfUpdate {
         }
 
         guard FileManager.default.fileExists(atPath: newApp.path) else { throw await fail(.badDownload) }
+        // Found under the old name, the image's MacUtil.app is a link, and the name to take is
+        // the one it points at. Read now: once the image is detached the link is gone.
+        let name = newApp.resolvingSymlinksInPath().lastPathComponent
         // An update built for another kind of Mac would install and then refuse to open.
         if let executable = Bundle(path: newApp.path)?.executableURL,
            !(await Self.runsOnThisMac(executable))
@@ -185,7 +188,7 @@ public enum SelfUpdate {
             throw await fail(.failed(error.localizedDescription), staged: staged)
         }
         await unmount()
-        return rename(app, to: newApp.lastPathComponent)
+        return rename(app, to: name)
     }
 
     /// Gives the installed copy the name the update carries, when the app has been renamed.
