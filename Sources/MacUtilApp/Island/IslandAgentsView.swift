@@ -258,8 +258,8 @@ private struct LimitsColumn: View {
     private func block(_ name: String, _ limits: AgentLimits) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: name).font(.caption.weight(.semibold))
-            if let five = limits.fiveHour { LimitBar(label: "5 h", window: five) }
-            if let week = limits.week { LimitBar(label: "Week", window: week) }
+            if let five = limits.fiveHour { LimitBar(label: "5 h", window: five, updated: limits.updated) }
+            if let week = limits.week { LimitBar(label: "Week", window: week, updated: limits.updated) }
         }
     }
 }
@@ -267,6 +267,7 @@ private struct LimitsColumn: View {
 private struct LimitBar: View {
     let label: LocalizedStringKey
     let window: UsageWindow
+    var updated: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -285,6 +286,10 @@ private struct LimitBar: View {
             if let resets = window.resetsAt {
                 Text("Resets \(resets.formatted(Self.style(for: resets)))")
                     .foregroundStyle(.white.opacity(0.4))
+            } else if let updated {
+                // Recorded a while ago, not live: say when.
+                Text("As of \(updated.formatted(Self.style(for: updated, past: true)))")
+                    .foregroundStyle(.white.opacity(0.4))
             }
         }
         .font(.system(size: 10))
@@ -299,8 +304,8 @@ private struct LimitBar: View {
     }
 
     /// The time alone within a day, the day too beyond it.
-    private static func style(for date: Date) -> Date.FormatStyle {
-        date.timeIntervalSinceNow < 20 * 3600
+    private static func style(for date: Date, past: Bool = false) -> Date.FormatStyle {
+        abs(date.timeIntervalSinceNow) < (past ? 12 * 3600 : 20 * 3600)
             ? .dateTime.hour().minute()
             : .dateTime.weekday(.abbreviated).hour().minute()
     }

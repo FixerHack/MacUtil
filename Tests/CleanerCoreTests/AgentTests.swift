@@ -139,6 +139,19 @@ struct ClaudeSettingsTests {
     }
 }
 
+struct ClaudeAppUsageTests {
+    @Test func takesTheLatestSampleWhileItsWindowCanStillBeCurrent() throws {
+        let json = Data(#"{"version":2,"samples":[{"t":1000000000,"u":{"fh":10,"sd":5}},{"t":1000003600000,"u":{"fh":71,"sd":14}}]}"#.utf8)
+        let taken = Date(timeIntervalSince1970: 1_000_003_600)
+        let fresh = try #require(ClaudeAppUsage.limits(from: json, now: taken.addingTimeInterval(3600)))
+        #expect(fresh.fiveHour?.usedPercent == 71 && fresh.week?.usedPercent == 14 && fresh.updated == taken)
+        // A day later the five-hour figure says nothing; the weekly one still does.
+        let later = try #require(ClaudeAppUsage.limits(from: json, now: taken.addingTimeInterval(24 * 3600)))
+        #expect(later.fiveHour == nil && later.week?.usedPercent == 14)
+        #expect(ClaudeAppUsage.limits(from: json, now: taken.addingTimeInterval(8 * 24 * 3600)) == nil)
+    }
+}
+
 struct CodexSessionsTests {
     private let head = #"{"timestamp":"t","type":"session_meta","payload":{"id":"abc","cwd":"/Users/me/app","originator":"Codex Desktop"}}"#
 

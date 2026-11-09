@@ -47,7 +47,6 @@ final class AgentsModel {
     @ObservationIgnored private var server: AgentSocketServer?
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var finishedTask: Task<Void, Never>?
-    @ObservationIgnored private var limitsModified: Date?
     @ObservationIgnored private var codexRead: [URL: Date] = [:]
     @ObservationIgnored private var claudeSessions: [String: AgentSession] = [:]
     @ObservationIgnored private var codexSessions: [String: AgentSession] = [:]
@@ -109,8 +108,9 @@ final class AgentsModel {
         guard let event = ClaudeHookEvent(json: line) else { return reply.send() }
         let id = AgentKind.claude.rawValue + ":" + event.sessionID
         let now = Date()
-        // A new event means any open question was answered some other way.
-        if !event.isPermissionRequest, let open = replies.removeValue(forKey: id) {
+        // The agent moving on means an open question was answered some other way. A notice
+        // that it is waiting, which Claude Code sends as the question goes up, is not that.
+        if Self.movesOn.contains(event.name), let open = replies.removeValue(forKey: id) {
             open.send()
             questions.remove(id)
         }
@@ -150,6 +150,11 @@ final class AgentsModel {
         guard let host, let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else { return false }
         return front == host
     }
+
+    /// Events that only come once the agent has gone past a question.
+    static let movesOn: Set<String> = [
+        "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop", "StopFailure", "SessionEnd",
+    ]
 
     func allow(_ id: String) {
         answer(id, decision: ["behavior": "allow"])
@@ -271,15 +276,18 @@ final class AgentsModel {
         return (read, sessions, limits)
     }
 
+    /// The newer of two sources: the status line of a terminal session, which is live, and
+    /// what the Claude app last recorded for its own sessions, which may be a while old.
     private func readClaudeLimits() {
-        let url = AgentPaths.claudeLimits
-        guard let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
-              modified != limitsModified, let data = try? Data(contentsOf: url)
-        else { return }
-        limitsModified = modified
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
-        claudeLimits = try? decoder.decode(AgentLimits.self, from: data)
+        let fromStatusLine = (try? Data(contentsOf: AgentPaths.claudeLimits))
+            .flatMap { try? decoder.decode(AgentLimits.self, from: $0) }?
+            .current(at: Date())
+        let fromApp = (try? Data(contentsOf: ClaudeAppUsage.file)).flatMap { ClaudeAppUsage.limits(from: $0) }
+        let candidates = [fromStatusLine, fromApp].compactMap { $0 }.filter { !$0.isEmpty }
+        let newest = candidates.max { $0.updated < $1.updated }
+        if newest != claudeLimits { claudeLimits = newest }
     }
 
     private func publish() {

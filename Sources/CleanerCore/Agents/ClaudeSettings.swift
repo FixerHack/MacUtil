@@ -206,3 +206,33 @@ public enum ClaudeStatusLine {
         return parts.joined(separator: " · ")
     }
 }
+
+/// The usage the Claude app itself last recorded, for sessions it runs: those never start a
+/// status line. It keeps a short history of samples, each with the five-hour and the weekly
+/// share used, without the reset times; a sample is only taken as long as its window can
+/// still be the current one.
+public enum ClaudeAppUsage {
+    public static var file: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: "Library/Application Support/Claude/plan-usage-history.json")
+    }
+
+    public static func limits(from json: Data, now: Date = Date()) -> AgentLimits? {
+        guard let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
+              let samples = object["samples"] as? [[String: Any]],
+              let last = samples.max(by: { ($0["t"] as? NSNumber)?.doubleValue ?? 0 < ($1["t"] as? NSNumber)?.doubleValue ?? 0 }),
+              let stamp = (last["t"] as? NSNumber)?.doubleValue,
+              let usage = last["u"] as? [String: Any]
+        else { return nil }
+        let taken = Date(timeIntervalSince1970: stamp / 1000)
+        let age = now.timeIntervalSince(taken)
+        var limits = AgentLimits(fiveHour: nil, week: nil, updated: taken)
+        if age < 5 * 3600, let five = (usage["fh"] as? NSNumber)?.doubleValue {
+            limits.fiveHour = UsageWindow(usedPercent: five, resetsAt: nil)
+        }
+        if age < 7 * 24 * 3600, let week = (usage["sd"] as? NSNumber)?.doubleValue {
+            limits.week = UsageWindow(usedPercent: week, resetsAt: nil)
+        }
+        return limits.isEmpty ? nil : limits
+    }
+}

@@ -1616,6 +1616,7 @@
 "Not connected" = "Не під'єднано";
 "Ready" = "Готовий";
 "Resets %@" = "Оновиться %@";
+"As of %@" = "Станом на %@";
 "Show coding agents" = "Показувати агентів для коду";
 "Stopped with an error" = "Зупинився з помилкою";
 "The command-line tool inside UniMacHub is missing. Reinstall UniMacHub and try again." = "У UniMacHub бракує інструмента командного рядка. Перевстановіть UniMacHub і спробуйте ще раз.";
