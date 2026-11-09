@@ -89,7 +89,7 @@ struct DockSettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Label("Pictures of the windows need Screen Recording", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
-                        Text("Without it the previews still list the windows by name. “Allow…” brings up macOS's request for “UniMacHub Dock”; turn it on under Screen & System Audio Recording and choose Quit & Reopen when macOS offers it. The pictures are taken only while the previews are on screen and never leave this Mac.")
+                        Text("Without it the previews still list the windows by name. “Allow…” brings up macOS's request; turn UniMacHub on under Screen & System Audio Recording, then press “Restart the Dock”, as macOS lets a running app see the change only once it starts again. The pictures are taken only while the previews are on screen and never leave this Mac.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HStack {
@@ -103,6 +103,7 @@ struct DockSettingsView: View {
                                     NSWorkspace.shared.open(url)
                                 }
                             }
+                            Button("Restart the Dock") { DockService.kickstart(restart: true) }
                         }
                     }
                 }
@@ -111,7 +112,7 @@ struct DockSettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Label("The Dock needs Accessibility for minimised windows and window previews", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
-                        Text("With the system Dock hidden, windows minimised with the yellow button go here instead. “Allow…” brings up macOS's request for “UniMacHub Dock”: open System Settings from it and turn UniMacHub Dock on under Accessibility. The Dock only reads which windows are minimised and their titles, and brings one back when you click it.")
+                        Text("With the system Dock hidden, windows minimised with the yellow button go here instead. “Allow…” brings up macOS's request: open System Settings from it and turn UniMacHub on under Accessibility (macOS may list the Dock as UniMacHub Dock). The Dock only reads its windows' titles and places, and brings one forward when you click it.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HStack {

@@ -10,7 +10,8 @@ struct PreviewWindow: Identifiable {
     let title: String
     let image: NSImage?
     let minimized: Bool
-    let element: AXUIElement
+    /// Nil when Accessibility could not reach it: a click then brings its app forward.
+    let element: AXUIElement?
 }
 
 /// The previews of an app's windows that come up over the Dock while the pointer rests on it.
@@ -121,11 +122,13 @@ final class WindowPreviews {
     // MARK: - Acting on a window
 
     func focus(_ window: PreviewWindow) {
-        if window.minimized {
-            AXUIElementSetAttributeValue(window.element, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        if let element = window.element {
+            if window.minimized {
+                AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+            }
+            AXUIElementSetAttributeValue(element, kAXMainAttribute as CFString, kCFBooleanTrue)
+            AXUIElementPerformAction(element, kAXRaiseAction as CFString)
         }
-        AXUIElementSetAttributeValue(window.element, kAXMainAttribute as CFString, kCFBooleanTrue)
-        AXUIElementPerformAction(window.element, kAXRaiseAction as CFString)
         if let bundleID = app?.bundleID {
             NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.activate()
         }
@@ -134,7 +137,8 @@ final class WindowPreviews {
 
     func close(_ window: PreviewWindow) {
         var value: CFTypeRef?
-        if AXUIElementCopyAttributeValue(window.element, kAXCloseButtonAttribute as CFString, &value) == .success,
+        if let element = window.element,
+           AXUIElementCopyAttributeValue(element, kAXCloseButtonAttribute as CFString, &value) == .success,
            let button = value, CFGetTypeID(button) == AXUIElementGetTypeID() {
             AXUIElementPerformAction(button as! AXUIElement, kAXPressAction as CFString)
         }
@@ -143,47 +147,48 @@ final class WindowPreviews {
     }
 
     func minimize(_ window: PreviewWindow) {
-        AXUIElementSetAttributeValue(window.element, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+        guard let element = window.element else { return }
+        AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
         hide()
     }
 
     // MARK: - Finding and picturing the windows
 
-    /// An app's standard windows with a picture of each, in the order macOS stacks them.
+    /// An app's windows with a picture of each, on every desktop and full-screen space.
+    ///
+    /// ScreenCaptureKit lists them all; Accessibility only sees the current desktop's unless
+    /// asked for each window by number, which is how AltTab and DockDoor reach the rest.
     private static func windows(of pid: pid_t) async -> [PreviewWindow] {
-        let standard = standardWindows(of: pid)
-        guard !standard.isEmpty else { return [] }
-        guard canCapture,
-              let content = try? await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
-        else {
-            return standard.enumerated().map { index, window in
-                PreviewWindow(id: CGWindowID(index), title: window.title, image: nil, minimized: window.minimized, element: window.element)
+        let content = canCapture
+            ? try? await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
+            : nil
+        let wanted = Set((content?.windows ?? [])
+            .filter { $0.owningApplication?.processID == pid && $0.windowLayer == 0 && $0.frame.width >= 100 && $0.frame.height >= 80 }
+            .map(\.windowID))
+        let reachable = await Task.detached { AXWindows.byNumber(of: pid, wanting: wanted) }.value
+        guard let content else {
+            // No pictures: the windows Accessibility knows, by name.
+            return reachable.values.filter(\.isStandard).sorted { $0.title < $1.title }.map {
+                PreviewWindow(id: $0.number, title: $0.title, image: nil, minimized: $0.minimized, element: $0.element)
             }
         }
-        let shareable = content.windows.filter {
-            $0.owningApplication?.processID == pid && $0.windowLayer == 0 && $0.frame.width > 60 && $0.frame.height > 40
-        }
         var result: [PreviewWindow] = []
-        var used = Set<CGWindowID>()
-        for window in standard {
-            // The same window to both: the nearest frame, the title to break a tie.
-            let match = shareable
-                .filter { !used.contains($0.windowID) }
-                .min { distance($0, window) < distance($1, window) }
-            guard let match, distance(match, window) < 40 || match.title == window.title else { continue }
-            used.insert(match.windowID)
-            let image = await picture(of: match)
+        for window in content.windows where window.owningApplication?.processID == pid && window.windowLayer == 0 {
+            let known = reachable[window.windowID]
+            if let known {
+                guard known.isStandard else { continue }
+            } else {
+                // Out of Accessibility's reach: only what looks like a real window.
+                guard window.frame.width >= 200, window.frame.height >= 150, !(window.title ?? "").isEmpty else { continue }
+            }
+            let image = await picture(of: window)
+            let title = known?.title.isEmpty == false ? known!.title : (window.title ?? "")
             result.append(PreviewWindow(
-                id: match.windowID, title: window.title.isEmpty ? (match.title ?? "") : window.title,
-                image: image, minimized: window.minimized, element: window.element
+                id: window.windowID, title: title, image: image,
+                minimized: known?.minimized ?? false, element: known?.element
             ))
         }
         return result
-    }
-
-    private static func distance(_ shared: SCWindow, _ window: StandardWindow) -> CGFloat {
-        abs(shared.frame.minX - window.frame.minX) + abs(shared.frame.minY - window.frame.minY)
-            + abs(shared.frame.width - window.frame.width) + abs(shared.frame.height - window.frame.height)
     }
 
     private static func picture(of window: SCWindow) async -> NSImage? {
@@ -197,46 +202,84 @@ final class WindowPreviews {
         else { return nil }
         return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
     }
+}
 
-    private struct StandardWindow {
+/// An app's windows through Accessibility, keyed by their window number.
+enum AXWindows {
+    struct Window: @unchecked Sendable {
         let element: AXUIElement
+        let number: CGWindowID
         let title: String
-        let frame: CGRect
         let minimized: Bool
+        let isStandard: Bool
     }
 
-    /// The app's windows Accessibility calls standard, with their frames in screen points
-    /// measured from the top, as ScreenCaptureKit measures them too.
-    private static func standardWindows(of pid: pid_t) -> [StandardWindow] {
+    // Not in the public headers, but stable for years and used by AltTab, DockDoor and
+    // others; looked up at run time so a macOS without them only loses other desktops.
+    private typealias GetWindow = @convention(c) (AXUIElement, UnsafeMutablePointer<CGWindowID>) -> AXError
+    private typealias CreateWithToken = @convention(c) (CFData) -> Unmanaged<AXUIElement>?
+    nonisolated(unsafe) private static let handle = dlopen(
+        "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices", RTLD_NOW
+    )
+    nonisolated(unsafe) private static let getWindow: GetWindow? = dlsym(handle, "_AXUIElementGetWindow")
+        .map { unsafeBitCast($0, to: GetWindow.self) }
+    nonisolated(unsafe) private static let createWithToken: CreateWithToken? = dlsym(handle, "_AXUIElementCreateWithRemoteToken")
+        .map { unsafeBitCast($0, to: CreateWithToken.self) }
+
+    /// - Parameter wanted: the windows to look for beyond the current desktop; the search
+    ///   stops once they are all found.
+    static func byNumber(of pid: pid_t, wanting wanted: Set<CGWindowID>) -> [CGWindowID: Window] {
+        guard let getWindow else { return [:] }
+        var found: [CGWindowID: Window] = [:]
+        func add(_ element: AXUIElement) {
+            var number: CGWindowID = 0
+            guard getWindow(element, &number) == .success, number != 0, found[number] == nil,
+                  string(element, kAXRoleAttribute) == kAXWindowRole as String
+            else { return }
+            let subrole = string(element, kAXSubroleAttribute)
+            found[number] = Window(
+                element: element, number: number,
+                title: string(element, kAXTitleAttribute) ?? "",
+                minimized: bool(element, kAXMinimizedAttribute),
+                isStandard: subrole == kAXStandardWindowSubrole as String || subrole == kAXDialogSubrole as String
+            )
+        }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.25)
         var value: CFTypeRef?
+        // An app that does not answer is not asked a thousand times more.
         guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &value) == .success,
               let list = value as? [AXUIElement]
-        else { return [] }
-        return list.compactMap { element in
-            guard attribute(element, kAXSubroleAttribute) as? String == kAXStandardWindowSubrole as String else { return nil }
-            var origin = CGPoint.zero
-            var size = CGSize.zero
-            if let position = attribute(element, kAXPositionAttribute), CFGetTypeID(position) == AXValueGetTypeID() {
-                AXValueGetValue(position as! AXValue, .cgPoint, &origin)
+        else { return found }
+        list.forEach(add)
+        // The rest, on other desktops: each element the app has, asked for by its number.
+        if let createWithToken, !wanted.isSubset(of: Set(found.keys)) {
+            for id in UInt64(0) ..< 1000 where !wanted.isSubset(of: Set(found.keys)) {
+                var token = Data(count: 20)
+                token.withUnsafeMutableBytes { bytes in
+                    bytes.storeBytes(of: Int32(pid), toByteOffset: 0, as: Int32.self)
+                    bytes.storeBytes(of: Int32(0), toByteOffset: 4, as: Int32.self)
+                    bytes.storeBytes(of: Int32(0x636F_636F), toByteOffset: 8, as: Int32.self)
+                    bytes.storeBytes(of: id, toByteOffset: 12, as: UInt64.self)
+                }
+                guard let element = createWithToken(token as CFData)?.takeRetainedValue() else { continue }
+                AXUIElementSetMessagingTimeout(element, 0.1)
+                add(element)
             }
-            if let extent = attribute(element, kAXSizeAttribute), CFGetTypeID(extent) == AXValueGetTypeID() {
-                AXValueGetValue(extent as! AXValue, .cgSize, &size)
-            }
-            return StandardWindow(
-                element: element,
-                title: attribute(element, kAXTitleAttribute) as? String ?? "",
-                frame: CGRect(origin: origin, size: size),
-                minimized: attribute(element, kAXMinimizedAttribute) as? Bool ?? false
-            )
         }
+        return found
     }
 
-    private static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
+    private static func string(_ element: AXUIElement, _ name: String) -> String? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else { return nil }
-        return value
+        return value as? String
+    }
+
+    private static func bool(_ element: AXUIElement, _ name: String) -> Bool {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else { return false }
+        return value as? Bool ?? false
     }
 }
 
