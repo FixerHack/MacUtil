@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- UniMacHub's Dock: the same program as the app, in a bundle of its own with no icon
+	     in the Dock or ⌘Tab. scripts/build-app.sh puts it in Contents/Library/LoginItems. -->
+	<key>CFBundleExecutable</key>
+	<string>UniMacHub Dock</string>
+	<key>CFBundleIdentifier</key>
+	<string>__BUNDLE_ID__.Dock</string>
+	<key>CFBundleName</key>
+	<string>UniMacHub Dock</string>
+	<key>CFBundleDisplayName</key>
+	<string>UniMacHub Dock</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>__VERSION__</string>
+	<key>CFBundleVersion</key>
+	<string>__BUILD__</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>uk</string>
+	</array>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>UniMacHub's Dock shows today's date and your next event in its calendar widget. Nothing leaves this Mac.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>UniMacHub's Dock shows today's date and your next event in its calendar widget. Nothing leaves this Mac.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>UniMacHub's Dock asks Music and Spotify to play, pause and skip from its music widget.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 FixerHack. GPL-3.0.</string>
+</dict>
+</plist>

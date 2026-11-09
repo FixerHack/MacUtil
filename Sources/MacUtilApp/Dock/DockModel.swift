@@ -4,9 +4,16 @@ import Foundation
 import Observation
 
 /// UniMacHub's own Dock: its settings, what is in it, and the system Dock it stands in for.
+///
+/// The same model runs in two processes. In UniMacHub it is the settings page; in the Dock's
+/// own background process (see `DockAgent`) it is the Dock itself. Both keep the settings in
+/// UniMacHub's preferences and tell each other when they change them, so a change made on
+/// either side, such as an app pinned by dragging it onto the Dock, shows on the other.
 @MainActor
 @Observable
 final class DockModel {
+    enum Role { case settings, dock }
+
     enum Position: String, CaseIterable, Identifiable {
         case bottom, left, right
         var id: String { rawValue }
@@ -14,14 +21,25 @@ final class DockModel {
     }
 
     enum Widget: String, CaseIterable, Identifiable {
-        case clock, system, controls, music, calendar, weather
+        case clock, system, music, calendar, weather
         var id: String { rawValue }
 
         /// Which end of the Dock it sits at.
         var leading: Bool {
             switch self {
-            case .clock, .system, .controls: true
+            case .clock, .system: true
             case .music, .calendar, .weather: false
+            }
+        }
+
+        /// How long it is along a Dock at the bottom, in icon sizes. Along a side it is square.
+        var units: CGFloat {
+            switch self {
+            case .clock: 1.55
+            case .system: 1.75
+            case .music: 3.3
+            case .calendar: 1.55
+            case .weather: 1.6
             }
         }
     }
@@ -36,6 +54,33 @@ final class DockModel {
         var isActive: Bool
         var isLaunching: Bool
         var id: String { url.path }
+    }
+
+    /// One place along the Dock.
+    enum Entry: Identifiable, Equatable {
+        case widget(Widget)
+        case app(App)
+        case tools(SidebarSection)
+        case divider(Int)
+        case trash
+
+        var id: String {
+            switch self {
+            case let .widget(widget): "widget." + widget.rawValue
+            case let .app(app): "app." + app.id
+            case let .tools(section): "tools.\(section)"
+            case let .divider(index): "divider.\(index)"
+            case .trash: "trash"
+            }
+        }
+
+        func slot(vertical: Bool) -> DockLayout.Slot {
+            switch self {
+            case .app, .tools, .trash: .init(units: 1, grows: true)
+            case .divider: .init(units: 0.32, grows: false)
+            case let .widget(widget): .init(units: vertical ? 1 : widget.units, grows: false)
+            }
+        }
     }
 
     enum Keys {
@@ -54,100 +99,156 @@ final class DockModel {
         static let place = "dockWeatherPlace"
     }
 
+    /// Posted by either process when it changes a setting, so the other reads them again.
+    static let changedNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockChanged")
+    /// The players the music widget stands for: while it is on, their icons stay out of the Dock.
+    static let musicPlayers = Set(NowPlaying.Player.allCases.map(\.bundleID))
+    static let iconSizes: ClosedRange<Double> = 24 ... 128
+
+    let role: Role
+
     // MARK: - Settings
 
-    private(set) var isEnabled: Bool { didSet { defaults.set(isEnabled, forKey: Keys.enabled) } }
-    var iconSize: Double { didSet { defaults.set(iconSize, forKey: Keys.iconSize) } }
-    var magnifies: Bool { didSet { defaults.set(magnifies, forKey: Keys.magnifies) } }
-    var magnification: Double { didSet { defaults.set(magnification, forKey: Keys.magnification) } }
-    var autohides: Bool { didSet { defaults.set(autohides, forKey: Keys.autohides) } }
-    var position: Position { didSet { defaults.set(position.rawValue, forKey: Keys.position) } }
-    var showsIndicators: Bool { didSet { defaults.set(showsIndicators, forKey: Keys.indicators) } }
-    var showsRunningApps: Bool { didSet { defaults.set(showsRunningApps, forKey: Keys.runningApps) } }
-    var showsTools: Bool { didSet { defaults.set(showsTools, forKey: Keys.tools) } }
-    var widgets: Set<Widget> { didSet { defaults.set(widgets.map(\.rawValue).sorted(), forKey: Keys.widgets) } }
-    var weatherTown: String { didSet { defaults.set(weatherTown, forKey: Keys.town) } }
+    private(set) var isEnabled: Bool { didSet { save(isEnabled, Keys.enabled) } }
+    var iconSize: Double { didSet { save(iconSize, Keys.iconSize) } }
+    var magnifies: Bool { didSet { save(magnifies, Keys.magnifies) } }
+    var magnification: Double { didSet { save(magnification, Keys.magnification) } }
+    var autohides: Bool { didSet { save(autohides, Keys.autohides) } }
+    var position: Position { didSet { save(position.rawValue, Keys.position) } }
+    var showsIndicators: Bool { didSet { save(showsIndicators, Keys.indicators) } }
+    var showsRunningApps: Bool { didSet { save(showsRunningApps, Keys.runningApps); rebuild() } }
+    var showsTools: Bool { didSet { save(showsTools, Keys.tools) } }
+    var widgets: Set<Widget> { didSet { save(widgets.map(\.rawValue).sorted(), Keys.widgets); rebuild() } }
+    private(set) var weatherTown: String { didSet { save(weatherTown, Keys.town) } }
 
     // MARK: - Contents
 
-    private(set) var pinned: [URL] { didSet { defaults.set(pinned.map(\.path), forKey: Keys.pinned) } }
+    private(set) var pinned: [URL] { didSet { save(pinned.map(\.path), Keys.pinned) } }
     private(set) var apps: [App] = []
     private(set) var weatherPlace: Weather.Place?
     private(set) var weather: Weather.Now?
     private(set) var weatherError = false
+    private(set) var isLookingUpTown = false
     /// Whether the Dock is out, when it hides itself.
     var isShown = false
-    /// Where the pointer is along the Dock, for the magnification; nil when it is elsewhere.
+    /// Where the pointer is along the unmagnified bar; nil when it is not on the Dock.
     var pointer: CGFloat?
-    /// How long the bar is before anything grows, as the view last laid it out.
-    @ObservationIgnored var barLength: CGFloat = 0
+    /// Called in the Dock's process when the other side turned the Dock off.
+    @ObservationIgnored var onDisabled: (() -> Void)?
 
-    @ObservationIgnored private let defaults = UserDefaults.standard
+    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private var loading = false
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var icons: [String: NSImage] = [:]
     @ObservationIgnored private var weatherTask: Task<Void, Never>?
     @ObservationIgnored private var launching: Set<String> = []
 
-    init() {
+    init(role: Role) {
+        self.role = role
+        // UniMacHub's own preferences, from whichever process.
+        let own = Bundle.main.bundleIdentifier == MacUtilInfo.bundleIdentifier
+        defaults = own ? .standard : UserDefaults(suiteName: MacUtilInfo.bundleIdentifier) ?? .standard
         defaults.register(defaults: [
-            Keys.iconSize: 96.0, Keys.magnifies: true, Keys.magnification: 1.335, Keys.autohides: true,
+            Keys.iconSize: 64.0, Keys.magnifies: true, Keys.magnification: 1.335, Keys.autohides: true,
             Keys.position: Position.bottom.rawValue, Keys.indicators: true, Keys.runningApps: true,
             Keys.tools: true, Keys.widgets: [Widget.clock.rawValue, Widget.system.rawValue, Widget.music.rawValue],
         ])
-        isEnabled = defaults.bool(forKey: Keys.enabled)
-        iconSize = defaults.double(forKey: Keys.iconSize)
-        magnifies = defaults.bool(forKey: Keys.magnifies)
-        magnification = defaults.double(forKey: Keys.magnification)
-        autohides = defaults.bool(forKey: Keys.autohides)
-        position = Position(rawValue: defaults.string(forKey: Keys.position) ?? "") ?? .bottom
-        showsIndicators = defaults.bool(forKey: Keys.indicators)
-        showsRunningApps = defaults.bool(forKey: Keys.runningApps)
-        showsTools = defaults.bool(forKey: Keys.tools)
-        widgets = Set((defaults.stringArray(forKey: Keys.widgets) ?? []).compactMap(Widget.init))
-        weatherTown = defaults.string(forKey: Keys.town) ?? ""
-        pinned = (defaults.stringArray(forKey: Keys.pinned) ?? []).map { URL(filePath: $0) }
-        weatherPlace = defaults.data(forKey: Keys.place).flatMap { try? JSONDecoder().decode(Weather.Place.self, from: $0) }
-        watchApps()
-        rebuild()
-    }
-
-    // MARK: - Turning it on and off
-
-    /// At launch: the system Dock is hidden again if this one is on, and put back if an
-    /// earlier run hid it and could not undo that, such as after a crash.
-    func launched() {
-        let enabled = isEnabled
-        Task.detached {
-            if enabled { SystemDock.hide() } else if SystemDock.isHidden { SystemDock.restore() }
-        }
-    }
-
-    /// Takes over from the system Dock, with its apps.
-    func enable() {
-        if pinned.isEmpty { pinned = SystemDock.pinnedApps() }
-        SystemDock.hide()
-        isEnabled = true
-        rebuild()
-    }
-
-    /// Gives the screen back to the system Dock, exactly as it was.
-    func disable() {
         isEnabled = false
-        SystemDock.restore()
+        iconSize = 64
+        magnifies = true
+        magnification = 1.335
+        autohides = true
+        position = .bottom
+        showsIndicators = true
+        showsRunningApps = true
+        showsTools = true
+        widgets = []
+        weatherTown = ""
+        pinned = []
+        load()
+
+        observers.append(DistributedNotificationCenter.default().addObserver(
+            forName: Self.changedNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let sender = note.object as? String
+            Task { @MainActor in
+                guard let self, sender != Self.processTag else { return }
+                self.changedElsewhere()
+            }
+        })
+        if role == .dock { watchApps() }
+        rebuild()
     }
 
-    /// On quitting: the system Dock comes back, and goes away again at the next launch.
-    func quitting() {
-        if isEnabled { SystemDock.restore() }
+    // MARK: - Keeping both processes in step
+
+    private static let processTag = String(ProcessInfo.processInfo.processIdentifier)
+
+    private func save(_ value: Any, _ key: String) {
+        guard !loading else { return }
+        defaults.set(value, forKey: key)
+        defaults.synchronize()
+        DistributedNotificationCenter.default().postNotificationName(
+            Self.changedNotification, object: Self.processTag, userInfo: nil, deliverImmediately: true
+        )
     }
 
-    // MARK: - Apps
+    /// Reads every setting, touching only what differs, so nothing redraws for nothing.
+    private func load() {
+        loading = true
+        defer { loading = false }
+        defaults.synchronize()
+        let read = defaults
+        if isEnabled != read.bool(forKey: Keys.enabled) { isEnabled = read.bool(forKey: Keys.enabled) }
+        let size = min(Self.iconSizes.upperBound, max(Self.iconSizes.lowerBound, read.double(forKey: Keys.iconSize)))
+        if iconSize != size { iconSize = size }
+        if magnifies != read.bool(forKey: Keys.magnifies) { magnifies = read.bool(forKey: Keys.magnifies) }
+        if magnification != read.double(forKey: Keys.magnification) { magnification = read.double(forKey: Keys.magnification) }
+        if autohides != read.bool(forKey: Keys.autohides) { autohides = read.bool(forKey: Keys.autohides) }
+        let side = Position(rawValue: read.string(forKey: Keys.position) ?? "") ?? .bottom
+        if position != side { position = side }
+        if showsIndicators != read.bool(forKey: Keys.indicators) { showsIndicators = read.bool(forKey: Keys.indicators) }
+        if showsRunningApps != read.bool(forKey: Keys.runningApps) { showsRunningApps = read.bool(forKey: Keys.runningApps) }
+        if showsTools != read.bool(forKey: Keys.tools) { showsTools = read.bool(forKey: Keys.tools) }
+        let chosen = Set((read.stringArray(forKey: Keys.widgets) ?? []).compactMap(Widget.init))
+        if widgets != chosen { widgets = chosen }
+        let town = read.string(forKey: Keys.town) ?? ""
+        if weatherTown != town { weatherTown = town }
+        let kept = (read.stringArray(forKey: Keys.pinned) ?? []).map { URL(filePath: $0) }
+        if pinned != kept { pinned = kept }
+        let stored = read.data(forKey: Keys.place).flatMap { try? JSONDecoder().decode(Weather.Place.self, from: $0) }
+        if weatherPlace != stored { weatherPlace = stored }
+    }
+
+    /// The other process changed something: read it all again.
+    private func changedElsewhere() {
+        let place = weatherPlace
+        let wasEnabled = isEnabled
+        let hadWeather = widgets.contains(.weather)
+        load()
+        rebuild()
+        guard role == .dock else { return }
+        if wasEnabled, !isEnabled { onDisabled?() }
+        if place != weatherPlace || hadWeather != widgets.contains(.weather) { refreshWeather() }
+    }
+
+    // MARK: - Turning it on and off (UniMacHub's side, see `DockService`)
+
+    /// Writes down whether the Dock is on, for its process to find when it starts. The apps
+    /// in the system Dock come across the first time.
+    func markEnabled(_ enabled: Bool) {
+        if enabled, pinned.isEmpty { pinned = SystemDock.pinnedApps() }
+        isEnabled = enabled
+    }
+
+    // MARK: - What is in it
 
     private func watchApps() {
         let center = NSWorkspace.shared.notificationCenter
         let names: [Notification.Name] = [
             NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification,
             NSWorkspace.didActivateApplicationNotification, NSWorkspace.willLaunchApplicationNotification,
+            NSWorkspace.didHideApplicationNotification, NSWorkspace.didUnhideApplicationNotification,
         ]
         for name in names {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
@@ -161,8 +262,11 @@ final class DockModel {
         }
     }
 
-    /// Pinned apps in their order, then those running that are not pinned.
+    /// Pinned apps in their order, then those running that are not pinned. Music players stay
+    /// out while the music widget stands in for them.
     func rebuild() {
+        guard role == .dock else { return }
+        let hidden = widgets.contains(.music) ? Self.musicPlayers : []
         let running = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
         var byPath: [String: NSRunningApplication] = [:]
         for app in running {
@@ -181,6 +285,7 @@ final class DockModel {
                 result.append(self.app(url, pinned: false, running: app))
             }
         }
+        result.removeAll { $0.bundleID.map(hidden.contains) ?? false }
         if result != apps { apps = result }
     }
 
@@ -196,6 +301,44 @@ final class DockModel {
         )
     }
 
+    /// Everything along the Dock, in order: widgets, apps, UniMacHub's tools, the Trash last.
+    var entries: [Entry] {
+        var result: [Entry] = []
+        let leading = Widget.allCases.filter { widgets.contains($0) && $0.leading }
+        let trailing = Widget.allCases.filter { widgets.contains($0) && !$0.leading }
+        result += leading.map(Entry.widget)
+        if !leading.isEmpty { result.append(.divider(0)) }
+        let kept = apps.filter(\.isPinned)
+        let others = apps.filter { !$0.isPinned }
+        result += kept.map(Entry.app)
+        if !others.isEmpty {
+            if !kept.isEmpty { result.append(.divider(1)) }
+            result += others.map(Entry.app)
+        }
+        if showsTools {
+            result.append(.divider(2))
+            result += SidebarSection.allCases.map(Entry.tools)
+        }
+        if !trailing.isEmpty {
+            result.append(.divider(3))
+            result += trailing.map(Entry.widget)
+        }
+        result.append(.divider(4))
+        result.append(.trash)
+        return result
+    }
+
+    /// Where everything goes, given the room along the edge.
+    func layout(_ entries: [Entry], available: CGFloat, pointer: CGFloat?) -> DockLayout {
+        DockLayout(
+            slots: entries.map { $0.slot(vertical: position.isVertical) },
+            iconSize: CGFloat(iconSize),
+            available: available,
+            magnification: magnifies ? CGFloat(magnification) : 1,
+            pointer: pointer
+        )
+    }
+
     func icon(for url: URL) -> NSImage {
         if let icon = icons[url.path] { return icon }
         let icon = NSWorkspace.shared.icon(forFile: url.path)
@@ -203,27 +346,40 @@ final class DockModel {
         return icon
     }
 
+    // MARK: - Apps
+
     /// A click: brings a running app forward, or opens it.
     func open(_ app: App) {
-        if let running = NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID ?? "").first {
-            if running.isActive { running.unhide() }
-            running.activate()
-        } else {
-            launching.insert(app.url.path)
-            rebuild()
+        if app.isRunning {
+            // Through Launch Services, as the system Dock does: an app with its windows all
+            // closed opens a new one, and a hidden one comes back.
             NSWorkspace.shared.openApplication(at: app.url, configuration: NSWorkspace.OpenConfiguration())
-            // An app that never finishes launching does not bounce for ever.
-            Task { [weak self] in
-                try? await Task.sleep(for: .seconds(10))
-                self?.launching.remove(app.url.path)
-                self?.rebuild()
-            }
+            return
         }
+        launching.insert(app.url.path)
+        rebuild()
+        NSWorkspace.shared.openApplication(at: app.url, configuration: NSWorkspace.OpenConfiguration())
+        // An app that never finishes launching does not bounce for ever.
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(10))
+            self?.launching.remove(app.url.path)
+            self?.rebuild()
+        }
+    }
+
+    /// Opens an app by its bundle, for the music widget.
+    func open(bundleID: String) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 
     /// Files dropped on an app open in it.
     func open(_ files: [URL], with app: App) {
         NSWorkspace.shared.open(files, withApplicationAt: app.url, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    func hide(_ app: App) {
+        NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID ?? "").forEach { $0.hide() }
     }
 
     func quit(_ app: App) {
@@ -240,8 +396,8 @@ final class DockModel {
         rebuild()
     }
 
-    func unpin(_ app: App) {
-        pinned.removeAll { $0 == app.url }
+    func unpin(_ url: URL) {
+        pinned.removeAll { $0 == url }
         rebuild()
     }
 
@@ -278,44 +434,45 @@ final class DockModel {
 
     // MARK: - Weather
 
-    /// Looks the town up once, then fetches the weather every half hour while the widget is on.
-    func refreshWeather() {
-        weatherTask?.cancel()
-        guard widgets.contains(.weather), !weatherTown.trimmingCharacters(in: .whitespaces).isEmpty else {
-            weather = nil
-            return
-        }
-        let town = weatherTown.trimmingCharacters(in: .whitespaces)
-        weatherTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.fetchWeather(town: town)
-                try? await Task.sleep(for: .seconds(30 * 60))
-            }
-        }
-    }
-
-    private func fetchWeather(town: String) async {
-        if weatherPlace?.name.lowercased() != town.lowercased() || weatherPlace == nil {
-            let language = Locale.current.language.languageCode?.identifier ?? "en"
-            guard let url = Weather.searchURL(for: town, language: language),
-                  let data = try? await URLSession.shared.data(from: url).0,
-                  let place = Weather.place(fromSearch: data)
-            else {
-                weatherError = true
-                return
-            }
-            weatherPlace = place
-            defaults.set(try? JSONEncoder().encode(place), forKey: Keys.place)
-            if weatherTown != place.name { weatherTown = place.name }
-        }
-        guard let place = weatherPlace, let url = Weather.forecastURL(for: place),
+    /// Finds the town, from the settings page; the Dock then fetches the weather for it.
+    func lookUpTown(_ name: String) async {
+        let town = name.trimmingCharacters(in: .whitespaces)
+        guard !town.isEmpty else { return }
+        isLookingUpTown = true
+        defer { isLookingUpTown = false }
+        let language = Locale.current.language.languageCode?.identifier ?? "en"
+        guard let url = Weather.searchURL(for: town, language: language),
               let data = try? await URLSession.shared.data(from: url).0,
-              let now = Weather.now(fromForecast: data)
+              let place = Weather.place(fromSearch: data),
+              let encoded = try? JSONEncoder().encode(place)
         else {
             weatherError = true
             return
         }
         weatherError = false
-        weather = now
+        weatherPlace = place
+        save(encoded, Keys.place)
+        weatherTown = place.name
+        refreshWeather()
+    }
+
+    /// Fetches the weather every half hour while the widget is on, in the Dock's process.
+    func refreshWeather() {
+        weatherTask?.cancel()
+        guard role == .dock, widgets.contains(.weather), let place = weatherPlace else {
+            weather = nil
+            return
+        }
+        weatherTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let url = Weather.forecastURL(for: place) else { return }
+                let data = try? await URLSession.shared.data(from: url).0
+                guard !Task.isCancelled else { return }
+                if let data, let reading = Weather.now(fromForecast: data) {
+                    self?.weather = reading
+                }
+                try? await Task.sleep(for: .seconds(30 * 60))
+            }
+        }
     }
 }

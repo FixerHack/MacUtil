@@ -66,6 +66,21 @@ sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_
     Resources/Info.plist > "$APP/Contents/Info.plist"
 plutil -lint -s "$APP/Contents/Info.plist"
 
+# The Dock's own process: the same program in a second bundle with its own name and no
+# icon, which launchd keeps running so the Dock stays when UniMacHub is closed. A copy, not
+# a link: each bundle's signature is written into its own executable.
+DOCK="$APP/Contents/Library/LoginItems/UniMacHub Dock.app"
+mkdir -p "$DOCK/Contents/MacOS" "$DOCK/Contents/Resources" "$APP/Contents/Library/LaunchAgents"
+cp "$APP/Contents/MacOS/UniMacHub" "$DOCK/Contents/MacOS/UniMacHub Dock"
+cp -R Resources/Localization/*.lproj "$DOCK/Contents/Resources/"
+cp Resources/AppIcon.icns "$DOCK/Contents/Resources/"
+sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \
+    Resources/DockAgent-Info.plist > "$DOCK/Contents/Info.plist"
+plutil -lint -s "$DOCK/Contents/Info.plist"
+sed -e "s/__BUNDLE_ID__/$BUNDLE_ID/g" Resources/LaunchAgents/Dock.plist \
+    > "$APP/Contents/Library/LaunchAgents/$BUNDLE_ID.Dock.plist"
+plutil -lint -s "$APP/Contents/Library/LaunchAgents/$BUNDLE_ID.Dock.plist"
+
 IDENTITY="${MACUTIL_SIGN_IDENTITY:-}"
 if [[ -z "$IDENTITY" ]]; then
     IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
@@ -77,6 +92,8 @@ if [[ -z "$IDENTITY" ]]; then
 fi
 # Nested code first: the app's signature covers it, and refuses anything unsigned inside.
 codesign --force --timestamp=none --sign "$IDENTITY" "$APP/Contents/Frameworks/libUniMacHubNowPlaying.dylib"
+codesign --force --options runtime --timestamp=none --entitlements Resources/UniMacHub.entitlements \
+    --sign "$IDENTITY" "$DOCK"
 codesign --force --options runtime --timestamp=none --entitlements Resources/UniMacHub.entitlements \
     --sign "$IDENTITY" "$APP"
 

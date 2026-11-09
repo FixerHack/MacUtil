@@ -234,3 +234,27 @@ private struct Scratch {
         #expect(log.entries().isEmpty)
     }
 }
+
+struct SlimmingSealTests {
+    @Test func leavesFilesTheSignatureSealsAsResources() throws {
+        let plist: [String: Any] = ["files2": [
+            "Resources/updater.node": ["hash2": Data([1, 2])],
+            "Frameworks/Sparkle.framework": ["cdhash": Data([3]), "requirement": "anchor apple generic"],
+            "Resources/link": ["symlink": "updater.node"],
+        ]]
+        let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+        let sealed = AppSlimming.sealedFiles(codeResources: data, root: "/Applications/X.app/Contents")
+        #expect(sealed == ["/Applications/X.app/Contents/Resources/updater.node"])
+    }
+
+    @Test func readsWhichFilesCodesignSaysChanged() {
+        let output = """
+        /Applications/X.app: a sealed resource is missing or invalid
+        file modified: /Applications/X.app/Contents/Resources/updater.node
+        file modified: /Applications/X.app/Contents/Extensions/a b.dylib
+        """
+        #expect(AppSlimming.modifiedFiles(in: output) == [
+            "/Applications/X.app/Contents/Resources/updater.node", "/Applications/X.app/Contents/Extensions/a b.dylib",
+        ])
+    }
+}

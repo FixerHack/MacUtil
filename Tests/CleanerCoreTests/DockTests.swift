@@ -16,6 +16,20 @@ struct SystemDockTests {
         #expect(SystemDock.hideCommands().contains(["write", "com.apple.dock", "autohide-delay", "-float", "1000"]))
     }
 
+    @Test func keepsTheSystemDockOnTheSameEdgeAndPutsItBack() throws {
+        // On the same edge, where Mission Control will show it.
+        #expect(SystemDock.hideCommands(edge: "right").contains(["write", "com.apple.dock", "orientation", "-string", "right"]))
+        // The edge comes back as it was, or goes if it was never set.
+        let placed = SystemDock.Snapshot(autohide: true, delay: nil, orientation: "right", recordsPlacement: true)
+        #expect(SystemDock.restoreCommands(placed).contains(["write", "com.apple.dock", "orientation", "-string", "right"]))
+        let unset = SystemDock.Snapshot(autohide: nil, delay: nil, orientation: nil, recordsPlacement: true)
+        #expect(SystemDock.restoreCommands(unset).contains(["delete", "com.apple.dock", "orientation"]))
+        // A snapshot from the first beta never recorded it, so it is left alone.
+        let old = try JSONDecoder().decode(SystemDock.Snapshot.self, from: Data(#"{"autohide":true}"#.utf8))
+        #expect(!old.recordsPlacement)
+        #expect(!SystemDock.restoreCommands(old).contains { $0.contains("orientation") })
+    }
+
     @Test func knowsItsOwnHiding() {
         #expect(SystemDock.isHiddenByUs(.init(autohide: true, delay: 1000)))
         #expect(!SystemDock.isHiddenByUs(.init(autohide: true, delay: 0.5)))
@@ -41,6 +55,48 @@ struct SystemDockTests {
         #expect(near < 1.335 && near > far && far > 1)
         #expect(DockMagnification.scale(distance: 300, iconSize: size, magnification: 1.335) == 1)
         #expect(DockMagnification.scale(distance: 0, iconSize: size, magnification: 1) == 1)
+    }
+}
+
+struct DockLayoutTests {
+    let slots: [DockLayout.Slot] = [
+        .init(units: 1.5, grows: false), .init(units: 0.32, grows: false),
+        .init(units: 1, grows: true), .init(units: 1, grows: true), .init(units: 1, grows: true),
+        .init(units: 1, grows: true), .init(units: 1, grows: true),
+    ]
+
+    @Test func laysOutEndToEndWithNothingUnderThePointer() {
+        let layout = DockLayout(slots: slots, iconSize: 64, available: 2000, magnification: 1.5, pointer: nil)
+        #expect(layout.icon == 64)
+        #expect(layout.items.allSatisfy { $0.scale == 1 })
+        #expect(layout.items[0].start == DockLayout.endPadding * 64)
+        for index in 1 ..< layout.items.count {
+            #expect(abs(layout.items[index].start - layout.items[index - 1].end) < 0.001)
+        }
+        #expect(layout.barStart == 0 && abs(layout.barEnd - layout.baseLength) < 0.001)
+        #expect(layout.hovered == nil)
+    }
+
+    @Test func theIconUnderThePointerGrowsAndStaysUnderIt() throws {
+        let base = DockLayout(slots: slots, iconSize: 64, available: 2000, magnification: 1.5, pointer: nil)
+        for pointer in stride(from: base.items[2].start + 1, to: base.items[6].end, by: 7) {
+            let layout = DockLayout(slots: slots, iconSize: 64, available: 2000, magnification: 1.5, pointer: pointer)
+            let hovered = try #require(layout.hovered)
+            // The icon drawn under the pointer is the one that takes the click and shows its name.
+            #expect(layout.items[hovered].start <= pointer && pointer < layout.items[hovered].end)
+            let baseHit = try #require(base.items.indices.first { base.items[$0].start <= pointer && pointer < base.items[$0].end })
+            #expect(hovered == baseHit)
+            #expect(layout.items[hovered].scale > 1)
+            // Widgets never grow.
+            #expect(layout.items[0].scale == 1)
+        }
+    }
+
+    @Test func shrinksToFitTheScreen() {
+        let units = slots.reduce(0) { $0 + $1.units } + 2 * DockLayout.endPadding
+        let layout = DockLayout(slots: slots, iconSize: 128, available: 400, magnification: 1, pointer: nil)
+        #expect(abs(layout.icon - 400 / units) < 0.001)
+        #expect(layout.baseLength <= 400.001)
     }
 }
 

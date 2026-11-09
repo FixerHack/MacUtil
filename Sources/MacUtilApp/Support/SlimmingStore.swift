@@ -80,7 +80,10 @@ final class SlimmingStore {
         }
         current = nil
         selection = []
+        // The rescan shows what is left; what happened to each app stays on screen above it.
+        let results = outcomes
         await scan()
+        outcomes = results
     }
 
     private func describe(_ failure: AppSlimming.Failure) -> LocalizedStringResource {

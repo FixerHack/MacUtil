@@ -23,9 +23,9 @@ final class MediaRemoteFeed {
         self.handler = handler
     }
 
-    /// The library, next to the app's own frameworks.
+    /// The library, next to UniMacHub's own frameworks, from the app or from the Dock inside it.
     nonisolated static var library: URL? {
-        guard let url = Bundle.main.privateFrameworksURL?.appending(path: "libUniMacHubNowPlaying.dylib"),
+        guard let url = HostApp.bundle.privateFrameworksURL?.appending(path: "libUniMacHubNowPlaying.dylib"),
               FileManager.default.fileExists(atPath: url.path)
         else { return nil }
         return url

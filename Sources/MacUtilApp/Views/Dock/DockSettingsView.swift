@@ -1,5 +1,6 @@
 import AppKit
 import CleanerCore
+import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -9,6 +10,7 @@ struct DockSettingsView: View {
     @Bindable var model: DockModel
     @State private var confirmsEnabling = false
     @State private var town = ""
+    @State private var problem: DockService.Problem?
 
     var body: some View {
         Form {
@@ -16,27 +18,30 @@ struct DockSettingsView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("UniMacHub's Dock")
-                        Text(model.isEnabled ? "On: the system Dock is hidden until you turn this off or quit" : "Off: the system Dock works as usual")
+                        Text(model.isEnabled ? "On: it stays when UniMacHub is closed, and starts at login" : "Off: the system Dock works as usual")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     if model.isEnabled {
-                        Button("Turn Off") { model.disable() }
+                        Button("Turn Off") { DockService.turnOff(model) }
                     } else {
                         Button("Turn On…") { confirmsEnabling = true }
                             .buttonStyle(.borderedProminent)
                     }
                 }
+                if let problem {
+                    problemView(problem)
+                }
             } footer: {
-                Text("If UniMacHub ever stops without putting the system Dock back, it does so the next time it opens. By hand, in Terminal: defaults delete com.apple.dock autohide-delay; killall Dock")
+                Text("The Dock runs on its own, as a small background part of UniMacHub, so quitting UniMacHub leaves it in place. The system Dock comes back exactly as it was when you turn this off. Should it ever be stuck hidden, in Terminal: defaults delete com.apple.dock autohide-delay; killall Dock")
                     .textSelection(.enabled)
             }
 
             Section {
                 LabeledContent("Icon size") {
                     HStack {
-                        Slider(value: $model.iconSize, in: 40 ... 128, step: 2)
+                        Slider(value: $model.iconSize, in: DockModel.iconSizes, step: 2)
                         Text(verbatim: "\(Int(model.iconSize))").monospacedDigit().frame(width: 34, alignment: .trailing)
                     }
                 }
@@ -63,7 +68,7 @@ struct DockSettingsView: View {
             } header: {
                 Text("Look")
             } footer: {
-                Text("Windows that fill the screen go under the Dock when it stays out, as there is no way for another app to keep them clear of it; hiding it automatically avoids that. The minimising effect is macOS's own and applies at once.")
+                Text("When everything does not fit along the edge, the whole Dock shrinks to fit, as the system one does. Windows that fill the screen go under the Dock when it stays out, as there is no way for another app to keep them clear of it; hiding it automatically avoids that. The minimising effect is macOS's own and applies at once.")
             }
 
             Section {
@@ -75,7 +80,7 @@ struct DockSettingsView: View {
                         Text(verbatim: FileManager.default.displayName(atPath: url.path))
                         Spacer()
                         Button {
-                            if let app = model.apps.first(where: { $0.url == url }) { model.unpin(app) }
+                            model.unpin(url)
                         } label: {
                             Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
                         }
@@ -99,7 +104,6 @@ struct DockSettingsView: View {
                         get: { model.widgets.contains(widget) },
                         set: { on in
                             if on { model.widgets.insert(widget) } else { model.widgets.remove(widget) }
-                            if widget == .weather { model.refreshWeather() }
                         }
                     )) {
                         Label { Text(widget.title) } icon: { Image(systemName: widget.symbol) }
@@ -109,8 +113,11 @@ struct DockSettingsView: View {
                     HStack {
                         TextField("Town for the weather", text: $town)
                             .onSubmit { saveTown() }
+                        if model.isLookingUpTown {
+                            ProgressView().controlSize(.small)
+                        }
                         Button("Save") { saveTown() }
-                            .disabled(town.trimmingCharacters(in: .whitespaces).isEmpty)
+                            .disabled(town.trimmingCharacters(in: .whitespaces).isEmpty || model.isLookingUpTown)
                     }
                     if model.weatherError {
                         Text("Open-Meteo did not answer, or does not know this town.")
@@ -121,7 +128,7 @@ struct DockSettingsView: View {
             } header: {
                 Text("Widgets")
             } footer: {
-                Text("Clock, system and switches sit at the start of the Dock; music, calendar and weather at the end. The weather comes from Open-Meteo, which needs no account: only the town, then its coordinates, are sent, at most every half hour. The calendar asks for access the first time.")
+                Text("Clock and system sit at the start of the Dock; music, calendar and weather at the end. While the music widget is on, Music and Spotify keep out of the Dock: a click on the cover opens the one playing. The weather comes from Open-Meteo, which needs no account: only the town, then its coordinates, are sent, at most every half hour. The calendar asks for access the first time, for the Dock's own part of UniMacHub.")
             }
         }
         .formStyle(.grouped)
@@ -129,16 +136,37 @@ struct DockSettingsView: View {
         .onAppear { town = model.weatherTown }
         .onChange(of: model.weatherTown) { _, name in town = name }
         .alert("Turn on UniMacHub's Dock?", isPresented: $confirmsEnabling) {
-            Button("Turn On") { model.enable() }
+            Button("Turn On") { problem = DockService.turnOn(model) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("macOS's own Dock cannot be removed, as it also runs Mission Control and ⌘Tab, so UniMacHub hides it: it is set to hide itself with a delay so long it never comes up. Its settings are written down first and put back exactly when you turn this off or quit UniMacHub. The apps now in the system Dock move across. No permission is needed.")
+            Text("macOS's own Dock cannot be removed, as it also runs Mission Control and ⌘Tab, so UniMacHub hides it with a delay so long it never comes up. Only Mission Control still shows it, on the same edge as this Dock, which steps aside there. Its settings are written down first and put back exactly when you turn this off. The apps now in the system Dock move across. macOS will say that UniMacHub added a background item: that is this Dock, which starts at login and keeps running when UniMacHub is closed.")
+        }
+    }
+
+    @ViewBuilder
+    private func problemView(_ problem: DockService.Problem) -> some View {
+        switch problem {
+        case .needsApproval:
+            VStack(alignment: .leading, spacing: 6) {
+                Label("macOS has UniMacHub's background items switched off", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text("Open Login Items, turn UniMacHub on under “Allow in the Background”, then turn the Dock on here again.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Open Login Items") { SMAppService.openSystemSettingsLoginItems() }
+            }
+        case .missing:
+            Label("This copy of UniMacHub was built without the Dock's part. Install it with scripts/install.sh.", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        case let .failed(reason):
+            Label("macOS did not start the Dock: \(reason)", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
         }
     }
 
     private func saveTown() {
-        model.weatherTown = town.trimmingCharacters(in: .whitespaces)
-        model.refreshWeather()
+        let name = town
+        Task { await model.lookUpTown(name) }
     }
 
     private func addApp() {
@@ -155,8 +183,7 @@ extension DockModel.Widget {
     var title: LocalizedStringKey {
         switch self {
         case .clock: "Clock"
-        case .system: "System: processor, memory, network"
-        case .controls: "Wi-Fi, Bluetooth and sound"
+        case .system: "System: processor, memory, network, temperature"
         case .music: "Music"
         case .calendar: "Calendar"
         case .weather: "Weather"
@@ -167,7 +194,6 @@ extension DockModel.Widget {
         switch self {
         case .clock: "clock"
         case .system: "cpu"
-        case .controls: "switch.2"
         case .music: "music.note"
         case .calendar: "calendar"
         case .weather: "cloud.sun"

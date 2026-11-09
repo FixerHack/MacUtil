@@ -14,12 +14,29 @@ public enum SystemDock {
     public struct Snapshot: Codable, Equatable, Sendable {
         public var autohide: Bool?
         public var delay: Double?
+        /// The edge. Written down since 0.10.4's second beta; a snapshot from before that
+        /// leaves it alone when it is put back.
+        public var orientation: String?
+        public var recordsPlacement: Bool
 
-        public init(autohide: Bool?, delay: Double?) {
+        public init(autohide: Bool?, delay: Double?, orientation: String? = nil, recordsPlacement: Bool = false) {
             self.autohide = autohide
             self.delay = delay
+            self.orientation = orientation
+            self.recordsPlacement = recordsPlacement
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            autohide = try container.decodeIfPresent(Bool.self, forKey: .autohide)
+            delay = try container.decodeIfPresent(Double.self, forKey: .delay)
+            orientation = try container.decodeIfPresent(String.self, forKey: .orientation)
+            recordsPlacement = try container.decodeIfPresent(Bool.self, forKey: .recordsPlacement) ?? false
         }
     }
+
+    /// Mission Control always shows the system Dock, hidden or not, while UniMacHub's Dock
+    /// steps out of it; so the system one is kept on the same edge, where the Dock belongs.
 
     /// A delay so long the system Dock never comes up.
     public static let hiddenDelay: Double = 1000
@@ -32,7 +49,9 @@ public enum SystemDock {
         let defaults = UserDefaults(suiteName: domain)
         return Snapshot(
             autohide: defaults?.object(forKey: "autohide") as? Bool,
-            delay: (defaults?.object(forKey: "autohide-delay") as? NSNumber)?.doubleValue
+            delay: (defaults?.object(forKey: "autohide-delay") as? NSNumber)?.doubleValue,
+            orientation: defaults?.string(forKey: "orientation"),
+            recordsPlacement: true
         )
     }
 
@@ -41,26 +60,29 @@ public enum SystemDock {
         snapshot.autohide == true && (snapshot.delay ?? 0) >= hiddenDelay
     }
 
-    /// The `defaults` commands that hide it.
-    public static func hideCommands() -> [[String]] {
+    /// The `defaults` commands that hide it, on the edge UniMacHub's Dock is on.
+    public static func hideCommands(edge: String = "bottom") -> [[String]] {
         [
             ["write", domain, "autohide", "-bool", "true"],
             ["write", domain, "autohide-delay", "-float", String(Int(hiddenDelay))],
+            ["write", domain, "orientation", "-string", edge],
         ]
     }
 
     /// The `defaults` commands that put a snapshot back, deleting what was not there.
     public static func restoreCommands(_ snapshot: Snapshot) -> [[String]] {
         var commands: [[String]] = []
-        if let autohide = snapshot.autohide {
-            commands.append(["write", domain, "autohide", "-bool", autohide ? "true" : "false"])
-        } else {
-            commands.append(["delete", domain, "autohide"])
+        func put(_ key: String, _ value: String?, type: String) {
+            if let value {
+                commands.append(["write", domain, key, type, value])
+            } else {
+                commands.append(["delete", domain, key])
+            }
         }
-        if let delay = snapshot.delay {
-            commands.append(["write", domain, "autohide-delay", "-float", String(delay)])
-        } else {
-            commands.append(["delete", domain, "autohide-delay"])
+        put("autohide", snapshot.autohide.map { $0 ? "true" : "false" }, type: "-bool")
+        put("autohide-delay", snapshot.delay.map { String($0) }, type: "-float")
+        if snapshot.recordsPlacement {
+            put("orientation", snapshot.orientation, type: "-string")
         }
         return commands
     }
@@ -92,24 +114,38 @@ public enum SystemDock {
 
     // MARK: - Hiding and bringing back
 
-    /// Hides the system Dock, writing down how it was first. Does nothing if it is already
-    /// hidden by an earlier run, so the snapshot from before that run is kept.
-    public static func hide() {
+    /// Hides the system Dock, writing down how it was first. A snapshot from an earlier run
+    /// is kept, as it holds how things were before UniMacHub touched them.
+    public static func hide(edge: String = "bottom") {
         let current = readSnapshot()
-        if !FileManager.default.fileExists(atPath: snapshotFile.path) {
+        var saved = storedSnapshot()
+        if saved == nil {
             // Hidden already with nothing written down: macOS's own defaults are the best guess.
-            let before = isHiddenByUs(current) ? Snapshot(autohide: nil, delay: nil) : current
-            try? FileManager.default.createDirectory(at: snapshotFile.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? JSONEncoder().encode(before).write(to: snapshotFile, options: .atomic)
+            saved = isHiddenByUs(current)
+                ? Snapshot(autohide: nil, delay: nil, orientation: nil, recordsPlacement: true)
+                : current
+        } else if saved?.recordsPlacement == false {
+            // Written by an earlier version, before the edge was moved: it is still the
+            // person's own.
+            saved?.orientation = current.orientation
+            saved?.recordsPlacement = true
         }
-        if !isHiddenByUs(current) { apply(hideCommands()) }
+        if let saved, saved != storedSnapshot() {
+            try? FileManager.default.createDirectory(at: snapshotFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? JSONEncoder().encode(saved).write(to: snapshotFile, options: .atomic)
+        }
+        let inPlace = isHiddenByUs(current) && current.orientation == edge
+        if !inPlace { apply(hideCommands(edge: edge)) }
+    }
+
+    static func storedSnapshot() -> Snapshot? {
+        guard let data = try? Data(contentsOf: snapshotFile) else { return nil }
+        return try? JSONDecoder().decode(Snapshot.self, from: data)
     }
 
     /// Puts the system Dock back the way it was, if UniMacHub hid it.
     public static func restore() {
-        guard let data = try? Data(contentsOf: snapshotFile),
-              let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data)
-        else { return }
+        guard let snapshot = storedSnapshot() else { return }
         apply(restoreCommands(snapshot))
         try? FileManager.default.removeItem(at: snapshotFile)
     }

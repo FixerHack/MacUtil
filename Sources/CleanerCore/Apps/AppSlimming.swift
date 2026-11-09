@@ -95,8 +95,10 @@ public enum AppSlimming {
             at: URL(filePath: bundlePath), includingPropertiesForKeys: [.isRegularFileKey]
         ) else { return [] }
 
+        let urls = walker.allObjects.compactMap { $0 as? URL }
+        let sealed = sealedAsResources(urls)
         var found: [FatBinary] = []
-        for case let url as URL in walker.allObjects {
+        for url in urls where !sealed.contains(url.path(percentEncoded: false)) {
             guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true,
                   let slices = architectures(of: url.path(percentEncoded: false)), slices.count > 1
             else { continue }
@@ -105,6 +107,34 @@ public enum AppSlimming {
             found.append(FatBinary(path: url.path(percentEncoded: false), foreignBytes: foreign))
         }
         return found
+    }
+
+    /// Files a signature seals byte for byte, as resources rather than as code with a
+    /// signature of its own: thinning one of those breaks the signature of the bundle around
+    /// it, so they are left as they are. Read from each `_CodeSignature/CodeResources` in
+    /// the bundle, whose paths are relative to the folder holding `_CodeSignature`.
+    static func sealedAsResources(_ urls: [URL]) -> Set<String> {
+        var sealed = Set<String>()
+        for url in urls where url.lastPathComponent == "CodeResources"
+            && url.deletingLastPathComponent().lastPathComponent == "_CodeSignature" {
+            let root = url.deletingLastPathComponent().deletingLastPathComponent()
+            guard let data = try? Data(contentsOf: url) else { continue }
+            sealed.formUnion(sealedFiles(codeResources: data, root: root.path(percentEncoded: false)))
+        }
+        return sealed
+    }
+
+    /// The plain files a `CodeResources` lists: those with a hash, not nested code with a cdhash.
+    static func sealedFiles(codeResources data: Data, root: String) -> Set<String> {
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else { return [] }
+        let files = (plist["files2"] as? [String: Any]) ?? (plist["files"] as? [String: Any]) ?? [:]
+        var result = Set<String>()
+        let base = root.hasSuffix("/") ? root : root + "/"
+        for (key, value) in files {
+            if let entry = value as? [String: Any], entry["cdhash"] != nil || entry["symlink"] != nil { continue }
+            result.insert(base + key)
+        }
+        return result
     }
 
     /// Reads the universal-binary header: the architectures and the bytes each one takes.
@@ -226,13 +256,39 @@ public enum AppSlimming {
             }
         }
 
-        let check = await Command.run(
-            "/usr/bin/codesign", ["--verify", "--strict", app.path], timeout: .seconds(300)
-        )
-        if check?.status != 0 {
-            putEverythingBack()
-            return .failure(.signatureBroken(check?.text ?? ""))
+        // A file the signature seals byte for byte, which the reading above missed, is put
+        // back on its own and the check run again, so one such file does not cost the rest.
+        var foreign = Dictionary(uniqueKeysWithValues: binaries.map { ($0.path, $0.foreignBytes) })
+        for _ in 0 ... binaries.count {
+            let check = await Command.run(
+                "/usr/bin/codesign", ["--verify", "--strict", "--verbose=4", app.path], timeout: .seconds(300)
+            )
+            guard let check, check.status != 0 else {
+                return check == nil ? .failure(.failed("codesign did not finish")) : .success(freed)
+            }
+            let modified = modifiedFiles(in: check.text)
+            let culprits = restores.filter { modified.contains($0.original) }
+            guard !culprits.isEmpty else {
+                putEverythingBack()
+                return .failure(.signatureBroken(check.text))
+            }
+            for culprit in culprits {
+                try? fileManager.removeItem(atPath: culprit.original)
+                try? fileManager.moveItem(at: culprit.saved, to: URL(filePath: culprit.original))
+                freed -= foreign.removeValue(forKey: culprit.original) ?? 0
+            }
+            restores.removeAll { modified.contains($0.original) }
+            if restores.isEmpty { return .failure(.signatureBroken(check.text)) }
         }
-        return .success(freed)
+        putEverythingBack()
+        return .failure(.signatureBroken(""))
+    }
+
+    /// The files `codesign --verify --verbose` names as changed.
+    static func modifiedFiles(in output: String) -> Set<String> {
+        Set(output.split(separator: "\n").compactMap { line in
+            guard let range = line.range(of: "file modified: ") else { return nil }
+            return String(line[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        })
     }
 }

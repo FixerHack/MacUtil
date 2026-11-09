@@ -104,8 +104,9 @@ final class AppState {
     let vault = VaultStore()
     let island = IslandModel()
     @ObservationIgnored private var islandController: IslandController?
-    let dock = DockModel()
-    @ObservationIgnored private var dockController: DockController?
+    /// The Dock's settings; the Dock itself runs in its own process (see `DockAgent`).
+    let dock = DockModel(role: .settings)
+    @ObservationIgnored private var hubLink: NSObjectProtocol?
     let terminal = TerminalStore()
     let addOns = AddOnStore()
     let clipboard = ClipboardStore()
@@ -121,6 +122,17 @@ final class AppState {
     init() {
         UserDefaults.standard.register(defaults: [Preferences.automaticUpdateCheck: true])
         refresh()
+        // The Dock opens tools here: at launch if it started UniMacHub, by a note otherwise.
+        if let module = HubLink.launchModule { open(module) }
+        hubLink = DistributedNotificationCenter.default().addObserver(
+            forName: HubLink.notification, object: nil, queue: .main
+        ) { [weak self] note in
+            let module = (note.object as? String).flatMap(Module.named)
+            Task { @MainActor in
+                guard let module else { return }
+                self?.showMain(module)
+            }
+        }
         // Once everything above exists: the island reads the stores to show work in progress.
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -128,7 +140,7 @@ final class AppState {
                 if DebugSnapshot.isActive { return }
             #endif
             self.islandController = IslandController(model: self.island, state: self)
-            self.dockController = DockController(model: self.dock, state: self)
+            DockService.launched(self.dock)
         }
     }
 

@@ -1,6 +1,17 @@
 import SwiftUI
 
+/// One program, two bundles: UniMacHub itself, and the Dock's helper inside it.
 @main
+enum UniMacHubMain {
+    static func main() {
+        if DockAgent.isAgentProcess {
+            DockAgent.run()
+        } else {
+            MacUtilApp.main()
+        }
+    }
+}
+
 struct MacUtilApp: App {
     @State private var state = AppState()
     @AppStorage(Preferences.showsMenuBar) private var showsMenuBar = true
