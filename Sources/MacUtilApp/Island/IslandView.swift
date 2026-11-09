@@ -286,6 +286,14 @@ private struct IslandPanel: View {
                         ForEach(model.sessions) { session in
                             PlayerCard(session: session, model: model)
                                 .containerRelativeFrame(.horizontal)
+                                // A card that is not the one in view fades out, so the edge of
+                                // the next never peeks in at the side; while swiping, the two
+                                // cross over.
+                                .scrollTransition(.interactive, axis: .horizontal) { card, phase in
+                                    card
+                                        .opacity(1 - min(1, abs(phase.value) * 1.6))
+                                        .scaleEffect(1 - 0.06 * abs(phase.value))
+                                }
                         }
                     }
                     .scrollTargetLayout()
