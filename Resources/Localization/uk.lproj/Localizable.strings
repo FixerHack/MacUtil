@@ -1088,7 +1088,6 @@
 "Installed: %@" = "Встановлено: %@";
 "Installer Files" = "Інсталятори";
 "Items removed" = "Видалено файлів";
-"Lets the Terminal take your fingerprint instead of your password. Nothing else changes, and the password still works." = "Дозволяє Терміналу приймати відбиток пальця замість пароля. Більше нічого не змінюється, і пароль працює й далі.";
 "Look Through Projects" = "Переглянути проєкти";
 "Look for Installers" = "Знайти інсталятори";
 "Look for Universal Apps" = "Знайти універсальні програми";
@@ -1560,3 +1559,4 @@
 "iPhone app" = "Програма iPhone";
 "Add Entry" = "Додати запис";
 "Every device on the local network with its name, address and maker, the services it offers, and a connection in one press: SSH, RDP, VNC, FTP, SMB, Telnet or the browser. Your own network only." = "Кожен пристрій локальної мережі з назвою, адресою й виробником, служби, які він пропонує, і підключення одним натиском: SSH, RDP, VNC, FTP, SMB, Telnet чи браузер. Лише у вашій власній мережі.";
+"Lets the Terminal, and UniMacHub's own changes to the system, take your fingerprint instead of your password. The password still works." = "Термінал і зміни системи, які робить UniMacHub, приймають відбиток пальця замість пароля. Пароль теж працює.";

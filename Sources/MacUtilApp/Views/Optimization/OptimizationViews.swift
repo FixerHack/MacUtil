@@ -59,7 +59,7 @@ private struct TouchIDRow: View {
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Touch ID for sudo")
-                Text("Lets the Terminal take your fingerprint instead of your password. Nothing else changes, and the password still works.")
+                Text("Lets the Terminal, and UniMacHub's own changes to the system, take your fingerprint instead of your password. The password still works.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

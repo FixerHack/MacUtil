@@ -48,17 +48,29 @@ public enum Vault {
             let text = check?.text ?? ""
             return .failure(isWrongPassword(text) ? .wrongPassword : .failed(text))
         }
-        let output = await Command.run("/usr/bin/hdiutil", [
-            "attach", path, "-stdinpass", "-plist",
-        ], timeout: .seconds(120), input: passphrase(password))
-        guard let output, output.status == 0 else {
-            let text = output?.text ?? ""
+        // The password is right by now, so a refusal here is the disk system being busy —
+        // "no mountable file systems" straight after another image came or went. Once more,
+        // a moment later, settles it; a second refusal is real.
+        var attempt = await attach(path, password: password)
+        if attempt?.status != 0 {
+            try? await Task.sleep(for: .seconds(1))
+            attempt = await attach(path, password: password)
+        }
+        guard let output = attempt, output.status == 0 else {
+            let text = attempt?.text ?? ""
             return .failure(isWrongPassword(text) ? .wrongPassword : .failed(text))
         }
         guard let mountPoint = mountPoint(inAttachOutput: output.text) else {
             return .failure(.failed(output.text))
         }
         return .success(mountPoint)
+    }
+
+    private static func attach(_ path: String, password: String) async -> Command.Output? {
+        await Command.run(
+            "/usr/bin/hdiutil", ["attach", path, "-stdinpass", "-plist"],
+            timeout: .seconds(120), input: passphrase(password)
+        )
     }
 
     /// Closes a vault. Forcing it closes even when an app has a file open inside, which is

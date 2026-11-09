@@ -12,6 +12,9 @@ public enum AdminRunner {
     }
 
     public static func run(_ commands: [String], prompt: String) async -> Output {
+        if SudoTouchID.isEnabled(), let output = await runWithTouchID(commands) {
+            return output
+        }
         let script = appleScript(commands, prompt: prompt)
         guard let output = await Command.run("/usr/bin/osascript", ["-e", script], timeout: .seconds(600)) else {
             return Output(succeeded: false, text: "", wasCancelled: false)
@@ -19,6 +22,32 @@ public enum AdminRunner {
         // osascript reports "User canceled. (-128)" when the prompt is dismissed.
         let cancelled = output.text.contains("(-128)")
         return Output(succeeded: output.status == 0, text: output.text, wasCancelled: cancelled)
+    }
+
+    /// Runs the commands through sudo when Touch ID is set up for it, so a fingerprint does.
+    ///
+    /// The AppleScript prompt only ever takes a password. sudo asks PAM, and with Touch ID in
+    /// `sudo_local` that is the fingerprint. Who you are is confirmed first, on its own
+    /// (`-v`); only then do the commands run, without asking again (`-n`), so a failing
+    /// command is never mistaken for a refused fingerprint and run twice. Returns nil when
+    /// the fingerprint was not given, and the password prompt takes over.
+    static func runWithTouchID(_ commands: [String]) async -> Output? {
+        // No password comes on standard input: if the fingerprint is refused, sudo finds
+        // nothing to read and gives up rather than waiting.
+        guard let confirmed = await Command.run(
+            "/usr/bin/sudo", ["-S", "-p", "", "-v"], timeout: .seconds(60), input: Data()
+        ), confirmed.status == 0 else { return nil }
+
+        let output = await Command.run(
+            "/usr/bin/sudo", ["-n", "/bin/sh", "-c", commands.joined(separator: " ; ")], timeout: .seconds(600)
+        )
+        // Forget the confirmation at once rather than leaving it open for minutes.
+        _ = await Command.run("/usr/bin/sudo", ["-k"])
+        guard let output else { return Output(succeeded: false, text: "", wasCancelled: false) }
+        // sudo kept no record of the fingerprint between the two calls, so nothing ran:
+        // the password prompt can safely do it instead.
+        if output.status != 0, output.text.hasPrefix("sudo: a password is required") { return nil }
+        return Output(succeeded: output.status == 0, text: output.text, wasCancelled: false)
     }
 
     /// `do shell script "a ; b" with prompt "…" with administrator privileges`, quoted for AppleScript.
