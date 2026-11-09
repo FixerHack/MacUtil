@@ -1589,7 +1589,11 @@
 /* 0.10.3: agents, calendar and batteries in the island */
 "5 h" = "5 год";
 "Agents" = "Агенти";
-"Answer Claude Code's permission requests in the island" = "Відповідати на запити дозволу Claude Code в острівці";
+"Permission requests" = "Запити дозволу";
+"In the island" = "В острівці";
+"In the island when you are in another app" = "В острівці, коли ви в іншій програмі";
+"In the terminal" = "У терміналі";
+"now" = "щойно";
 "Answer There" = "Відповісти там";
 "Asks" = "Питає";
 "Asks for permission" = "Просить дозволу";
@@ -1615,7 +1619,7 @@
 "Show coding agents" = "Показувати агентів для коду";
 "Stopped with an error" = "Зупинився з помилкою";
 "The command-line tool inside UniMacHub is missing. Reinstall UniMacHub and try again." = "У UniMacHub бракує інструмента командного рядка. Перевстановіть UniMacHub і спробуйте ще раз.";
-"The island shows which sessions are at work, which have finished and which wait for you, with Claude Code's and Codex's usage limits. A question goes to the island only when the terminal it comes from is not in front; otherwise Claude Code asks it there, as always. Codex is read from the logs it keeps anyway, and nothing is added to it." = "Острівець показує, які сесії працюють, які закінчили, а які чекають на вас, разом із лімітами Claude Code і Codex. Запит потрапляє в острівець лише тоді, коли термінал, з якого він прийшов, не на передньому плані; інакше Claude Code питає там, як завжди. Codex читається з журналів, які він і так веде, і нічого в нього не додається.";
+"The island shows which sessions are at work, which have finished and which wait for you, with Claude Code's and Codex's usage limits. A permission request waiting in the island has Allow and Deny; while it waits, Claude Code does not ask it in the terminal, and Answer There sends it back. After five minutes it goes back by itself. Codex is read from the logs it keeps anyway, and nothing is added to it." = "Острівець показує, які сесії працюють, які закінчили, а які чекають на вас, разом із лімітами Claude Code і Codex. Запит дозволу, що чекає в острівці, має кнопки «Дозволити» й «Відхилити»; поки він чекає, Claude Code не питає в терміналі, а «Відповісти там» повертає запит туди. За п'ять хвилин він повертається сам. Codex читається з журналів, які він і так веде, і нічого в нього не додається.";
 "The next event shows in the opened island, and beside the notch ten minutes before it starts. Batteries cover this Mac, Bluetooth keyboards, mice and trackpads, and AirPods with each side and the case." = "Найближча подія видна у відкритому острівці, а за десять хвилин до початку — і біля вирізу. Батареї: цей Mac, Bluetooth-клавіатури, миші й трекпади, а також AirPods — кожен навушник і футляр.";
 "UniMacHub adds its hooks and a status line to ~/.claude/settings.json. Hooks other apps put there stay as they are. A status line you already have keeps showing; UniMacHub runs it and only reads the usage limits on the way. A copy of the file is kept next to it, and Disconnect takes out exactly what was added. Sessions that are already open pick this up when they start again." = "UniMacHub додає свої хуки й рядок стану в ~/.claude/settings.json. Хуки інших програм лишаються як є. Рядок стану, який у вас уже є, і далі показується: UniMacHub запускає його й лише зчитує ліміти дорогою. Копія файлу зберігається поруч, а «Від'єднати» прибирає рівно те, що було додано. Уже відкриті сесії підхоплять це після перезапуску.";
 "UniMacHub may not read your calendars." = "UniMacHub не має дозволу читати календарі.";

@@ -90,14 +90,18 @@ struct IslandSettingsView: View {
                 }
             }
             .disabled(!agents.showsAgents)
-            Toggle("Answer Claude Code's permission requests in the island", isOn: Bindable(agents).answersInIsland)
-                .disabled(!agents.showsAgents || !agents.claudeConnected)
+            Picker("Permission requests", selection: Bindable(agents).answerMode) {
+                Text("In the island").tag(AgentsModel.AnswerMode.island)
+                Text("In the island when you are in another app").tag(AgentsModel.AnswerMode.whenAway)
+                Text("In the terminal").tag(AgentsModel.AnswerMode.terminal)
+            }
+            .disabled(!agents.showsAgents || !agents.claudeConnected)
             Toggle("Codex", isOn: Bindable(agents).readsCodex)
                 .disabled(!agents.showsAgents)
         } header: {
             Text("Coding agents")
         } footer: {
-            Text("The island shows which sessions are at work, which have finished and which wait for you, with Claude Code's and Codex's usage limits. A question goes to the island only when the terminal it comes from is not in front; otherwise Claude Code asks it there, as always. Codex is read from the logs it keeps anyway, and nothing is added to it.")
+            Text("The island shows which sessions are at work, which have finished and which wait for you, with Claude Code's and Codex's usage limits. A permission request waiting in the island has Allow and Deny; while it waits, Claude Code does not ask it in the terminal, and Answer There sends it back. After five minutes it goes back by itself. Codex is read from the logs it keeps anyway, and nothing is added to it.")
         }
     }
 

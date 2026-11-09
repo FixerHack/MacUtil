@@ -130,7 +130,14 @@ private struct AgentRow: View {
                     Text(verbatim: session.stateText).font(.caption).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                Text(session.updated, format: .relative(presentation: .numeric, unitsStyle: .narrow))
+                Group {
+                    // A moment ago reads as "now", not "in 0 s".
+                    if Date().timeIntervalSince(session.updated) < 10 {
+                        Text("now")
+                    } else {
+                        Text(session.updated, format: .relative(presentation: .numeric, unitsStyle: .narrow))
+                    }
+                }
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.35))
             }

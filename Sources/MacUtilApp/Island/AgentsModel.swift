@@ -16,12 +16,22 @@ final class AgentsModel {
     enum Keys {
         static let shows = "islandAgents"
         static let codex = "islandAgentsCodex"
-        static let answers = "islandAgentsAnswer"
+        static let answers = "islandAgentsAnswerMode"
+    }
+
+    /// Where Claude Code's permission requests are answered.
+    enum AnswerMode: String, CaseIterable {
+        /// They wait in the island, with buttons; the terminal asks only when you send them there.
+        case island
+        /// In the island only while the agent's app is not in front.
+        case whenAway
+        /// Always in the terminal; the island only shows that one is waiting.
+        case terminal
     }
 
     var showsAgents: Bool { didSet { UserDefaults.standard.set(showsAgents, forKey: Keys.shows) } }
     var readsCodex: Bool { didSet { UserDefaults.standard.set(readsCodex, forKey: Keys.codex) } }
-    var answersInIsland: Bool { didSet { UserDefaults.standard.set(answersInIsland, forKey: Keys.answers) } }
+    var answerMode: AnswerMode { didSet { UserDefaults.standard.set(answerMode.rawValue, forKey: Keys.answers) } }
 
     /// Sessions that need you first, then the most recent.
     private(set) var sessions: [AgentSession] = []
@@ -44,10 +54,10 @@ final class AgentsModel {
 
     init() {
         let defaults = UserDefaults.standard
-        defaults.register(defaults: [Keys.shows: true, Keys.codex: true, Keys.answers: true])
+        defaults.register(defaults: [Keys.shows: true, Keys.codex: true, Keys.answers: AnswerMode.island.rawValue])
         showsAgents = defaults.bool(forKey: Keys.shows)
         readsCodex = defaults.bool(forKey: Keys.codex)
-        answersInIsland = defaults.bool(forKey: Keys.answers)
+        answerMode = defaults.string(forKey: Keys.answers).flatMap(AnswerMode.init) ?? .island
         claudeConnected = (try? ClaudeSettings.isConnected(ClaudeSettings.read())) ?? false
     }
 
@@ -116,7 +126,12 @@ final class AgentsModel {
         }
         publish()
 
-        guard event.isPermissionRequest, showsAgents, answersInIsland, !isInFront(event.host) else {
+        let inIsland = switch answerMode {
+        case .island: true
+        case .whenAway: !isInFront(event.host)
+        case .terminal: false
+        }
+        guard event.isPermissionRequest, showsAgents, inIsland else {
             return reply.send()
         }
         replies[id]?.send()
