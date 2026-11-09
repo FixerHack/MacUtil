@@ -86,6 +86,10 @@ struct DockView: View {
                     .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset / 2, in: size))
                     .allowsHitTesting(false)
             }
+        case let .window(window):
+            let side = geometry.icon * item.scale
+            WindowTile(window: window, model: model, tracker: sources.windows, side: side)
+                .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + side / 2, in: size))
         case .trash:
             let side = geometry.icon * item.scale
             TrashTile(model: model, side: side)
@@ -114,6 +118,7 @@ struct DockView: View {
         let text: Text? = switch entry {
         case let .app(app): Text(verbatim: app.name)
         case .trash: Text("Trash")
+        case let .window(window): Text(verbatim: window.title.isEmpty ? window.appName : window.title)
         default: nil
         }
         if let text {
@@ -250,6 +255,50 @@ private struct AppTile: View {
         case .bottom: return CGSize(width: 0, height: -distance)
         case .left: return CGSize(width: distance, height: 0)
         case .right: return CGSize(width: -distance, height: 0)
+        }
+    }
+}
+
+/// A minimised window: a small window with its app's icon on it. A click brings it back.
+private struct WindowTile: View {
+    let window: MinimizedWindow
+    let model: DockModel
+    let tracker: MinimizedWindows
+    let side: CGFloat
+
+    var body: some View {
+        let card = side * 0.8
+        ZStack(alignment: .top) {
+            RoundedRectangle(cornerRadius: card * 0.12, style: .continuous)
+                .fill(.white.opacity(0.14))
+            RoundedRectangle(cornerRadius: card * 0.12, style: .continuous)
+                .strokeBorder(.white.opacity(0.22), lineWidth: 0.5)
+            // The bar along a window's top, with its three buttons.
+            HStack(spacing: card * 0.04) {
+                ForEach([Color.red, .yellow, .green], id: \.self) { colour in
+                    Circle().fill(colour.opacity(0.8)).frame(width: card * 0.07, height: card * 0.07)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, card * 0.08)
+            .padding(.top, card * 0.07)
+        }
+        .frame(width: card, height: card * 0.78)
+        .overlay(alignment: .bottomTrailing) {
+            if let url = window.appURL {
+                Image(nsImage: model.icon(for: url))
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: card * 0.62, height: card * 0.62)
+                    .offset(x: card * 0.12, y: card * 0.14)
+            }
+        }
+        .frame(width: side, height: side)
+        .contentShape(.rect)
+        .onTapGesture { tracker.restore(window) }
+        .contextMenu {
+            Button("Show") { tracker.restore(window) }
+            Button("Close Window") { tracker.close(window) }
         }
     }
 }

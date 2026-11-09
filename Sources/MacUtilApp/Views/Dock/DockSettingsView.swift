@@ -73,6 +73,28 @@ struct DockSettingsView: View {
 
             Section {
                 Toggle("Apps that are open but not kept in the Dock", isOn: $model.showsRunningApps)
+                Toggle("Minimised windows, before the Trash", isOn: $model.showsMinimized)
+                if model.showsMinimized, model.isEnabled, !model.accessibilityGranted {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("The Dock needs Accessibility to see and bring back minimised windows", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("With the system Dock hidden, windows minimised with the yellow button go here instead. “Allow…” brings up macOS's request for “UniMacHub Dock”: open System Settings from it and turn UniMacHub Dock on under Accessibility. The Dock only reads which windows are minimised and their titles, and brings one back when you click it.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        HStack {
+                            Button("Allow…") {
+                                DistributedNotificationCenter.default().postNotificationName(
+                                    DockModel.askAccessibilityNotification, object: nil, userInfo: nil, deliverImmediately: true
+                                )
+                            }
+                            Button("Open Accessibility Settings") {
+                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                        }
+                    }
+                }
                 ForEach(model.pinned, id: \.self) { url in
                     HStack {
                         Image(nsImage: model.icon(for: url)).resizable().frame(width: 20, height: 20)

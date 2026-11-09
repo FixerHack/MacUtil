@@ -60,6 +60,7 @@ final class DockModel {
     enum Entry: Identifiable, Equatable {
         case widget(Widget)
         case app(App)
+        case window(MinimizedWindow)
         case divider(Int)
         case trash
 
@@ -67,6 +68,7 @@ final class DockModel {
             switch self {
             case let .widget(widget): "widget." + widget.rawValue
             case let .app(app): "app." + app.id
+            case let .window(window): "window." + window.id
             case let .divider(index): "divider.\(index)"
             case .trash: "trash"
             }
@@ -74,7 +76,7 @@ final class DockModel {
 
         func slot(vertical: Bool) -> DockLayout.Slot {
             switch self {
-            case .app, .trash: .init(units: 1, grows: true)
+            case .app, .window, .trash: .init(units: 1, grows: true)
             case .divider: .init(units: 0.32, grows: false)
             case let .widget(widget): .init(units: vertical ? 1 : widget.units, grows: false)
             }
@@ -94,10 +96,14 @@ final class DockModel {
         static let pinned = "dockPinned"
         static let town = "dockWeatherTown"
         static let place = "dockWeatherPlace"
+        static let minimized = "dockMinimizedWindows"
+        static let accessibility = "dockAccessibilityGranted"
     }
 
     /// Posted by either process when it changes a setting, so the other reads them again.
     static let changedNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockChanged")
+    /// Sent by the settings page for the Dock's process to ask macOS for Accessibility.
+    static let askAccessibilityNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockAskAccessibility")
     /// The players the music widget stands for: while it is on, their icons stay out of the Dock.
     static let musicPlayers = Set(NowPlaying.Player.allCases.map(\.bundleID))
     static let iconSizes: ClosedRange<Double> = 24 ... 128
@@ -116,11 +122,17 @@ final class DockModel {
     var showsRunningApps: Bool { didSet { save(showsRunningApps, Keys.runningApps); rebuild() } }
     var widgets: Set<Widget> { didSet { save(widgets.map(\.rawValue).sorted(), Keys.widgets); rebuild() } }
     private(set) var weatherTown: String { didSet { save(weatherTown, Keys.town) } }
+    /// Minimised windows in the Dock, before the Trash, as the system Dock keeps them.
+    var showsMinimized: Bool { didSet { save(showsMinimized, Keys.minimized) } }
+    /// Whether the Dock's process may read other apps' windows, as it last found.
+    private(set) var accessibilityGranted: Bool { didSet { save(accessibilityGranted, Keys.accessibility) } }
 
     // MARK: - Contents
 
     private(set) var pinned: [URL] { didSet { save(pinned.map(\.path), Keys.pinned) } }
     private(set) var apps: [App] = []
+    /// Set by the Dock's process from `MinimizedWindows`.
+    var minimizedWindows: [MinimizedWindow] = []
     private(set) var weatherPlace: Weather.Place?
     private(set) var weather: Weather.Now?
     private(set) var weatherError = false
@@ -147,7 +159,7 @@ final class DockModel {
         defaults.register(defaults: [
             Keys.iconSize: 64.0, Keys.magnifies: true, Keys.magnification: 1.335, Keys.autohides: true,
             Keys.position: Position.bottom.rawValue, Keys.indicators: true, Keys.runningApps: true,
-            Keys.widgets: [Widget.clock.rawValue, Widget.system.rawValue, Widget.music.rawValue],
+            Keys.minimized: true, Keys.widgets: [Widget.clock.rawValue, Widget.system.rawValue, Widget.music.rawValue],
         ])
         isEnabled = false
         iconSize = 64
@@ -159,6 +171,8 @@ final class DockModel {
         showsRunningApps = true
         widgets = []
         weatherTown = ""
+        showsMinimized = true
+        accessibilityGranted = false
         pinned = []
         load()
 
@@ -206,6 +220,8 @@ final class DockModel {
         if showsRunningApps != read.bool(forKey: Keys.runningApps) { showsRunningApps = read.bool(forKey: Keys.runningApps) }
         let chosen = Set((read.stringArray(forKey: Keys.widgets) ?? []).compactMap(Widget.init))
         if widgets != chosen { widgets = chosen }
+        if showsMinimized != read.bool(forKey: Keys.minimized) { showsMinimized = read.bool(forKey: Keys.minimized) }
+        if accessibilityGranted != read.bool(forKey: Keys.accessibility) { accessibilityGranted = read.bool(forKey: Keys.accessibility) }
         let town = read.string(forKey: Keys.town) ?? ""
         if weatherTown != town { weatherTown = town }
         let kept = (read.stringArray(forKey: Keys.pinned) ?? []).map { URL(filePath: $0) }
@@ -233,6 +249,11 @@ final class DockModel {
     func markEnabled(_ enabled: Bool) {
         if enabled, pinned.isEmpty { pinned = SystemDock.pinnedApps() }
         isEnabled = enabled
+    }
+
+    /// From the Dock's process, for the settings page to show.
+    func reportAccessibility(_ granted: Bool) {
+        if accessibilityGranted != granted { accessibilityGranted = granted }
     }
 
     // MARK: - What is in it
@@ -315,6 +336,7 @@ final class DockModel {
             result += trailing.map(Entry.widget)
         }
         result.append(.divider(4))
+        if showsMinimized { result += minimizedWindows.map(Entry.window) }
         result.append(.trash)
         return result
     }

@@ -101,14 +101,38 @@ final class DockAgent: NSObject, NSApplicationDelegate {
 @Observable
 final class DockSources {
     let island = IslandModel()
+    let windows = MinimizedWindows()
     private(set) var sample = SystemStats.Sample()
     @ObservationIgnored private let model: DockModel
     @ObservationIgnored private let stats = SystemStats()
     @ObservationIgnored private var sampling: Task<Void, Never>?
 
+    @ObservationIgnored private var askObserver: NSObjectProtocol?
+
     init(model: DockModel) {
         self.model = model
+        windows.onChange = { [weak self] in
+            guard let self else { return }
+            self.model.minimizedWindows = self.windows.windows
+            self.model.reportAccessibility(self.windows.isTrusted)
+        }
+        model.reportAccessibility(windows.isTrusted)
+        askObserver = DistributedNotificationCenter.default().addObserver(
+            forName: DockModel.askAccessibilityNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.windows.askForPermission() }
+        }
         follow()
+        followWindows()
+    }
+
+    private func followWindows() {
+        let shows = withObservationTracking {
+            model.showsMinimized
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.followWindows() }
+        }
+        if shows { windows.start() } else { windows.stop() }
     }
 
     /// Runs only what the widgets on show need.
