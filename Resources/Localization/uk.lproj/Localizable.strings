@@ -1693,7 +1693,7 @@
 "With the system Dock hidden, windows minimised with the yellow button go here instead. “Allow…” brings up macOS's request: open System Settings from it and turn UniMacHub on under Accessibility (macOS may list the Dock as UniMacHub Dock). The Dock only reads its windows' titles and places, and brings one forward when you click it." = "Поки системний Dock схований, вікна, згорнуті жовтою кнопкою, з'являються тут. «Дозволити…» відкриє запит macOS: перейдіть із нього в Системні параметри й увімкніть UniMacHub у розділі «Універсальний доступ» (macOS може показати Dock як UniMacHub Dock). Dock читає лише назви й розташування вікон і виводить вікно наперед, коли ви на нього клікаєте.";
 "Restart the Dock" = "Перезапустити Dock";
 "%@: click to take it off" = "%@: клікніть, щоб прибрати";
-"Changes to the Dock go into the profile in use. Switch from here, from the menu bar or with a right click on the Dock. When an app that switched it leaves the front, the Dock goes back to the profile chosen by hand." = "Зміни в Dock записуються в профіль, що зараз діє. Перемикайте тут, у рядку меню або правою кнопкою на Dock. Коли програма, що перемкнула профіль, іде з переднього плану, Dock повертається до профілю, вибраного вручну.";
+"Changes to the Dock go into the profile in use. Switch from here, from the island or with a right click on the Dock. When an app that switched it leaves the front, the Dock goes back to the profile chosen by hand." = "Зміни в Dock записуються в профіль, що зараз діє. Перемикайте тут, в острівці або правою кнопкою на Dock. Коли програма, що перемкнула профіль, іде з переднього плану, Dock повертається до профілю, вибраного вручну.";
 "Delete Profile" = "Видалити профіль";
 "Dock Settings…" = "Налаштування Dock…";
 "It starts as a copy of the Dock as it is now and is switched to at once." = "Він починається як копія теперішнього Dock і вмикається одразу.";
@@ -1721,3 +1721,5 @@
 "Stop Timer" = "Зупинити таймер";
 "Time's up" = "Час вийшов";
 "Timer" = "Таймер";
+"In use" = "Діє";
+"Dock profile" = "Профіль Dock";

@@ -59,6 +59,8 @@ final class IslandModel {
     let agents = AgentsModel()
     /// Brings UniMacHub's window forward; set by the controller, which knows the app.
     @ObservationIgnored var openMain: (() -> Void)?
+    /// The Dock's settings, for switching its profile from here; set by the controller.
+    @ObservationIgnored var dock: DockModel?
     let calendar = CalendarFeed()
     let batteries = BatteriesFeed()
     var page: Page = .home

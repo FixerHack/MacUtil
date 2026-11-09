@@ -397,6 +397,9 @@ private struct IslandPanel: View {
     private var mac: some View {
         VStack(alignment: .leading, spacing: 10) {
             KeepAwakeToggle()
+            if let dock = model.dock, dock.isEnabled, !dock.profiles.isEmpty {
+                DockProfileSwitch(dock: dock)
+            }
             if model.calendar.isEnabled, let event = model.calendar.next {
                 CalendarChip(event: event)
             }
@@ -561,6 +564,36 @@ private struct PlayerDots: View {
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: model.selectedID)
+    }
+}
+
+/// The Dock's profile, switched from the island.
+private struct DockProfileSwitch: View {
+    let dock: DockModel
+
+    var body: some View {
+        let name = dock.profiles.first { $0.id == dock.activeProfile }?.name ?? ""
+        Button {
+            let menu = NSMenu()
+            for profile in dock.profiles {
+                let item = ClosureMenuItem(title: profile.name) { dock.switchProfile(to: profile.id) }
+                item.state = profile.id == dock.activeProfile ? .on : .off
+                menu.addItem(item)
+            }
+            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        } label: {
+            Label {
+                Text(verbatim: name).lineLimit(1)
+            } icon: {
+                Image(systemName: "dock.rectangle")
+            }
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.1), in: .capsule)
+        }
+        .buttonStyle(.plain)
+        .help(Text("Dock profile"))
     }
 }
 

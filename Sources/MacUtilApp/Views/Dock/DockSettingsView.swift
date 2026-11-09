@@ -172,7 +172,7 @@ struct DockSettingsView: View {
                 Text("Profiles")
             } footer: {
                 if !model.profiles.isEmpty {
-                    Text("Changes to the Dock go into the profile in use. Switch from here, from the menu bar or with a right click on the Dock. When an app that switched it leaves the front, the Dock goes back to the profile chosen by hand.")
+                    Text("Changes to the Dock go into the profile in use. Switch from here, from the island or with a right click on the Dock. When an app that switched it leaves the front, the Dock goes back to the profile chosen by hand.")
                 }
             }
 
@@ -322,8 +322,19 @@ private struct ProfileRow: View {
                 .buttonStyle(.plain)
                 .help(Text("Use This Profile"))
                 TextField("Name", text: $name)
+                    .labelsHidden()
                     .textFieldStyle(.plain)
+                    .font(.body.weight(active ? .semibold : .regular))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: 260, alignment: .leading)
                     .onSubmit { model.renameProfile(profile.id, to: name) }
+                if active {
+                    Text("In use")
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Color.accentColor.opacity(0.2), in: .capsule)
+                }
                 Spacer()
                 Button {
                     model.deleteProfile(profile.id)
