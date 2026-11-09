@@ -18,12 +18,12 @@ struct IslandSettingsView: View {
             }
 
             Section {
-                Toggle("Music and Spotify", isOn: $model.showsNowPlaying)
+                Toggle("What is playing", isOn: $model.showsNowPlaying)
                 Toggle("File shelf", isOn: $model.showsShelf)
             } header: {
                 Text("What it shows")
             } footer: {
-                Text("Music and Spotify announce what they play to any app that listens, so nothing private is used. Sound from a browser tab is not covered. Files on the shelf stay where they are; the shelf only remembers where.")
+                Text("Music, Spotify, a video in the browser, anything that shows in Control Centre's Now Playing. With several at once, swipe sideways in the opened island to go from one to the next. Files on the shelf stay where they are; the shelf only remembers where.")
             }
 
             Section {

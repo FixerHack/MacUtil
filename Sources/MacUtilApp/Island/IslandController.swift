@@ -15,9 +15,12 @@ final class IslandController {
     private let model: IslandModel
     private let state: AppState
     private var panel: NSPanel?
-    private var geometry: IslandGeometry?
     private var keyTap: MediaKeyTap?
     private var observers: [NSObjectProtocol] = []
+
+    private var mouseMonitors: [Any] = []
+    /// Counts resizes, so a shrink that was waiting gives way to a newer change.
+    private var resizeGeneration = 0
 
     init(model: IslandModel, state: AppState) {
         self.model = model
@@ -27,6 +30,7 @@ final class IslandController {
         ) { [weak self] _ in
             Task { @MainActor in self?.update() }
         })
+        watchClicksOutside()
         follow()
         update()
     }
@@ -37,6 +41,7 @@ final class IslandController {
             _ = model.isEnabled
             _ = model.onPlainScreens
             _ = model.replacesIndicators
+            _ = model.showsNowPlaying
             _ = model.presentation
             _ = state.islandWork
         } onChange: { [weak self] in
@@ -45,6 +50,31 @@ final class IslandController {
                 self?.follow()
             }
         }
+    }
+
+    /// A click anywhere else closes the opened island, as it would close a menu.
+    private func watchClicksOutside() {
+        let mask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown]
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
+            Task { @MainActor in self?.clickedOutside() }
+        }) {
+            mouseMonitors.append(global)
+        }
+        if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
+            Task { @MainActor in self?.clickedOutside() }
+            return event
+        }) {
+            mouseMonitors.append(local)
+        }
+    }
+
+    private func clickedOutside() {
+        // The island itself, not the window: the room left around it for the shadow counts
+        // as outside.
+        guard model.presentation == .expanded, let geometry = model.geometry else { return }
+        let island = geometry.frame(for: .expanded)
+            .insetBy(dx: -IslandGeometry.shoulder(for: .expanded), dy: 0)
+        if !island.contains(NSEvent.mouseLocation) { model.close() }
     }
 
     // MARK: - Placing the panel
@@ -60,27 +90,32 @@ final class IslandController {
         let work = state.islandWork
         if model.work != work { model.work = work }
         updateKeyTap()
+        model.setFeedRunning(model.isEnabled && model.showsNowPlaying)
         guard model.isEnabled, let screen else { return hide() }
         let geometry = IslandGeometry(
             screen: screen.frame, topInset: screen.safeAreaInsets.top,
             leftArea: screen.auxiliaryTopLeftArea, rightArea: screen.auxiliaryTopRightArea
         )
         guard geometry.hasNotch || model.onPlainScreens else { return hide() }
-        self.geometry = geometry
+        if model.geometry != geometry { model.geometry = geometry }
 
         let panel = self.panel ?? makePanel()
-        let target = geometry.frame(for: model.presentation)
+        let target = geometry.panelFrame(for: model.presentation)
+        resizeGeneration += 1
+        let generation = resizeGeneration
         if panel.frame != target {
-            // Growing happens at once so the content has room to animate into; shrinking
-            // waits for the content to draw itself in first.
-            let growing = target.width >= panel.frame.width
-            if growing || !panel.isVisible {
+            // The island draws itself at its own size inside the window and springs from one
+            // size to the next. The window grows at once, so there is room for that, and
+            // shrinks only once the island has finished folding in.
+            let fits = target.width >= panel.frame.width && target.height >= panel.frame.height
+            if fits || !panel.isVisible {
                 panel.setFrame(target, display: true)
             } else {
-                Task { @MainActor [weak panel] in
-                    try? await Task.sleep(for: .milliseconds(260))
-                    guard let panel, self.model.presentation != .expanded else { return }
-                    panel.setFrame(geometry.frame(for: self.model.presentation), display: true)
+                panel.setFrame(target.union(panel.frame), display: true)
+                Task { @MainActor [weak self, weak panel] in
+                    try? await Task.sleep(for: .milliseconds(650))
+                    guard let self, let panel, generation == self.resizeGeneration else { return }
+                    panel.setFrame(target, display: true)
                 }
             }
         }
@@ -100,12 +135,15 @@ final class IslandController {
         panel.level = .statusBar
         panel.backgroundColor = .clear
         panel.isOpaque = false
+        // The island draws its own soft shadow; the window's would be a hard rectangle.
         panel.hasShadow = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = false
         // Every desktop, out of Mission Control's way, and not over a full-screen app.
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         let host = IslandHostingView(rootView: IslandView(model: model, state: state), model: model)
+        // The window follows the island's state, never the other way round.
+        host.sizingOptions = []
         panel.contentView = host
         self.panel = panel
         return panel

@@ -52,6 +52,14 @@ if [[ -n "${UNIVERSAL:-}" ]]; then
         done
     done
 fi
+# The Now Playing helper: a small library that /usr/bin/perl loads to read what plays in
+# any app, a browser tab included (see Helpers/NowPlaying).
+mkdir -p "$APP/Contents/Frameworks"
+HELPER_ARCHS=(-arch arm64)
+[[ -n "${UNIVERSAL:-}" ]] && HELPER_ARCHS+=(-arch x86_64)
+clang -dynamiclib -fobjc-arc -O2 -Wall -Werror -mmacosx-version-min=14.0 "${HELPER_ARCHS[@]}" \
+    -framework Foundation -install_name @rpath/libUniMacHubNowPlaying.dylib \
+    -o "$APP/Contents/Frameworks/libUniMacHubNowPlaying.dylib" Helpers/NowPlaying/UniMacHubNowPlaying.m
 cp -R Resources/Localization/*.lproj "$APP/Contents/Resources/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \
@@ -67,6 +75,8 @@ if [[ -z "$IDENTITY" ]]; then
     IDENTITY="-"
     echo "note: no signing certificate found, signing ad-hoc (Full Disk Access resets on each rebuild)"
 fi
+# Nested code first: the app's signature covers it, and refuses anything unsigned inside.
+codesign --force --timestamp=none --sign "$IDENTITY" "$APP/Contents/Frameworks/libUniMacHubNowPlaying.dylib"
 codesign --force --options runtime --timestamp=none --entitlements Resources/UniMacHub.entitlements \
     --sign "$IDENTITY" "$APP"
 

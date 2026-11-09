@@ -35,6 +35,13 @@ final class IslandModel {
         let symbol: String
     }
 
+    /// A track's picture, kept with the track it belongs to so a late answer for the last
+    /// track never lands on the next one.
+    struct Artwork {
+        let track: String
+        let image: NSImage
+    }
+
     // MARK: - Settings
 
     var isEnabled: Bool { didSet { save(isEnabled, Keys.enabled) } }
@@ -46,19 +53,32 @@ final class IslandModel {
 
     // MARK: - What is on show
 
+    /// Where the island is; set by the controller, read by the view for its sizes.
+    var geometry: IslandGeometry?
     private(set) var indicator: Indicator?
-    private(set) var nowPlaying: NowPlaying?
-    private(set) var artwork: NSImage?
+    /// Every app that is playing or was playing a moment ago, in the order they appeared.
+    private(set) var sessions: [NowPlaying] = []
+    private(set) var artworks: [String: Artwork] = [:]
+    /// The one the opened island shows; swiping changes it.
+    var selectedID: String?
+    /// The app macOS's Now Playing service considers current, which its play buttons reach.
+    private(set) var currentFeedBundleID: String?
     private(set) var shelf: [URL] = []
     var work: Work?
-    var isHovering = false { didSet { scheduleExpansion() } }
-    var isDropTargeted = false { didSet { scheduleExpansion() } }
-    var isPinnedOpen = false
+    var isHovering = false { didSet { if isHovering != oldValue { hoverChanged() } } }
+    var isDropTargeted = false { didSet { if isDropTargeted != oldValue { scheduleExpansion() } } }
     private(set) var isExpanded = false
+    /// For a few seconds after the music stops, so the island does not snap shut at once.
+    private(set) var isLingering = false
 
     @ObservationIgnored private var indicatorTask: Task<Void, Never>?
     @ObservationIgnored private var expansionTask: Task<Void, Never>?
+    @ObservationIgnored private var lingerTask: Task<Void, Never>?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    @ObservationIgnored private var feed: MediaRemoteFeed?
+    @ObservationIgnored private var hoverSuppressed = false
+    @ObservationIgnored private var icons: [String: NSImage] = [:]
+    @ObservationIgnored private var names: [String: String] = [:]
 
     init() {
         let defaults = UserDefaults.standard
@@ -85,32 +105,60 @@ final class IslandModel {
     /// How much room the island takes right now.
     var presentation: IslandGeometry.State {
         if isExpanded { return .expanded }
-        if indicator != nil || work != nil || (showsNowPlaying && nowPlaying?.isPlaying == true) { return .wings }
+        if indicator != nil || work != nil { return .wings }
+        if showsNowPlaying, playing != nil || (isLingering && featured != nil) { return .wings }
         return .collapsed
     }
 
-    // MARK: - Opening and closing
-
-    func toggle() {
-        isPinnedOpen.toggle()
-        isExpanded = isPinnedOpen
+    /// The session swiped to, else the first.
+    var selected: NowPlaying? {
+        sessions.first { $0.id == selectedID } ?? sessions.first
     }
 
+    /// Something that is playing: the chosen one if it is, else any.
+    var playing: NowPlaying? {
+        if let selected, selected.isPlaying { return selected }
+        return sessions.first(where: \.isPlaying)
+    }
+
+    /// What the closed island shows beside the notch.
+    var featured: NowPlaying? { playing ?? selected }
+
+    // MARK: - Opening and closing
+
+    /// A click: opens a closed island at once, and closes an open one.
+    func tapped() {
+        if isExpanded {
+            close()
+        } else {
+            expansionTask?.cancel()
+            isExpanded = true
+        }
+    }
+
+    /// Closes it, and keeps it closed until the pointer has left and come back.
     func close() {
-        isPinnedOpen = false
+        expansionTask?.cancel()
         isExpanded = false
+        hoverSuppressed = isHovering
+    }
+
+    private func hoverChanged() {
+        if !isHovering { hoverSuppressed = false }
+        scheduleExpansion()
     }
 
     /// Opens a moment after the pointer arrives, and closes a moment after it leaves, so
     /// passing over the top of the screen on the way to the menu bar does not open it.
     private func scheduleExpansion() {
         expansionTask?.cancel()
-        let wanted = isHovering || isDropTargeted || isPinnedOpen
+        let wanted = (isHovering && !hoverSuppressed) || isDropTargeted
         guard wanted != isExpanded else { return }
         expansionTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(wanted ? 140 : 380))
+            try? await Task.sleep(for: .milliseconds(wanted ? 160 : 320))
             guard !Task.isCancelled, let self else { return }
-            self.isExpanded = self.isHovering || self.isDropTargeted || self.isPinnedOpen
+            let now = (self.isHovering && !self.hoverSuppressed) || self.isDropTargeted
+            if now != self.isExpanded { self.isExpanded = now }
         }
     }
 
@@ -137,9 +185,8 @@ final class IslandModel {
 
     private func handleVolume(_ press: MediaKeyPress) -> Bool {
         // A player that is playing takes the volume keys, so AirPlay speakers follow them.
-        if press.key != .mute, playerVolume, let playing = nowPlaying, playing.isPlaying, isRunning(playing.player) {
+        if press.key != .mute, playerVolume, let player = playing?.player, Self.running(player) {
             if press.isDown {
-                let player = playing.player
                 let change = press.key == .soundUp ? 6 : -6
                 Task { [weak self] in
                     guard let level = await Self.changePlayerVolume(player, by: change) else { return }
@@ -174,7 +221,21 @@ final class IslandModel {
         }
     }
 
-    // MARK: - Music and Spotify
+    // MARK: - Players
+
+    /// Runs the Now Playing helper while the island shows music, and stops it otherwise.
+    func setFeedRunning(_ running: Bool) {
+        if running {
+            if feed == nil {
+                feed = MediaRemoteFeed { [weak self] line in self?.received(line) }
+            }
+            feed?.start()
+        } else if let feed {
+            feed.stop()
+            self.feed = nil
+            currentFeedBundleID = nil
+        }
+    }
 
     private func listenToPlayers() {
         let center = DistributedNotificationCenter.default()
@@ -182,51 +243,209 @@ final class IslandModel {
             observers.append(center.addObserver(
                 forName: Notification.Name(player.notification), object: nil, queue: .main
             ) { [weak self] note in
-                let info = note.userInfo ?? [:]
-                let update = NowPlaying(player: player, userInfo: info)
-                Task { @MainActor in self?.update(update, from: player) }
+                let update = NowPlaying(player: player, userInfo: note.userInfo ?? [:])
+                Task { @MainActor in self?.announced(update, by: player) }
             })
         }
+        // A player that quits takes its card with it; so does a browser.
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard let bundleID = app?.bundleIdentifier else { return }
+            Task { @MainActor in self?.remove(bundleID) }
+        })
         // What was already playing before the island started, asked only of players that
         // are open: a script addressed to a closed app would open it.
         Task { [weak self] in
             for player in NowPlaying.Player.allCases where Self.running(player) {
-                if let current = await Self.query(player), current.isPlaying {
-                    self?.update(current, from: player)
-                    break
+                if let current = await Self.query(player) {
+                    self?.upsert(current)
                 }
             }
         }
     }
 
-    private func update(_ playing: NowPlaying?, from player: NowPlaying.Player) {
-        let previous = nowPlaying
-        if let playing {
-            nowPlaying = playing
-        } else if nowPlaying?.player == player {
-            nowPlaying = nil
-            artwork = nil
+    /// A notification from Music or Spotify.
+    private func announced(_ update: NowPlaying?, by player: NowPlaying.Player) {
+        guard let update else { return remove(player.bundleID) }
+        upsert(update)
+        // Music does not say where in the track it is; ask.
+        if update.elapsed == nil {
+            Task { [weak self] in
+                if let full = await Self.query(player), full.isSameTrack(as: update) { self?.upsert(full) }
+            }
         }
-        guard let playing, playing.title != previous?.title || playing.player != previous?.player else { return }
-        artwork = nil
-        guard playing.player == .music else { return }
+    }
+
+    /// A line from the Now Playing helper.
+    private func received(_ line: MediaRemoteLine) {
+        let previous = currentFeedBundleID
+        if currentFeedBundleID != line.bundleID { currentFeedBundleID = line.bundleID }
+        guard let update = line.nowPlaying else {
+            // Nothing current any more, such as a closed tab. Music and Spotify say for themselves.
+            if let previous, NowPlaying.Player(bundleID: previous) == nil { remove(previous) }
+            return
+        }
+        upsert(update)
+        if let data = line.artwork, let image = NSImage(data: data) {
+            artworks[update.id] = Artwork(track: update.trackKey, image: image)
+        } else if line.artworkID == 0, update.player == nil, artworks[update.id]?.track != update.trackKey {
+            artworks[update.id] = nil
+        }
+    }
+
+    /// Adds a session or brings it up to date, keeping what the new report leaves out.
+    private func upsert(_ update: NowPlaying) {
+        let wasPlaying = playing != nil
+        var merged = update
+        if let index = sessions.firstIndex(where: { $0.id == update.id }) {
+            let old = sessions[index]
+            if old.isSameTrack(as: update) {
+                if merged.duration == nil { merged.duration = old.duration }
+                if merged.elapsed == nil {
+                    merged.elapsed = old.position(at: update.timestamp)
+                }
+            }
+            if merged != old { sessions[index] = merged }
+            if !old.isSameTrack(as: merged) { trackChanged(merged) }
+            if merged.isPlaying, !old.isPlaying { selectedID = merged.id }
+        } else {
+            sessions.append(merged)
+            trackChanged(merged)
+            if merged.isPlaying || selectedID == nil { selectedID = merged.id }
+        }
+        settle(wasPlaying: wasPlaying)
+    }
+
+    private func remove(_ id: String) {
+        guard sessions.contains(where: { $0.id == id }) else { return }
+        let wasPlaying = playing != nil
+        sessions.removeAll { $0.id == id }
+        artworks[id] = nil
+        if selectedID == id {
+            selectedID = sessions.first(where: \.isPlaying)?.id ?? sessions.first?.id
+        }
+        settle(wasPlaying: wasPlaying)
+    }
+
+    /// When the music stops, the island keeps its wings a few seconds longer and then folds
+    /// them in slowly, instead of snapping shut the moment pause is pressed.
+    private func settle(wasPlaying: Bool) {
+        let isPlaying = playing != nil
+        if isPlaying {
+            lingerTask?.cancel()
+            if isLingering { isLingering = false }
+        } else if wasPlaying {
+            isLingering = true
+            lingerTask?.cancel()
+            lingerTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(4))
+                guard !Task.isCancelled else { return }
+                self?.isLingering = false
+            }
+        }
+    }
+
+    /// Fetches the picture for a new track from the player itself, unless the Now Playing
+    /// helper already sent one.
+    private func trackChanged(_ session: NowPlaying) {
+        guard let player = session.player else { return }
+        let key = session.trackKey
         Task { [weak self] in
-            self?.artwork = await Self.musicArtwork()
+            try? await Task.sleep(for: .milliseconds(700))
+            guard let self, self.artworks[session.id]?.track != key,
+                  self.sessions.first(where: { $0.id == session.id })?.trackKey == key
+            else { return }
+            let data = player == .music ? await Self.musicArtwork() : await Self.spotifyArtwork()
+            guard let data, let image = NSImage(data: data),
+                  self.sessions.first(where: { $0.id == session.id })?.trackKey == key
+            else { return }
+            self.artworks[session.id] = Artwork(track: key, image: image)
         }
     }
 
-    func playPause() { send("playpause") }
-    func nextTrack() { send("next track") }
-    func previousTrack() { send("previous track") }
-
-    private func send(_ command: String) {
-        guard let player = nowPlaying?.player, isRunning(player) else { return }
-        Task {
-            _ = await Command.run("/usr/bin/osascript", ["-e", "tell application \"\(player.scriptName)\" to \(command)"])
-        }
+    func artwork(for session: NowPlaying) -> NSImage? {
+        guard let artwork = artworks[session.id], artwork.track == session.trackKey else { return nil }
+        return artwork.image
     }
 
-    private func isRunning(_ player: NowPlaying.Player) -> Bool { Self.running(player) }
+    // MARK: - Controls
+
+    func playPause(_ session: NowPlaying) {
+        guard control(session, script: "playpause", command: .togglePlayPause) else { return }
+        // Shown at once; the player's own report follows and corrects it if need be.
+        var changed = session
+        changed.elapsed = session.position(at: Date())
+        changed.timestamp = Date()
+        changed.isPlaying.toggle()
+        upsert(changed)
+    }
+
+    func nextTrack(_ session: NowPlaying) { _ = control(session, script: "next track", command: .nextTrack) }
+    func previousTrack(_ session: NowPlaying) { _ = control(session, script: "previous track", command: .previousTrack) }
+
+    /// Whether the play buttons reach it: Music and Spotify always, anything else only while
+    /// it is the one macOS considers current.
+    func canControl(_ session: NowPlaying) -> Bool {
+        if let player = session.player { return Self.running(player) }
+        return session.bundleID == currentFeedBundleID
+    }
+
+    func canSeek(_ session: NowPlaying) -> Bool {
+        session.duration != nil && session.elapsed != nil && canControl(session)
+    }
+
+    func seek(_ session: NowPlaying, to fraction: Double) {
+        guard let duration = session.duration, canControl(session) else { return }
+        let seconds = max(0, min(duration, fraction * duration))
+        if let player = session.player {
+            let place = String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), seconds)
+            Task { _ = await Command.run("/usr/bin/osascript", ["-e", "tell application \"\(player.scriptName)\" to set player position to \(place)"]) }
+        } else {
+            Task { await MediaRemoteFeed.seek(to: seconds) }
+        }
+        var moved = session
+        moved.elapsed = seconds
+        moved.timestamp = Date()
+        upsert(moved)
+    }
+
+    /// Sends a button press; false when it could not be sent and the app was brought up instead.
+    private func control(_ session: NowPlaying, script: String, command: MediaRemoteLine.Command) -> Bool {
+        if let player = session.player, Self.running(player) {
+            Task { _ = await Command.run("/usr/bin/osascript", ["-e", "tell application \"\(player.scriptName)\" to \(script)"]) }
+            return true
+        }
+        if session.bundleID == currentFeedBundleID {
+            Task { await MediaRemoteFeed.send(command) }
+            return true
+        }
+        openApp(session.bundleID)
+        return false
+    }
+
+    func openApp(_ bundleID: String) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    func appIcon(_ bundleID: String) -> NSImage? {
+        if let icon = icons[bundleID] { return icon }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        icons[bundleID] = icon
+        return icon
+    }
+
+    func appName(_ bundleID: String) -> String {
+        if let name = names[bundleID] { return name }
+        let name = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+            .map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") }
+            ?? bundleID
+        names[bundleID] = name
+        return name
+    }
 
     nonisolated static func running(_ player: NowPlaying.Player) -> Bool {
         !NSRunningApplication.runningApplications(withBundleIdentifier: player.bundleID).isEmpty
@@ -239,12 +458,23 @@ final class IslandModel {
         return NowPlaying(player: player, scriptOutput: output.text)
     }
 
-    nonisolated static func musicArtwork() async -> NSImage? {
+    nonisolated static func musicArtwork() async -> Data? {
         let script = "tell application \"Music\" to get raw data of artwork 1 of current track"
         guard let output = await Command.run("/usr/bin/osascript", ["-e", script], timeout: .seconds(10)),
-              output.status == 0, let data = NowPlaying.artwork(fromScriptOutput: output.text)
+              output.status == 0
         else { return nil }
-        return NSImage(data: data)
+        return NowPlaying.artwork(fromScriptOutput: output.text)
+    }
+
+    /// Spotify's picture lives on its own servers, which it is already talking to.
+    nonisolated static func spotifyArtwork() async -> Data? {
+        let script = "tell application \"Spotify\" to get artwork url of current track"
+        guard let output = await Command.run("/usr/bin/osascript", ["-e", script]), output.status == 0,
+              let url = NowPlaying.spotifyArtworkURL(output.text)
+        else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10
+        return try? await URLSession.shared.data(for: request).0
     }
 
     /// Changes a player's own volume and says where it ended up, from 0 to 100.

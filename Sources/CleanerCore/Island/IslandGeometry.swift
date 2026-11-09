@@ -22,7 +22,10 @@ public struct IslandGeometry: Equatable, Sendable {
 
     public static let tabSize = CGSize(width: 150, height: 24)
     public static let wingWidth: CGFloat = 96
-    public static let expandedSize = CGSize(width: 560, height: 196)
+    public static let expandedSize = CGSize(width: 640, height: 200)
+    /// Room around the opened island for its shadow, so the window never cuts the shadow off
+    /// in a hard edge.
+    public static let shadowMargin: CGFloat = 24
 
     /// Works the notch out from the screen's frame and the menu bar either side of it.
     public init(screen: CGRect, topInset: CGFloat, leftArea: CGRect?, rightArea: CGRect?) {
@@ -63,5 +66,36 @@ public struct IslandGeometry: Equatable, Sendable {
                 width: size.width, height: size.height
             )
         }
+    }
+
+    /// The flare where the island meets the top edge of the screen, so it seems to pour out
+    /// of it rather than sit on it with square corners.
+    public static func shoulder(for state: State) -> CGFloat {
+        switch state {
+        case .collapsed: 6
+        case .wings: 8
+        case .expanded: 14
+        }
+    }
+
+    /// The rounding of the two bottom corners.
+    public static func bottomRadius(for state: State) -> CGFloat {
+        switch state {
+        case .collapsed: 9
+        case .wings: 13
+        case .expanded: 28
+        }
+    }
+
+    /// The window that holds the island in a state: the island with its shoulders, and
+    /// room for the shadow once it is open.
+    public func panelFrame(for state: State) -> CGRect {
+        var frame = self.frame(for: state).insetBy(dx: -Self.shoulder(for: state), dy: 0)
+        if state == .expanded {
+            frame = frame.insetBy(dx: -Self.shadowMargin, dy: 0)
+            frame.origin.y -= Self.shadowMargin
+            frame.size.height += Self.shadowMargin
+        }
+        return frame
     }
 }

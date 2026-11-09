@@ -1572,9 +1572,9 @@
 "Keep awake" = "Не засинати";
 "Keys" = "Клавіші";
 "Looking for leftovers…" = "Шукаю залишки…";
-"Music and Spotify" = "Music і Spotify";
-"Music and Spotify announce what they play to any app that listens, so nothing private is used. Sound from a browser tab is not covered. Files on the shelf stay where they are; the shelf only remembers where." = "Music і Spotify самі повідомляють, що грають, будь-якій програмі, яка слухає, тож нічого приватного не використовується. Звук із вкладки браузера сюди не потрапляє. Файли на полиці лишаються на своїх місцях; полиця лише пам'ятає, де вони.";
-"Nothing playing in Music or Spotify" = "У Music і Spotify нічого не грає";
+"What is playing" = "Що грає";
+"Music, Spotify, a video in the browser, anything that shows in Control Centre's Now Playing. With several at once, swipe sideways in the opened island to go from one to the next. Files on the shelf stay where they are; the shelf only remembers where." = "Music, Spotify, відео в браузері — усе, що видно в «Зараз грає» Пункту керування. Якщо грає кілька, у відкритому острівці гортайте вбік, щоб перейти від одного до іншого. Файли на полиці лишаються на своїх місцях; полиця лише пам'ятає, де вони.";
+"Nothing is playing" = "Нічого не грає";
 "On screens without a notch, as a tab at the top" = "На екранах без вирізу — язичком угорі";
 "Removing an app…" = "Видаляю програму…";
 "Show the island" = "Показувати острівець";
