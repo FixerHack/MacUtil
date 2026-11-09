@@ -14,6 +14,27 @@ final class SpeechInput {
     var onText: ((String, _ final: Bool) -> Void)?
     /// How loud the microphone is, 0…1, about twenty times a second, for the animation.
     var onLevel: ((Double) -> Void)?
+    /// Listening ended on an error before anything was heard: what macOS said.
+    var onFailure: ((String) -> Void)?
+
+    static let log = AppPaths.file("assistant-speech.log")
+
+    /// What happened, for finding out later why listening stopped.
+    static func note(_ text: String) {
+        let line = "\(Date().formatted(date: .numeric, time: .standard)) \(text)\n"
+        if let handle = try? FileHandle(forWritingTo: log) {
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: Data(line.utf8))
+            try? handle.close()
+        } else {
+            try? Data(line.utf8).write(to: log)
+        }
+    }
+
+    private var language = "uk"
+    private var allowServer = false
+    private var startedAt = Date()
+    private var usedServer = false
     private(set) var isListening = false
 
     private let engine = AVAudioEngine()
@@ -44,13 +65,21 @@ final class SpeechInput {
         Locale(identifier: language == "uk" ? "uk-UA" : "en-US")
     }
 
-    func start(language: String, allowServer: Bool) throws {
-        guard Self.isAuthorised else { throw Problem.notAllowed }
+    func start(language: String, allowServer: Bool, server: Bool = false) throws {
+        self.language = language
+        self.allowServer = allowServer
+        usedServer = server
+        startedAt = Date()
+        guard Self.isAuthorised else {
+            Self.note("not authorised: speech \(SFSpeechRecognizer.authorizationStatus().rawValue), microphone \(AVCaptureDevice.authorizationStatus(for: .audio).rawValue)")
+            throw Problem.notAllowed
+        }
         guard let recogniser = SFSpeechRecognizer(locale: Self.locale(language)), recogniser.isAvailable else {
             throw Problem.unavailable
         }
-        let onDevice = recogniser.supportsOnDeviceRecognition
+        let onDevice = recogniser.supportsOnDeviceRecognition && !server
         guard onDevice || allowServer else { throw Problem.needsServer }
+        Self.note("start \(language), on this Mac: \(onDevice)")
         stop()
 
         let request = SFSpeechAudioBufferRecognitionRequest()
@@ -83,7 +112,8 @@ final class SpeechInput {
         task = recogniser.recognitionTask(with: request) { [weak self] result, error in
             let text = result?.bestTranscription.formattedString
             let final = result?.isFinal ?? (error != nil)
-            Task { @MainActor in self?.heard(text, final: final) }
+            let problem = error.map { ($0 as NSError).domain + " \(($0 as NSError).code): " + $0.localizedDescription }
+            Task { @MainActor in self?.heard(text, final: final, problem: problem) }
         }
         waitForSilence()
     }
@@ -111,11 +141,23 @@ final class SpeechInput {
         isListening = false
     }
 
-    private func heard(_ text: String?, final: Bool) {
+    private func heard(_ text: String?, final: Bool, problem: String? = nil) {
         if let text { latest = text }
         if final {
             let said = latest
             stop()
+            if let problem, said.isEmpty {
+                Self.note("ended: \(problem)")
+                // On this Mac it failed straight away: Apple's servers, if allowed, try instead.
+                if !usedServer, allowServer, Date().timeIntervalSince(startedAt) < 3 {
+                    Self.note("trying Apple's servers")
+                    if (try? start(language: language, allowServer: true, server: true)) != nil { return }
+                }
+                // Cancelled by us, or nothing said: not worth a message.
+                if !problem.contains(" 216:"), !problem.contains(" 301:"), !problem.contains(" 1110:") {
+                    onFailure?(problem)
+                }
+            }
             onText?(said, true)
         } else {
             onText?(latest, false)

@@ -158,6 +158,9 @@ final class AssistantModel {
         notes = (try? Data(contentsOf: Self.memoryFile)).flatMap { try? JSONDecoder().decode([AssistantContext.Note].self, from: $0) } ?? []
         for note in notes where note.due.map({ $0 > Date() }) == true { scheduleSpoken(note) }
         input.onText = { [weak self] text, final in self?.heard(text, final: final) }
+        input.onFailure = { [weak self] problem in
+            self?.say(String(localized: "Listening stopped: \(problem)"), kind: .problem)
+        }
         input.onLevel = { [weak self] level in
             guard let self else { return }
             // Quick to rise, slower to fall, so the wave breathes rather than flickers.
@@ -211,7 +214,8 @@ final class AssistantModel {
         } catch SpeechInput.Problem.needsServer {
             say(String(localized: "This Mac cannot recognise this language by itself. Allow Apple's speech servers in the Assistant's settings, or type instead."), kind: .problem)
         } catch {
-            say(String(localized: "Listening did not start. Type instead, or check the microphone."), kind: .problem)
+            SpeechInput.note("did not start: \(error)")
+            say(String(localized: "Listening did not start. Type instead, or check the microphone.") + " (\(error.localizedDescription))", kind: .problem)
         }
         focusRequest += 1
         return false
