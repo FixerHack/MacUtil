@@ -81,8 +81,13 @@ struct RadialMenu: View {
             let centre = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
 
             ZStack {
+                // Named by level as well as place. By place alone, a section with as many
+                // tools as there are sections kept the same eight slices and only swapped
+                // their labels, so it opened without the ring drawing itself again.
+                let level = opened.map { String(describing: $0) } ?? "sections"
                 ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
                     segment(index: index, entry: entry, side: side, centre: centre)
+                        .id(level + "." + String(index))
                 }
                 core(side: side)
                     .position(centre)
