@@ -38,22 +38,50 @@ struct DockGeometry {
     static func labelRoom(vertical: Bool) -> CGFloat { vertical ? 300 : 44 }
 }
 
-/// The window UniMacHub's Dock lives in, and the pointer that brings it out.
+/// What one screen's Dock is doing: out or hidden, where the pointer is, which folder is open.
+@MainActor
+@Observable
+final class DockPanelState {
+    /// Whether the Dock is out, when it hides itself.
+    var isShown = false
+    /// Where the pointer is along the unmagnified bar; nil when it is not on this Dock.
+    var pointer: CGFloat?
+    /// The folder whose contents are open over this Dock.
+    var openFolder: URL?
+}
+
+/// The windows UniMacHub's Dock lives in, one per screen it is on, and the pointer that
+/// brings each out.
 ///
-/// One borderless panel along an edge of the main screen, deep enough for the icons to grow
-/// into and for their names. Only the Dock itself takes clicks: everywhere else in the panel
-/// the pointer goes straight through to the windows behind, and while the Dock is hidden the
-/// whole panel does.
+/// Each is a borderless panel along an edge, deep enough for the icons to grow into and for
+/// their names. Only the Dock itself takes clicks: everywhere else in the panel the pointer
+/// goes straight through to the windows behind, and while the Dock is hidden the whole panel
+/// does.
 @MainActor
 final class DockController {
+    /// One screen's Dock.
+    private final class ScreenDock {
+        let screenID: String
+        let panel: NSPanel
+        let state: DockPanelState
+        var hideTask: Task<Void, Never>?
+
+        init(screenID: String, panel: NSPanel, state: DockPanelState) {
+            self.screenID = screenID
+            self.panel = panel
+            self.state = state
+        }
+    }
+
     private let model: DockModel
     private let sources: DockSources
-    private var panel: NSPanel?
+    private var docks: [String: ScreenDock] = [:]
     private var monitors: [Any] = []
     private var observers: [NSObjectProtocol] = []
-    private var hideTask: Task<Void, Never>?
     /// While a menu from the Dock is open, it stays out.
     private var menuIsOpen = false
+    private var previewTask: Task<Void, Never>?
+    private var previewWanted: String?
 
     init(model: DockModel, sources: DockSources) {
         self.model = model
@@ -88,6 +116,7 @@ final class DockController {
             _ = model.magnification
             _ = model.autohides
             _ = model.position
+            _ = model.displays
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.update()
@@ -96,45 +125,56 @@ final class DockController {
         }
     }
 
-    // MARK: - Placing it
-
-    /// The screen with the menu bar.
-    private var screen: NSScreen? { NSScreen.screens.first }
+    // MARK: - Placing them
 
     private func panelFrame(on screen: NSScreen) -> CGRect {
         let frame = screen.frame
         let visible = screen.visibleFrame
         let icon = CGFloat(model.iconSize)
         let growth = model.magnifies ? icon * CGFloat(max(0, model.magnification - 1)) : 0
-        let depth = DockGeometry.margin + DockGeometry.thickness(icon) + growth
-            + DockGeometry.labelRoom(vertical: model.position.isVertical)
+        let depth = (DockGeometry.margin + DockGeometry.thickness(icon) + growth
+            + DockGeometry.labelRoom(vertical: model.position.isVertical)).rounded(.up)
         switch model.position {
         case .bottom:
-            return CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: depth.rounded(.up))
+            return CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: depth)
         case .left:
-            return CGRect(x: frame.minX, y: frame.minY, width: depth.rounded(.up), height: visible.maxY - frame.minY)
+            return CGRect(x: frame.minX, y: frame.minY, width: depth, height: visible.maxY - frame.minY)
         case .right:
-            return CGRect(x: frame.maxX - depth.rounded(.up), y: frame.minY, width: depth.rounded(.up), height: visible.maxY - frame.minY)
+            return CGRect(x: frame.maxX - depth, y: frame.minY, width: depth, height: visible.maxY - frame.minY)
         }
     }
 
     func update() {
-        guard model.isEnabled, let screen else {
+        let wanted: [(String, NSScreen)] = model.isEnabled
+            ? NSScreen.screens.enumerated().compactMap { index, screen in
+                let id = DockModel.displayID(of: screen)
+                return model.shows(onDisplay: id, isMain: index == 0) ? (id, screen) : nil
+            }
+            : []
+        let keep = Set(wanted.map(\.0))
+        for (id, dock) in docks where !keep.contains(id) {
+            dock.hideTask?.cancel()
+            dock.panel.orderOut(nil)
+            docks[id] = nil
+        }
+        guard !wanted.isEmpty else {
             removeMonitors()
-            panel?.orderOut(nil)
             return
         }
-        let panel = self.panel ?? makePanel()
-        let frame = panelFrame(on: screen)
-        if panel.frame != frame { panel.setFrame(frame, display: true) }
-        if !model.autohides, !model.isShown { model.isShown = true }
-        if model.autohides, model.isShown, model.pointer == nil { model.isShown = false }
-        panel.ignoresMouseEvents = true
-        panel.orderFrontRegardless()
+        for (id, screen) in wanted {
+            let dock = docks[id] ?? makeDock(id)
+            docks[id] = dock
+            let frame = panelFrame(on: screen)
+            if dock.panel.frame != frame { dock.panel.setFrame(frame, display: true) }
+            if !model.autohides, !dock.state.isShown { dock.state.isShown = true }
+            if model.autohides, dock.state.isShown, dock.state.pointer == nil { dock.state.isShown = false }
+            dock.panel.ignoresMouseEvents = true
+            dock.panel.orderFrontRegardless()
+        }
         installMonitors()
     }
 
-    private func makePanel() -> NSPanel {
+    private func makeDock(_ id: String) -> ScreenDock {
         let panel = NSPanel(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
         )
@@ -148,12 +188,12 @@ final class DockController {
         panel.acceptsMouseMovedEvents = true
         // Out of Mission Control, which brings up the system Dock in its place.
         panel.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle, .fullScreenAuxiliary]
-        let host = DockHostingView(rootView: DockView(model: model, sources: sources))
+        let state = DockPanelState()
+        let host = DockHostingView(rootView: DockView(model: model, sources: sources, state: state))
         host.sizingOptions = []
         host.onPointer = { [weak self] in self?.pointerMoved() }
         panel.contentView = host
-        self.panel = panel
-        return panel
+        return ScreenDock(screenID: id, panel: panel, state: state)
     }
 
     // MARK: - The pointer
@@ -170,8 +210,8 @@ final class DockController {
         // process is never the active one.
         if let clicks = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, self.model.openFolder != nil else { return }
-                self.model.openFolder = nil
+                guard let self else { return }
+                for dock in self.docks.values where dock.state.openFolder != nil { dock.state.openFolder = nil }
                 self.pointerMoved()
             }
         }) {
@@ -190,15 +230,7 @@ final class DockController {
         monitors = []
     }
 
-    /// Slides the Dock out with a soft spring, and back in without one, as the system Dock does.
-    private func setShown(_ shown: Bool) {
-        let animation: Animation = shown
-            ? .spring(response: 0.5, dampingFraction: 0.86)
-            : .timingCurve(0.4, 0, 0.6, 1, duration: 0.32)
-        withAnimation(animation) { model.isShown = shown }
-    }
-
-    /// The pointer, as how far along the edge and how far from it, within the window.
+    /// The pointer, as how far along the edge and how far from it, within a window.
     private func measure(_ point: NSPoint, in frame: CGRect) -> (along: CGFloat, depth: CGFloat) {
         switch model.position {
         case .bottom: (point.x - frame.minX, point.y - frame.minY)
@@ -208,55 +240,140 @@ final class DockController {
     }
 
     private func pointerMoved() {
-        guard let panel, model.isEnabled else { return }
-        // A menu or an open folder keeps the Dock out and its window taking clicks.
-        let menuIsOpen = self.menuIsOpen || model.openFolder != nil
-        let frame = panel.frame
-        let alongLength = model.position.isVertical ? frame.height : frame.width
+        guard model.isEnabled else { return }
+        let point = NSEvent.mouseLocation
         let entries = model.entries
+        for dock in docks.values {
+            pointerMoved(point, entries: entries, on: dock)
+        }
+    }
+
+    private func pointerMoved(_ point: NSPoint, entries: [DockModel.Entry], on dock: ScreenDock) {
+        let state = dock.state
+        let panel = dock.panel
+        let frame = panel.frame
+        // A menu, an open folder or the window previews keep the Dock out.
+        let overPreviews = sources.previews.contains(point)
+        let holding = (menuIsOpen && state.pointer != nil) || state.openFolder != nil || overPreviews
+        let alongLength = model.position.isVertical ? frame.height : frame.width
         let available = alongLength - 24
         let base = model.layout(entries, available: available, pointer: nil)
-        let now = model.layout(entries, available: available, pointer: model.pointer)
+        let now = model.layout(entries, available: available, pointer: state.pointer)
         let geometry = DockGeometry(position: model.position, layout: now, alongLength: alongLength)
-        let (along, depth) = measure(NSEvent.mouseLocation, in: frame)
+        let (along, depth) = measure(point, in: frame)
+        let onScreen = frame.insetBy(dx: -1, dy: -1).contains(point) || {
+            // Beyond the window along the edge it is another screen; past its depth it is this one.
+            switch model.position {
+            case .bottom: return point.x >= frame.minX && point.x < frame.maxX && point.y >= frame.minY
+            case .left, .right: return point.y >= frame.minY && point.y < frame.maxY
+            }
+        }()
         let position = along - geometry.offset
 
         // The bar as it is drawn now, and above it the room the icons have grown into.
-        let grown = model.pointer == nil ? 0 : (now.items.map { $0.scale }.max() ?? 1) - 1
+        let grown = state.pointer == nil ? 0 : (now.items.map(\.scale).max() ?? 1) - 1
         let reach = DockGeometry.margin + geometry.thickness + grown * geometry.icon
-        let inside = model.isShown && depth <= reach
+        let inside = onScreen && state.isShown && depth >= -1 && depth <= reach
             && position >= min(now.barStart, 0) - 2 && position <= max(now.barEnd, base.baseLength) + 2
 
         if model.autohides {
-            let atEdge = depth <= 1 && position >= -20 && position <= base.baseLength + 20
-            if atEdge || inside || menuIsOpen {
-                hideTask?.cancel()
-                hideTask = nil
-                if !model.isShown { setShown(true) }
-            } else if model.isShown, hideTask == nil {
-                hideTask = Task { [weak self] in
+            let atEdge = onScreen && depth >= -1 && depth <= 1 && position >= -20 && position <= base.baseLength + 20
+            if atEdge || inside || holding {
+                dock.hideTask?.cancel()
+                dock.hideTask = nil
+                if !state.isShown { setShown(true, state) }
+            } else if state.isShown, dock.hideTask == nil {
+                dock.hideTask = Task { [weak self, weak dock] in
                     try? await Task.sleep(for: .milliseconds(450))
-                    guard !Task.isCancelled, let self else { return }
-                    if !self.menuIsOpen, self.model.openFolder == nil { self.setShown(false) }
-                    self.hideTask = nil
+                    guard !Task.isCancelled, let self, let dock else { return }
+                    if !(self.menuIsOpen && dock.state.pointer != nil), dock.state.openFolder == nil {
+                        self.setShown(false, dock.state)
+                    }
+                    dock.hideTask = nil
                 }
             }
         }
 
+        previews(inside ? now.hovered : nil, entries, geometry, frame: frame, overPreviews: overPreviews, onScreen: onScreen)
+
         // Clicks go through everywhere but the Dock itself.
-        let takesClicks = inside || menuIsOpen
+        let takesClicks = inside || (holding && !overPreviews)
         if panel.ignoresMouseEvents == takesClicks { panel.ignoresMouseEvents = !takesClicks }
 
         // Following the pointer at once; only arriving and leaving are eased.
-        let pointer: CGFloat? = inside && !menuIsOpen ? position : (menuIsOpen ? model.pointer : nil)
-        guard model.pointer != pointer else { return }
-        if (model.pointer == nil) != (pointer == nil) {
-            withAnimation(.easeOut(duration: 0.16)) { model.pointer = pointer }
+        let pointer: CGFloat? = holding ? state.pointer : (inside ? position : nil)
+        guard state.pointer != pointer else { return }
+        if (state.pointer == nil) != (pointer == nil) {
+            withAnimation(.easeOut(duration: 0.16)) { state.pointer = pointer }
         } else {
             var transaction = Transaction()
             transaction.disablesAnimations = true
-            withTransaction(transaction) { model.pointer = pointer }
+            withTransaction(transaction) { state.pointer = pointer }
         }
+    }
+
+    /// The previews of a running app's windows, once the pointer has rested on it a moment,
+    /// and at once when it moves to the next app while they are up.
+    private func previews(
+        _ hovered: Int?, _ entries: [DockModel.Entry], _ geometry: DockGeometry,
+        frame: CGRect, overPreviews: Bool, onScreen: Bool
+    ) {
+        guard onScreen else { return }
+        let previews = sources.previews
+        guard model.showsPreviews, model.accessibilityGranted else {
+            if previews.isVisible { previews.hide() }
+            return
+        }
+        if overPreviews { previewTask?.cancel(); previewWanted = previews.app?.id; return }
+        guard let hovered, case let .app(app) = entries[hovered], app.isRunning,
+              menuIsOpen == false
+        else {
+            previewWanted = nil
+            previewTask?.cancel()
+            if previews.isVisible {
+                previewTask = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(250))
+                    guard !Task.isCancelled, let self, self.previewWanted == nil else { return }
+                    self.sources.previews.hide()
+                }
+            }
+            return
+        }
+        guard previewWanted != app.id else { return }
+        previewWanted = app.id
+        previewTask?.cancel()
+        let item = geometry.layout.items[hovered]
+        let icon = tileRect(item, geometry, frame: frame)
+        let edge = model.position
+        if previews.isVisible {
+            previews.show(app, from: icon, edge: edge)
+            return
+        }
+        previewTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled, let self, self.previewWanted == app.id else { return }
+            self.sources.previews.show(app, from: icon, edge: edge)
+        }
+    }
+
+    /// An icon's place on screen.
+    private func tileRect(_ item: DockLayout.Placed, _ geometry: DockGeometry, frame: CGRect) -> CGRect {
+        let side = geometry.icon * item.scale
+        let along = geometry.offset + item.centre
+        let near = DockGeometry.margin + geometry.edgeInset
+        switch model.position {
+        case .bottom: return CGRect(x: frame.minX + along - side / 2, y: frame.minY + near, width: side, height: side)
+        case .left: return CGRect(x: frame.minX + near, y: frame.maxY - along - side / 2, width: side, height: side)
+        case .right: return CGRect(x: frame.maxX - near - side, y: frame.maxY - along - side / 2, width: side, height: side)
+        }
+    }
+
+    /// Slides a Dock out with a soft spring, and back in without one, as the system Dock does.
+    private func setShown(_ shown: Bool, _ state: DockPanelState) {
+        let animation: Animation = shown
+            ? .spring(response: 0.5, dampingFraction: 0.86)
+            : .timingCurve(0.4, 0, 0.6, 1, duration: 0.32)
+        withAnimation(animation) { state.isShown = shown }
     }
 }
 

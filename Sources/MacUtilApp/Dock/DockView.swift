@@ -10,6 +10,7 @@ import SwiftUI
 struct DockView: View {
     let model: DockModel
     let sources: DockSources
+    let state: DockPanelState
 
     var body: some View {
         GeometryReader { proxy in
@@ -17,7 +18,7 @@ struct DockView: View {
             let vertical = model.position.isVertical
             let alongLength = vertical ? size.height : size.width
             let entries = model.entries
-            let layout = model.layout(entries, available: alongLength - 24, pointer: model.pointer)
+            let layout = model.layout(entries, available: alongLength - 24, pointer: state.pointer)
             let geometry = DockGeometry(position: model.position, layout: layout, alongLength: alongLength)
 
             ZStack(alignment: .topLeading) {
@@ -25,7 +26,7 @@ struct DockView: View {
                 ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                     place(entry, layout.items[index], geometry, size: size)
                 }
-                if model.openFolder == nil, let hovered = layout.hovered, entries.indices.contains(hovered) {
+                if state.openFolder == nil, let hovered = layout.hovered, entries.indices.contains(hovered) {
                     label(for: entries[hovered], at: layout.items[hovered], geometry, size: size)
                 }
             }
@@ -38,7 +39,7 @@ struct DockView: View {
 
     /// Slid out past the edge while hidden.
     private func hiddenOffset(_ geometry: DockGeometry) -> CGSize {
-        guard !model.isShown else { return .zero }
+        guard !state.isShown else { return .zero }
         let distance = DockGeometry.margin + geometry.thickness + 12
         switch model.position {
         case .bottom: return CGSize(width: 0, height: distance)
@@ -95,7 +96,7 @@ struct DockView: View {
                 .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + side / 2, in: size))
         case let .folder(url):
             let side = geometry.icon * item.scale
-            FolderTile(folder: url, model: model, side: side, position: model.position)
+            FolderTile(folder: url, model: model, state: state, side: side, position: model.position)
                 .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + side / 2, in: size))
         case .trash:
             let side = geometry.icon * item.scale
@@ -315,14 +316,15 @@ private struct WindowTile: View {
 private struct FolderTile: View {
     let folder: URL
     let model: DockModel
+    let state: DockPanelState
     let side: CGFloat
     let position: DockModel.Position
 
     var body: some View {
         let isOpen = Binding(
-            get: { model.openFolder == folder },
+            get: { state.openFolder == folder },
             set: { open in
-                if open { model.openFolder = folder } else if model.openFolder == folder { model.openFolder = nil }
+                if open { state.openFolder = folder } else if state.openFolder == folder { state.openFolder = nil }
             }
         )
         Image(nsImage: model.icon(for: folder))

@@ -1675,7 +1675,6 @@
 "Close Window" = "Закрити вікно";
 "Minimised windows, before the Trash" = "Згорнуті вікна, перед Кошиком";
 "Open Accessibility Settings" = "Відкрити «Універсальний доступ»";
-"The Dock needs Accessibility to see and bring back minimised windows" = "Dock потребує дозволу «Універсальний доступ», щоб бачити й розгортати згорнуті вікна";
 "With the system Dock hidden, windows minimised with the yellow button go here instead. “Allow…” brings up macOS's request for “UniMacHub Dock”: open System Settings from it and turn UniMacHub Dock on under Accessibility. The Dock only reads which windows are minimised and their titles, and brings one back when you click it." = "Поки системний Dock схований, вікна, згорнуті жовтою кнопкою, з'являються тут. «Дозволити…» відкриє запит macOS для «UniMacHub Dock»: перейдіть із нього в Системні параметри й увімкніть UniMacHub Dock у розділі «Універсальний доступ». Dock лише читає, які вікна згорнуті, та їхні назви, і розгортає вікно, коли ви на нього клікаєте.";
 "Folders" = "Теки";
 "Folders sit by the Trash and open over the Dock, newest first. Drag a folder from Finder onto the Dock to add it; files dropped on a folder move into it." = "Теки стоять біля Кошика й розкриваються над Dock, найновіше спершу. Щоб додати теку, перетягніть її з Finder на Dock; файли, кинуті на теку, переміщуються в неї.";
@@ -1685,3 +1684,10 @@
 "Open in Finder" = "Відкрити у Finder";
 "Show as" = "Показувати як";
 "Fan out" = "Віялом";
+"On %@" = "На дисплеї %@";
+"Minimise" = "Згорнути";
+"Open Screen Recording Settings" = "Відкрити «Запис екрана»";
+"Pictures of the windows need Screen Recording" = "Для мініатюр вікон потрібен дозвіл «Запис екрана»";
+"The Dock needs Accessibility for minimised windows and window previews" = "Dock потребує дозволу «Універсальний доступ» для згорнутих вікон і прев'ю вікон";
+"Window previews while pointing at an app" = "Прев'ю вікон, коли курсор на програмі";
+"Without it the previews still list the windows by name. “Allow…” brings up macOS's request for “UniMacHub Dock”; turn it on under Screen & System Audio Recording and choose Quit & Reopen when macOS offers it. The pictures are taken only while the previews are on screen and never leave this Mac." = "Без нього прев'ю все одно покажуть вікна за назвами. «Дозволити…» відкриє запит macOS для «UniMacHub Dock»: увімкніть його в розділі «Запис екрана й системного аудіо» і виберіть «Вийти й відкрити знову», коли macOS це запропонує. Знімки робляться лише поки прев'ю на екрані й нікуди з цього Mac не йдуть.";

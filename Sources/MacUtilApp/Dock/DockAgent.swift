@@ -102,15 +102,30 @@ final class DockAgent: NSObject, NSApplicationDelegate {
 final class DockSources {
     let island = IslandModel()
     let windows = MinimizedWindows()
+    let previews: WindowPreviews
     private(set) var sample = SystemStats.Sample()
     @ObservationIgnored private let model: DockModel
     @ObservationIgnored private let stats = SystemStats()
     @ObservationIgnored private var sampling: Task<Void, Never>?
 
     @ObservationIgnored private var askObserver: NSObjectProtocol?
+    @ObservationIgnored private var askRecordingObserver: NSObjectProtocol?
 
     init(model: DockModel) {
         self.model = model
+        previews = WindowPreviews(model: model)
+        model.reportScreenRecording(WindowPreviews.canCapture)
+        askRecordingObserver = DistributedNotificationCenter.default().addObserver(
+            forName: DockModel.askScreenRecordingNotification, object: nil, queue: .main
+        ) { _ in
+            // macOS asks once; after that only System Settings can change it.
+            Task { @MainActor in
+                if !CGRequestScreenCaptureAccess(),
+                   let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
         windows.onChange = { [weak self] in
             guard let self else { return }
             self.model.minimizedWindows = self.windows.windows
@@ -124,7 +139,17 @@ final class DockSources {
         }
         follow()
         followWindows()
+        // Permissions change in System Settings, which says nothing: look now and then.
+        permissions = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                self?.model.reportAccessibility(AXIsProcessTrusted())
+                self?.model.reportScreenRecording(WindowPreviews.canCapture)
+            }
+        }
     }
+
+    @ObservationIgnored private var permissions: Task<Void, Never>?
 
     private func followWindows() {
         let shows = withObservationTracking {

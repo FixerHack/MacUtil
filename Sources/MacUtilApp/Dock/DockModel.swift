@@ -106,6 +106,9 @@ final class DockModel {
         static let place = "dockWeatherPlace"
         static let minimized = "dockMinimizedWindows"
         static let folders = "dockFolders"
+        static let displays = "dockDisplays"
+        static let previews = "dockWindowPreviews"
+        static let screenRecording = "dockScreenRecordingGranted"
         static let folderStyle = "dockFolderStyle"
         static let accessibility = "dockAccessibilityGranted"
     }
@@ -114,6 +117,8 @@ final class DockModel {
     static let changedNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockChanged")
     /// Sent by the settings page for the Dock's process to ask macOS for Accessibility.
     static let askAccessibilityNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockAskAccessibility")
+    /// The same for Screen Recording, which the window previews need.
+    static let askScreenRecordingNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockAskScreenRecording")
     /// The players the music widget stands for: while it is on, their icons stay out of the Dock.
     static let musicPlayers = Set(NowPlaying.Player.allCases.map(\.bundleID))
     static let iconSizes: ClosedRange<Double> = 24 ... 128
@@ -137,6 +142,11 @@ final class DockModel {
     /// Folders kept by the Trash, as the system Dock keeps Downloads.
     private(set) var folders: [URL] { didSet { save(folders.map(\.path), Keys.folders) } }
     var folderStyle: FolderStyle { didSet { save(folderStyle.rawValue, Keys.folderStyle) } }
+    /// The displays the Dock is on, by their lasting identifiers; none chosen means the main one.
+    var displays: Set<String> { didSet { save(displays.sorted(), Keys.displays) } }
+    /// Pictures of an app's windows while the pointer rests on its icon.
+    var showsPreviews: Bool { didSet { save(showsPreviews, Keys.previews) } }
+    private(set) var screenRecordingGranted: Bool { didSet { save(screenRecordingGranted, Keys.screenRecording) } }
     /// Whether the Dock's process may read other apps' windows, as it last found.
     private(set) var accessibilityGranted: Bool { didSet { save(accessibilityGranted, Keys.accessibility) } }
 
@@ -144,18 +154,12 @@ final class DockModel {
 
     private(set) var pinned: [URL] { didSet { save(pinned.map(\.path), Keys.pinned) } }
     private(set) var apps: [App] = []
-    /// The folder whose contents are open over the Dock, in the Dock's process.
-    var openFolder: URL?
     /// Set by the Dock's process from `MinimizedWindows`.
     var minimizedWindows: [MinimizedWindow] = []
     private(set) var weatherPlace: Weather.Place?
     private(set) var weather: Weather.Now?
     private(set) var weatherError = false
     private(set) var isLookingUpTown = false
-    /// Whether the Dock is out, when it hides itself.
-    var isShown = false
-    /// Where the pointer is along the unmagnified bar; nil when it is not on the Dock.
-    var pointer: CGFloat?
     /// Called in the Dock's process when the other side turned the Dock off.
     @ObservationIgnored var onDisabled: (() -> Void)?
 
@@ -174,7 +178,7 @@ final class DockModel {
         defaults.register(defaults: [
             Keys.iconSize: 64.0, Keys.magnifies: true, Keys.magnification: 1.335, Keys.autohides: true,
             Keys.position: Position.bottom.rawValue, Keys.indicators: true, Keys.runningApps: true,
-            Keys.minimized: true, Keys.folderStyle: FolderStyle.grid.rawValue,
+            Keys.minimized: true, Keys.previews: true, Keys.folderStyle: FolderStyle.grid.rawValue,
             Keys.folders: [FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads").path],
             Keys.widgets: [Widget.clock.rawValue, Widget.system.rawValue, Widget.music.rawValue],
         ])
@@ -191,6 +195,9 @@ final class DockModel {
         showsMinimized = true
         folders = []
         folderStyle = .grid
+        displays = []
+        showsPreviews = true
+        screenRecordingGranted = false
         accessibilityGranted = false
         pinned = []
         load()
@@ -241,6 +248,10 @@ final class DockModel {
         if widgets != chosen { widgets = chosen }
         let keptFolders = (read.stringArray(forKey: Keys.folders) ?? []).map { URL(filePath: $0) }
         if folders != keptFolders { folders = keptFolders }
+        if showsPreviews != read.bool(forKey: Keys.previews) { showsPreviews = read.bool(forKey: Keys.previews) }
+        if screenRecordingGranted != read.bool(forKey: Keys.screenRecording) { screenRecordingGranted = read.bool(forKey: Keys.screenRecording) }
+        let chosenDisplays = Set(read.stringArray(forKey: Keys.displays) ?? [])
+        if displays != chosenDisplays { displays = chosenDisplays }
         let style = FolderStyle(rawValue: read.string(forKey: Keys.folderStyle) ?? "") ?? .grid
         if folderStyle != style { folderStyle = style }
         if showsMinimized != read.bool(forKey: Keys.minimized) { showsMinimized = read.bool(forKey: Keys.minimized) }
@@ -277,6 +288,10 @@ final class DockModel {
     /// From the Dock's process, for the settings page to show.
     func reportAccessibility(_ granted: Bool) {
         if accessibilityGranted != granted { accessibilityGranted = granted }
+    }
+
+    func reportScreenRecording(_ granted: Bool) {
+        if screenRecordingGranted != granted { screenRecordingGranted = granted }
     }
 
     // MARK: - What is in it
@@ -363,6 +378,31 @@ final class DockModel {
         if showsMinimized { result += minimizedWindows.map(Entry.window) }
         result.append(.trash)
         return result
+    }
+
+    // MARK: - Displays
+
+    /// A display's identifier that lasts across restarts and plugging in again.
+    static func displayID(of screen: NSScreen) -> String {
+        let number = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0
+        guard let uuid = CGDisplayCreateUUIDFromDisplayID(number)?.takeRetainedValue() else { return String(number) }
+        return CFUUIDCreateString(nil, uuid) as String
+    }
+
+    func shows(onDisplay id: String, isMain: Bool) -> Bool {
+        displays.isEmpty ? isMain : displays.contains(id)
+    }
+
+    /// Puts the Dock on a display or takes it off, starting from where it is now.
+    func setShows(_ shows: Bool, onDisplay id: String) {
+        var current = Set(NSScreen.screens.enumerated().compactMap { index, screen in
+            let screenID = Self.displayID(of: screen)
+            return self.shows(onDisplay: screenID, isMain: index == 0) ? screenID : nil
+        })
+        // Displays not connected now keep their choice.
+        current.formUnion(displays)
+        if shows { current.insert(id) } else { current.remove(id) }
+        displays = current
     }
 
     /// Where everything goes, given the room along the edge.
@@ -453,7 +493,6 @@ final class DockModel {
 
     func unpinFolder(_ url: URL) {
         folders.removeAll { $0 == url }
-        if openFolder == url { openFolder = nil }
     }
 
     /// What is in a folder, newest first, the way the system Dock's stacks sort by default.

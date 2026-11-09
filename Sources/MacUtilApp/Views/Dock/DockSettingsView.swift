@@ -60,6 +60,17 @@ struct DockSettingsView: View {
                     Text("Left").tag(DockModel.Position.left)
                     Text("Right").tag(DockModel.Position.right)
                 }
+                if NSScreen.screens.count > 1 {
+                    ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in
+                        let id = DockModel.displayID(of: screen)
+                        Toggle(isOn: Binding(
+                            get: { model.shows(onDisplay: id, isMain: index == 0) },
+                            set: { model.setShows($0, onDisplay: id) }
+                        )) {
+                            Text("On \(screen.localizedName)")
+                        }
+                    }
+                }
                 Toggle("Dots under open apps", isOn: $model.showsIndicators)
                 Picker("Minimising windows", selection: Binding(get: { MinimizeEffect.current }, set: { MinimizeEffect.set($0) })) {
                     Text("Genie").tag(MinimizeEffect.genie)
@@ -73,10 +84,32 @@ struct DockSettingsView: View {
 
             Section {
                 Toggle("Apps that are open but not kept in the Dock", isOn: $model.showsRunningApps)
-                Toggle("Minimised windows, before the Trash", isOn: $model.showsMinimized)
-                if model.showsMinimized, model.isEnabled, !model.accessibilityGranted {
+                Toggle("Window previews while pointing at an app", isOn: $model.showsPreviews)
+                if model.showsPreviews, model.isEnabled, !model.screenRecordingGranted {
                     VStack(alignment: .leading, spacing: 6) {
-                        Label("The Dock needs Accessibility to see and bring back minimised windows", systemImage: "exclamationmark.triangle.fill")
+                        Label("Pictures of the windows need Screen Recording", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Without it the previews still list the windows by name. “Allow…” brings up macOS's request for “UniMacHub Dock”; turn it on under Screen & System Audio Recording and choose Quit & Reopen when macOS offers it. The pictures are taken only while the previews are on screen and never leave this Mac.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        HStack {
+                            Button("Allow…") {
+                                DistributedNotificationCenter.default().postNotificationName(
+                                    DockModel.askScreenRecordingNotification, object: nil, userInfo: nil, deliverImmediately: true
+                                )
+                            }
+                            Button("Open Screen Recording Settings") {
+                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                        }
+                    }
+                }
+                Toggle("Minimised windows, before the Trash", isOn: $model.showsMinimized)
+                if model.showsMinimized || model.showsPreviews, model.isEnabled, !model.accessibilityGranted {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("The Dock needs Accessibility for minimised windows and window previews", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
                         Text("With the system Dock hidden, windows minimised with the yellow button go here instead. “Allow…” brings up macOS's request for “UniMacHub Dock”: open System Settings from it and turn UniMacHub Dock on under Accessibility. The Dock only reads which windows are minimised and their titles, and brings one back when you click it.")
                             .font(.caption)
