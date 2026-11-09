@@ -1,5 +1,6 @@
 import AppKit
 @testable import CleanerCore
+import CoreGraphics
 import Foundation
 import Testing
 
@@ -80,7 +81,15 @@ import Testing
         #expect(long.preview.hasSuffix("…"))
     }
 
-    @Test func keepsTheHistoryBetweenLaunchesAndForgetsItOnRequest() throws {
+    /// The history is written with complete file protection, which keeps it unreadable while
+    /// the screen is locked. A run started and left to itself can find the Mac locked; the
+    /// file is then correctly out of reach and there is nothing to check.
+    static var screenIsLocked: Bool {
+        (CGSessionCopyCurrentDictionary() as? [String: Any])?["CGSSessionScreenIsLocked"] as? Bool ?? false
+    }
+
+    @Test(.enabled(if: !screenIsLocked, "The screen is locked, so a protected file cannot be read"))
+    func keepsTheHistoryBetweenLaunchesAndForgetsItOnRequest() throws {
         let url = FileManager.default.temporaryDirectory
             .appending(path: "mc-clip-\(UUID().uuidString)/Clipboard.json")
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }

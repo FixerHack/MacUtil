@@ -86,6 +86,8 @@ final class AppState {
     let network = NetworkStore()
     let dns = DNSStore()
     let vault = VaultStore()
+    let island = IslandModel()
+    @ObservationIgnored private var islandController: IslandController?
     let terminal = TerminalStore()
     let addOns = AddOnStore()
     let clipboard = ClipboardStore()
@@ -101,6 +103,34 @@ final class AppState {
     init() {
         UserDefaults.standard.register(defaults: [Preferences.automaticUpdateCheck: true])
         refresh()
+        // Once everything above exists: the island reads the stores to show work in progress.
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            #if DEBUG
+                if DebugSnapshot.isActive { return }
+            #endif
+            self.islandController = IslandController(model: self.island, state: self)
+        }
+    }
+
+    /// What UniMacHub is busy with, for the island; nil while it is idle.
+    var islandWork: IslandModel.Work? {
+        if smartScan.isBusy { return .init(title: String(localized: "Checking everything…"), symbol: "wand.and.sparkles") }
+        for (store, title) in [
+            (systemJunk, String(localized: "Cleaning up system junk…")),
+            (developerJunk, String(localized: "Cleaning up developer junk…")),
+            (privacy, String(localized: "Clearing traces…")),
+            (leftovers, String(localized: "Looking for leftovers…")),
+        ] where store.isBusy {
+            return .init(title: title, symbol: "sparkles")
+        }
+        if case .working = uninstaller.phase {
+            return .init(title: String(localized: "Removing an app…"), symbol: "trash")
+        }
+        if case .scanning = security.phase {
+            return .init(title: String(localized: "Checking security…"), symbol: "checkmark.shield")
+        }
+        return nil
     }
 
     /// Whether a tool is waiting on Full Disk Access. Only a definite no locks it: when

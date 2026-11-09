@@ -187,6 +187,8 @@ struct ContentView: View {
             DNSView(store: state.dns)
         case .vault:
             VaultView(store: state.vault)
+        case .island:
+            IslandSettingsView(model: state.island)
         case .securityAnalyzer:
             SecurityView(store: state.security)
         case let module:

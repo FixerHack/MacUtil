@@ -85,7 +85,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .menuBarTidy, .windowTiling, .audioSwitch, .displayControl, .batteryCare,
              .dockWidgets, .batchRename, .terminalThemes, .networkControl, .linkAggregation,
              .firewall, .permissions,
-             .island, .assistant, .timeMachine, .iCloudSync, .converter, .lanScan, .appConnections:
+             .assistant, .timeMachine, .iCloudSync, .converter, .lanScan, .appConnections:
             true
         default:
             false
@@ -381,6 +381,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
             "Anything a password manager marks as concealed is skipped, and the list never leaves this Mac."
         case .taskManager:
             "Quitting asks the program to stop and save. Forcing it does not, and anything unsaved is lost."
+        case .island:
+            "It lives in the notch, or as a small tab at the top. Point at it to open it; drop a file on it to keep it to hand. Showing volume and brightness there needs Accessibility, and is off until you turn it on."
         case .vault:
             "A vault is an ordinary encrypted disk image: it opens in Disk Utility on any Mac, with or without UniMacHub. Forget the password and nothing can open it, not UniMacHub and not Apple."
         case .dns:
