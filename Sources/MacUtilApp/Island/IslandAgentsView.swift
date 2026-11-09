@@ -13,6 +13,9 @@ struct IslandTopStrip: View {
         HStack(spacing: 0) {
             HStack(spacing: 4) {
                 tab(.home, symbol: "house.fill", label: "Home")
+                if let assistant = model.assistant, assistant.isEnabled {
+                    tab(.assistant, symbol: "waveform", label: "Assistant")
+                }
                 if model.agents.showsAgents {
                     tab(.agents, symbol: "sparkles", label: "Agents")
                         .overlay(alignment: .topTrailing) {

@@ -9,5 +9,8 @@
 	<!-- The same for calendars: EventKit refuses without it under the hardened runtime. -->
 	<key>com.apple.security.personal-information.calendars</key>
 	<true/>
+	<!-- The assistant's microphone: under the hardened runtime macOS refuses it without this. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>

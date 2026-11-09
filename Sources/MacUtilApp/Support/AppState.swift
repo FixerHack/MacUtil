@@ -103,6 +103,7 @@ final class AppState {
     let dns = DNSStore()
     let vault = VaultStore()
     let island = IslandModel()
+    let assistant = AssistantModel()
     @ObservationIgnored private var islandController: IslandController?
     /// The Dock's settings; the Dock itself runs in its own process (see `DockAgent`).
     let dock = DockModel(role: .settings)
@@ -140,6 +141,7 @@ final class AppState {
                 if DebugSnapshot.isActive { return }
             #endif
             self.islandController = IslandController(model: self.island, state: self)
+            self.assistant.attach(self)
             DockService.launched(self.dock)
         }
     }

@@ -52,7 +52,7 @@ final class IslandModel {
     var showsShelf: Bool { didSet { save(showsShelf, Keys.shelf) } }
 
     /// What the opened island shows.
-    enum Page: Equatable { case home, agents }
+    enum Page: Equatable { case home, agents, assistant }
 
     // MARK: - What is on show
 
@@ -61,6 +61,9 @@ final class IslandModel {
     @ObservationIgnored var openMain: (() -> Void)?
     /// The Dock's settings, for switching its profile from here; set by the controller.
     @ObservationIgnored var dock: DockModel?
+    /// The assistant, which lives in the island; set by the controller.
+    var assistant: AssistantModel?
+    @ObservationIgnored private var assistantWatch: Task<Void, Never>?
     let calendar = CalendarFeed()
     let batteries = BatteriesFeed()
     var page: Page = .home
@@ -126,6 +129,7 @@ final class IslandModel {
     var presentation: IslandGeometry.State {
         if isExpanded { return .expanded }
         if indicator != nil || work != nil || agents.attention != nil || calendar.soon != nil { return .wings }
+        if let assistant, assistant.isDictating || assistant.phase == .listening || assistant.phase == .thinking { return .wings }
         if showsNowPlaying, playing != nil || (isLingering && featured != nil) { return .wings }
         return .collapsed
     }
@@ -153,6 +157,28 @@ final class IslandModel {
         } else {
             expansionTask?.cancel()
             isExpanded = true
+        }
+    }
+
+    /// Opens on the assistant and stays open while it works, then closes once it has been
+    /// quiet a while with the pointer elsewhere.
+    func openAssistant() {
+        expansionTask?.cancel()
+        page = .assistant
+        isExpanded = true
+        assistantWatch?.cancel()
+        assistantWatch = Task { [weak self] in
+            var quiet = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let self, self.isExpanded, self.page == .assistant, let assistant = self.assistant else { return }
+                let waiting = assistant.isBusy || !assistant.draft.isEmpty || self.isHovering
+                quiet = waiting ? 0 : quiet + 1
+                if quiet >= 20 {
+                    self.isExpanded = false
+                    return
+                }
+            }
         }
     }
 

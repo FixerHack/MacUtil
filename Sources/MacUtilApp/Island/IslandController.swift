@@ -27,6 +27,8 @@ final class IslandController {
         self.state = state
         model.openMain = { [weak state] in state?.showMain() }
         model.dock = state.dock
+        model.assistant = state.assistant
+        state.assistant.present = { [weak model] in model?.openAssistant() }
         observers.append(NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -132,7 +134,7 @@ final class IslandController {
     }
 
     private func makePanel() -> NSPanel {
-        let panel = NSPanel(
+        let panel = KeyableIslandPanel(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
         )
         panel.isFloatingPanel = true
@@ -248,4 +250,10 @@ final class MediaKeyTap {
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
     }
+}
+
+/// A borderless panel never takes the keyboard on its own; this one may, only when the
+/// assistant's field asks, and without bringing UniMacHub to the front.
+final class KeyableIslandPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
 }

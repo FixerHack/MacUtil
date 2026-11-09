@@ -37,6 +37,10 @@
 	<string>UniMacHub shows the charge of your AirPods and other Bluetooth devices in the island.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>UniMacHub asks Finder to move apps that belong to an administrator to the Trash. Finder then asks for your password.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>UniMacHub's assistant listens when you press its key or the microphone in the island, and only then.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>UniMacHub's assistant turns what you say into text. On this Mac when it can; through Apple only if you allow that in the assistant's settings.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

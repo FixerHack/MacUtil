@@ -85,7 +85,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .menuBarTidy, .windowTiling, .audioSwitch, .displayControl, .batteryCare,
              .batchRename, .terminalThemes, .networkControl, .linkAggregation,
              .firewall, .permissions,
-             .assistant, .timeMachine, .iCloudSync, .converter, .lanScan, .appConnections:
+             .timeMachine, .iCloudSync, .converter, .lanScan, .appConnections:
             true
         default:
             false

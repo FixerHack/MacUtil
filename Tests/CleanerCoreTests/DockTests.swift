@@ -143,3 +143,84 @@ struct ArithmeticTests {
         #expect(Arithmetic.format(-2.5) == "-2.5")
     }
 }
+
+struct AssistantPolicyTests {
+    @Test func importantAlwaysAsksAndBasicStaysHome() {
+        #expect(AssistantPolicy.decide(level: .important, category: .uniMacHub, mode: .free) == .ask)
+        #expect(AssistantPolicy.decide(level: .reversible, category: .uniMacHub, mode: .basic) == .run)
+        if case .refuse = AssistantPolicy.decide(level: .read, category: .terminal, mode: .basic) {} else { Issue.record("terminal ran in basic mode") }
+        // A table that allows deleting still asks for it.
+        var table = PermissionTable()
+        table.policies[.deleteFiles] = .allowed
+        #expect(AssistantPolicy.decide(level: .reversible, category: .deleteFiles, mode: .custom, table: table) == .ask)
+        table.policies[.internet] = .forbidden
+        if case .refuse = AssistantPolicy.decide(level: .read, category: .internet, mode: .custom, table: table) {} else { Issue.record("forbidden ran") }
+    }
+
+    @Test func customFoldersAndCommandPrefixes() {
+        let table = PermissionTable(folders: ["/Users/me/Projects"], commandPrefixes: ["git status"])
+        #expect(AssistantPolicy.decide(level: .read, category: .readFiles, mode: .custom, table: table, paths: ["/Users/me/Projects/a.txt"]) == .run)
+        if case .refuse = AssistantPolicy.decide(level: .read, category: .readFiles, mode: .custom, table: table, paths: ["/Users/me/ProjectsX/a"]) {} else { Issue.record("left the folder") }
+        #expect(AssistantPolicy.decide(level: .read, category: .terminal, mode: .custom, table: table, command: "git status -s") == .run)
+        #expect(AssistantPolicy.decide(level: .read, category: .terminal, mode: .custom, table: table, command: "ls") == .ask)
+    }
+
+    @Test func judgesShellCommands() {
+        #expect(ShellRisk.level(of: "ls -la ~/Desktop | head") == .read)
+        #expect(ShellRisk.level(of: "git log --oneline -5") == .read)
+        #expect(ShellRisk.level(of: "defaults read com.apple.dock") == .read)
+        #expect(ShellRisk.level(of: "rm -rf ~/Desktop/x") == .important)
+        #expect(ShellRisk.level(of: "find . -name '*.log' -delete") == .important)
+        #expect(ShellRisk.level(of: "echo hi > file.txt") == .important)
+        #expect(ShellRisk.level(of: "git push --force") == .important)
+        #expect(ShellRisk.level(of: "ls; rm x") == .important)
+        #expect(ShellRisk.level(of: "sudo purge") == .admin)
+        #expect(ShellRisk.level(of: "python3 -c 'print(1)'") == .important)
+    }
+
+    @Test func tidiesDictation() {
+        #expect(Dictation.clean("ну еее я думаю що це добре", language: "uk") == "Я думаю що це добре")
+        #expect(Dictation.clean("um so uh we ship today", language: "en") == "So we ship today")
+        #expect(Dictation.clean("відкрий юні мак хаб", language: "uk", dictionary: ["юні мак хаб": "UniMacHub"]) == "Відкрий UniMacHub")
+        #expect(Dictation.command(in: "Скасуй останнє речення.") == .removeLastSentence)
+        #expect(Dictation.lastSentenceLength(of: "First one. Second one.") == " Second one.".count)
+        #expect(Dictation.lastSentenceLength(of: "Only one") == "Only one".count)
+    }
+
+    @Test func readsPagesAndSearchResults() {
+        #expect(WebText.text(fromHTML: "<html><script>x()</script><p>Hello &amp; welcome</p><p>Two</p></html>") == "Hello & welcome\nTwo")
+        let html = #"<a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fa&amp;rut=x">Example <b>A</b></a><a class="result__snippet" href="x">Snippet <b>one</b></a>"#
+        let results = WebText.results(fromDuckDuckGo: html)
+        #expect(results.first?.title == "Example A")
+        #expect(results.first?.snippet == "Snippet one")
+        #expect(results.first?.url.hasPrefix("https://example.com/a") == true)
+    }
+
+    @Test func buildsEachProvidersRequest() throws {
+        let actions = [ActionSpec(name: "disk_status", summary: "Disk.", level: .read)]
+        let turns: [ConversationTurn] = [
+            .user("How much space?"),
+            .assistant(text: "", calls: [ActionCall(id: "t1", name: "disk_status", arguments: .object([:]))], raw: nil),
+            .result(callID: "t1", name: "disk_status", text: "10 GB free", failed: false),
+        ]
+        let anthropic = ProviderWire.anthropicBody(system: "s", turns: turns, actions: actions, model: "claude-opus-5-5")
+        let messages = try #require(anthropic["messages"]?.array)
+        #expect(messages.count == 3)
+        #expect(messages[2]["content"]?.array?.first?["type"]?.string == "tool_result")
+        #expect(anthropic["tools"]?.array?.first?["input_schema"] != nil)
+        let openAI = ProviderWire.openAIBody(system: "s", turns: turns, actions: actions, model: "m")
+        #expect(openAI["messages"]?.array?.last?["role"]?.string == "tool")
+        let gateway = ProviderWire.gatewayBody(system: "s", turns: turns, actions: actions, model: "opus")
+        #expect(gateway["prompt"]?.string?.contains("10 GB free") == true)
+
+        let reply = try ProviderWire.gatewayReply(.object(["structured": .object([
+            "say": .string("Checking."), "action": .object(["name": .string("disk_status"), "arguments": .object([:])]),
+        ])]))
+        #expect(reply.text == "Checking." && reply.calls.first?.name == "disk_status")
+        let toolUse = try ProviderWire.anthropicReply(.object(["stop_reason": .string("tool_use"), "content": .array([
+            .object(["type": .string("text"), "text": .string("On it.")]),
+            .object(["type": .string("tool_use"), "id": .string("x"), "name": .string("disk_status"), "input": .object([:])]),
+        ])]))
+        #expect(toolUse.calls.count == 1 && toolUse.text == "On it.")
+    }
+}

@@ -191,6 +191,8 @@ struct ContentView: View {
             IslandSettingsView(model: state.island)
         case .dockWidgets:
             DockSettingsView(model: state.dock)
+        case .assistant:
+            AssistantSettingsView(model: state.assistant)
         case .securityAnalyzer:
             SecurityView(store: state.security)
         case let module:

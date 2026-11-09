@@ -58,7 +58,10 @@ struct IslandView: View {
                     .frame(height: model.geometry?.resting.height ?? 24)
                     .padding(.horizontal, 22)
                 ZStack {
-                    if model.page == .agents, model.agents.showsAgents {
+                    if model.page == .assistant, let assistant = model.assistant, assistant.isEnabled {
+                        AssistantPage(assistant: assistant)
+                            .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
+                    } else if model.page == .agents, model.agents.showsAgents {
                         AgentsPage(model: model)
                             .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
                     } else {
@@ -164,8 +167,18 @@ private struct IslandWings: View {
         .frame(maxHeight: .infinity)
     }
 
+    /// The assistant hearing or thinking, which comes before anything else.
+    private var assistantActive: Bool {
+        guard let assistant = model.assistant else { return false }
+        return assistant.isDictating || assistant.phase == .listening || assistant.phase == .thinking
+    }
+
     @ViewBuilder private var leading: some View {
-        if let indicator = model.indicator {
+        if assistantActive, let assistant = model.assistant {
+            Image(systemName: assistant.phase == .thinking ? "sparkles" : "mic.fill")
+                .foregroundStyle(assistant.phase == .thinking ? Color.white : .red)
+                .symbolEffect(.pulse, isActive: true)
+        } else if let indicator = model.indicator {
             Image(systemName: symbol(for: indicator))
                 .contentTransition(.symbolEffect(.replace))
         } else if let agent = model.agents.attention {
@@ -190,7 +203,9 @@ private struct IslandWings: View {
     @ViewBuilder private var middle: some View {
         if model.geometry?.hasNotch == false, model.indicator == nil {
             Group {
-                if let agent = model.agents.attention {
+                if assistantActive, let assistant = model.assistant {
+                    Text(assistant.phase == .thinking ? "Thinking…" : "Listening…")
+                } else if let agent = model.agents.attention {
                     Text(verbatim: "\(agent.project) · \(agent.stateText)")
                 } else if let event = model.calendar.soon {
                     Text(verbatim: event.title)
