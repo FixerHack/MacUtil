@@ -25,7 +25,7 @@ struct DockView: View {
                 ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                     place(entry, layout.items[index], geometry, size: size)
                 }
-                if let hovered = layout.hovered, entries.indices.contains(hovered) {
+                if model.openFolder == nil, let hovered = layout.hovered, entries.indices.contains(hovered) {
                     label(for: entries[hovered], at: layout.items[hovered], geometry, size: size)
                 }
             }
@@ -62,9 +62,12 @@ struct DockView: View {
         return DockGlass(cornerRadius: radius)
             .frame(width: geometry.vertical ? thickness : length, height: geometry.vertical ? length : thickness)
             .dropDestination(for: URL.self) { urls, _ in
+                // Apps join the apps; folders go by the Trash, as in the system Dock.
                 let apps = urls.filter { $0.pathExtension == "app" }
+                let folders = urls.filter { $0.pathExtension != "app" && (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
                 apps.forEach(model.pin)
-                return !apps.isEmpty
+                folders.forEach(model.pinFolder)
+                return !apps.isEmpty || !folders.isEmpty
             }
             .position(centre)
     }
@@ -89,6 +92,10 @@ struct DockView: View {
         case let .window(window):
             let side = geometry.icon * item.scale
             WindowTile(window: window, model: model, tracker: sources.windows, side: side)
+                .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + side / 2, in: size))
+        case let .folder(url):
+            let side = geometry.icon * item.scale
+            FolderTile(folder: url, model: model, side: side, position: model.position)
                 .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + side / 2, in: size))
         case .trash:
             let side = geometry.icon * item.scale
@@ -118,6 +125,7 @@ struct DockView: View {
         let text: Text? = switch entry {
         case let .app(app): Text(verbatim: app.name)
         case .trash: Text("Trash")
+        case let .folder(url): Text(verbatim: FileManager.default.displayName(atPath: url.path))
         case let .window(window): Text(verbatim: window.title.isEmpty ? window.appName : window.title)
         default: nil
         }
@@ -300,6 +308,168 @@ private struct WindowTile: View {
             Button("Show") { tracker.restore(window) }
             Button("Close Window") { tracker.close(window) }
         }
+    }
+}
+
+/// A folder kept in the Dock. A click opens what is in it over the Dock.
+private struct FolderTile: View {
+    let folder: URL
+    let model: DockModel
+    let side: CGFloat
+    let position: DockModel.Position
+
+    var body: some View {
+        let isOpen = Binding(
+            get: { model.openFolder == folder },
+            set: { open in
+                if open { model.openFolder = folder } else if model.openFolder == folder { model.openFolder = nil }
+            }
+        )
+        Image(nsImage: model.icon(for: folder))
+            .resizable()
+            .interpolation(.high)
+            .frame(width: side, height: side)
+            .contentShape(.rect)
+            .onTapGesture { isOpen.wrappedValue.toggle() }
+            .popover(isPresented: isOpen, arrowEdge: arrowEdge) {
+                FolderStack(folder: folder, model: model) { isOpen.wrappedValue = false }
+            }
+            .contextMenu {
+                Button("Open in Finder") { NSWorkspace.shared.open(folder) }
+                Picker("Show as", selection: Binding(get: { model.folderStyle }, set: { model.folderStyle = $0 })) {
+                    Text("Fan out").tag(DockModel.FolderStyle.fan)
+                    Text("Grid").tag(DockModel.FolderStyle.grid)
+                    Text("List").tag(DockModel.FolderStyle.list)
+                }
+                Divider()
+                Button("Remove from Dock") { model.unpinFolder(folder) }
+            }
+            .dropDestination(for: URL.self) { urls, _ in
+                // Dropped on the folder: moved into it, as Finder would.
+                for url in urls where url.isFileURL && url.deletingLastPathComponent() != folder {
+                    try? FileManager.default.moveItem(at: url, to: folder.appending(path: url.lastPathComponent))
+                }
+                return true
+            }
+    }
+
+    /// The popover points back at the Dock, from the side away from the edge.
+    private var arrowEdge: Edge {
+        switch position {
+        case .bottom: .bottom
+        case .left: .leading
+        case .right: .trailing
+        }
+    }
+}
+
+/// What is in a folder: a fan rising from the Dock, a grid, or a list, newest first.
+private struct FolderStack: View {
+    let folder: URL
+    let model: DockModel
+    let close: () -> Void
+
+    var body: some View {
+        let style = model.folderStyle
+        let items = DockModel.contents(of: folder, limit: style == .fan ? 12 : 60)
+        VStack(alignment: .leading, spacing: 8) {
+            if items.isEmpty {
+                Text("This folder is empty")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(20)
+            } else {
+                switch style {
+                case .fan: fan(items)
+                case .grid: grid(items)
+                case .list: list(items)
+                }
+            }
+            Divider()
+            Button {
+                NSWorkspace.shared.open(folder)
+                close()
+            } label: {
+                Label("Open in Finder", systemImage: "folder")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+        }
+        .padding(12)
+    }
+
+    private func open(_ url: URL) {
+        NSWorkspace.shared.open(url)
+        close()
+    }
+
+    private func name(_ url: URL) -> String {
+        FileManager.default.displayName(atPath: url.path)
+    }
+
+    private func grid(_ items: [URL]) -> some View {
+        ScrollView {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(84), spacing: 6), count: 4), spacing: 10) {
+                ForEach(items, id: \.self) { url in
+                    VStack(spacing: 4) {
+                        Image(nsImage: model.icon(for: url)).resizable().interpolation(.high).frame(width: 52, height: 52)
+                        Text(verbatim: name(url))
+                            .font(.caption)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                            .frame(height: 30, alignment: .top)
+                    }
+                    .frame(width: 84)
+                    .contentShape(.rect)
+                    .onTapGesture { open(url) }
+                    .draggable(url)
+                }
+            }
+        }
+        .frame(width: 4 * 84 + 3 * 6 + 8, height: min(380, CGFloat((items.count + 3) / 4) * 100 + 8))
+    }
+
+    private func list(_ items: [URL]) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(items, id: \.self) { url in
+                    HStack(spacing: 8) {
+                        Image(nsImage: model.icon(for: url)).resizable().interpolation(.high).frame(width: 20, height: 20)
+                        Text(verbatim: name(url)).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .contentShape(.rect)
+                    .onTapGesture { open(url) }
+                    .draggable(url)
+                }
+            }
+        }
+        .frame(width: 280, height: min(420, CGFloat(items.count) * 27 + 4))
+    }
+
+    /// Names on the left, icons on the right, curving slightly as they rise.
+    private func fan(_ items: [URL]) -> some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            ForEach(Array(items.reversed().enumerated()), id: \.element) { index, url in
+                let step = CGFloat(items.count - 1 - index)
+                HStack(spacing: 8) {
+                    Text(verbatim: name(url))
+                        .font(.callout)
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(.black.opacity(0.35), in: .capsule)
+                    Image(nsImage: model.icon(for: url)).resizable().interpolation(.high).frame(width: 40, height: 40)
+                }
+                .offset(x: -step * step * 1.6)
+                .contentShape(.rect)
+                .onTapGesture { open(url) }
+                .draggable(url)
+            }
+        }
+        .frame(width: 300, alignment: .trailing)
     }
 }
 

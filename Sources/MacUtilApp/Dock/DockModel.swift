@@ -20,6 +20,12 @@ final class DockModel {
         var isVertical: Bool { self != .bottom }
     }
 
+    /// How a folder opens: a fan rising from it, a grid, or a list.
+    enum FolderStyle: String, CaseIterable, Identifiable {
+        case fan, grid, list
+        var id: String { rawValue }
+    }
+
     enum Widget: String, CaseIterable, Identifiable {
         case clock, system, music, calendar, weather
         var id: String { rawValue }
@@ -61,6 +67,7 @@ final class DockModel {
         case widget(Widget)
         case app(App)
         case window(MinimizedWindow)
+        case folder(URL)
         case divider(Int)
         case trash
 
@@ -69,6 +76,7 @@ final class DockModel {
             case let .widget(widget): "widget." + widget.rawValue
             case let .app(app): "app." + app.id
             case let .window(window): "window." + window.id
+            case let .folder(url): "folder." + url.path
             case let .divider(index): "divider.\(index)"
             case .trash: "trash"
             }
@@ -76,7 +84,7 @@ final class DockModel {
 
         func slot(vertical: Bool) -> DockLayout.Slot {
             switch self {
-            case .app, .window, .trash: .init(units: 1, grows: true)
+            case .app, .window, .folder, .trash: .init(units: 1, grows: true)
             case .divider: .init(units: 0.32, grows: false)
             case let .widget(widget): .init(units: vertical ? 1 : widget.units, grows: false)
             }
@@ -97,6 +105,8 @@ final class DockModel {
         static let town = "dockWeatherTown"
         static let place = "dockWeatherPlace"
         static let minimized = "dockMinimizedWindows"
+        static let folders = "dockFolders"
+        static let folderStyle = "dockFolderStyle"
         static let accessibility = "dockAccessibilityGranted"
     }
 
@@ -124,6 +134,9 @@ final class DockModel {
     private(set) var weatherTown: String { didSet { save(weatherTown, Keys.town) } }
     /// Minimised windows in the Dock, before the Trash, as the system Dock keeps them.
     var showsMinimized: Bool { didSet { save(showsMinimized, Keys.minimized) } }
+    /// Folders kept by the Trash, as the system Dock keeps Downloads.
+    private(set) var folders: [URL] { didSet { save(folders.map(\.path), Keys.folders) } }
+    var folderStyle: FolderStyle { didSet { save(folderStyle.rawValue, Keys.folderStyle) } }
     /// Whether the Dock's process may read other apps' windows, as it last found.
     private(set) var accessibilityGranted: Bool { didSet { save(accessibilityGranted, Keys.accessibility) } }
 
@@ -131,6 +144,8 @@ final class DockModel {
 
     private(set) var pinned: [URL] { didSet { save(pinned.map(\.path), Keys.pinned) } }
     private(set) var apps: [App] = []
+    /// The folder whose contents are open over the Dock, in the Dock's process.
+    var openFolder: URL?
     /// Set by the Dock's process from `MinimizedWindows`.
     var minimizedWindows: [MinimizedWindow] = []
     private(set) var weatherPlace: Weather.Place?
@@ -159,7 +174,9 @@ final class DockModel {
         defaults.register(defaults: [
             Keys.iconSize: 64.0, Keys.magnifies: true, Keys.magnification: 1.335, Keys.autohides: true,
             Keys.position: Position.bottom.rawValue, Keys.indicators: true, Keys.runningApps: true,
-            Keys.minimized: true, Keys.widgets: [Widget.clock.rawValue, Widget.system.rawValue, Widget.music.rawValue],
+            Keys.minimized: true, Keys.folderStyle: FolderStyle.grid.rawValue,
+            Keys.folders: [FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads").path],
+            Keys.widgets: [Widget.clock.rawValue, Widget.system.rawValue, Widget.music.rawValue],
         ])
         isEnabled = false
         iconSize = 64
@@ -172,6 +189,8 @@ final class DockModel {
         widgets = []
         weatherTown = ""
         showsMinimized = true
+        folders = []
+        folderStyle = .grid
         accessibilityGranted = false
         pinned = []
         load()
@@ -220,6 +239,10 @@ final class DockModel {
         if showsRunningApps != read.bool(forKey: Keys.runningApps) { showsRunningApps = read.bool(forKey: Keys.runningApps) }
         let chosen = Set((read.stringArray(forKey: Keys.widgets) ?? []).compactMap(Widget.init))
         if widgets != chosen { widgets = chosen }
+        let keptFolders = (read.stringArray(forKey: Keys.folders) ?? []).map { URL(filePath: $0) }
+        if folders != keptFolders { folders = keptFolders }
+        let style = FolderStyle(rawValue: read.string(forKey: Keys.folderStyle) ?? "") ?? .grid
+        if folderStyle != style { folderStyle = style }
         if showsMinimized != read.bool(forKey: Keys.minimized) { showsMinimized = read.bool(forKey: Keys.minimized) }
         if accessibilityGranted != read.bool(forKey: Keys.accessibility) { accessibilityGranted = read.bool(forKey: Keys.accessibility) }
         let town = read.string(forKey: Keys.town) ?? ""
@@ -336,6 +359,7 @@ final class DockModel {
             result += trailing.map(Entry.widget)
         }
         result.append(.divider(4))
+        result += folders.filter { FileManager.default.fileExists(atPath: $0.path) }.map(Entry.folder)
         if showsMinimized { result += minimizedWindows.map(Entry.window) }
         result.append(.trash)
         return result
@@ -420,6 +444,29 @@ final class DockModel {
         let to = pinned.firstIndex(of: target) ?? pinned.endIndex
         pinned.insert(url, at: to)
         rebuild()
+    }
+
+    func pinFolder(_ url: URL) {
+        guard !folders.contains(url) else { return }
+        folders.append(url)
+    }
+
+    func unpinFolder(_ url: URL) {
+        folders.removeAll { $0 == url }
+        if openFolder == url { openFolder = nil }
+    }
+
+    /// What is in a folder, newest first, the way the system Dock's stacks sort by default.
+    static func contents(of folder: URL, limit: Int) -> [URL] {
+        let keys: [URLResourceKey] = [.addedToDirectoryDateKey, .contentModificationDateKey]
+        let items = (try? FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]
+        )) ?? []
+        func date(_ url: URL) -> Date {
+            let values = try? url.resourceValues(forKeys: Set(keys))
+            return values?.addedToDirectoryDate ?? values?.contentModificationDate ?? .distantPast
+        }
+        return Array(items.map { ($0, date($0)) }.sorted { $0.1 > $1.1 }.prefix(limit).map(\.0))
     }
 
     func useSystemDockApps() {

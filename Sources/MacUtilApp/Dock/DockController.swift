@@ -166,6 +166,17 @@ final class DockController {
         }) {
             monitors.append(global)
         }
+        // A click in another app closes an open folder: its popover cannot tell, as this
+        // process is never the active one.
+        if let clicks = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.model.openFolder != nil else { return }
+                self.model.openFolder = nil
+                self.pointerMoved()
+            }
+        }) {
+            monitors.append(clicks)
+        }
         if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
             MainActor.assumeIsolated { self?.pointerMoved() }
             return event
@@ -198,6 +209,8 @@ final class DockController {
 
     private func pointerMoved() {
         guard let panel, model.isEnabled else { return }
+        // A menu or an open folder keeps the Dock out and its window taking clicks.
+        let menuIsOpen = self.menuIsOpen || model.openFolder != nil
         let frame = panel.frame
         let alongLength = model.position.isVertical ? frame.height : frame.width
         let entries = model.entries
@@ -224,7 +237,7 @@ final class DockController {
                 hideTask = Task { [weak self] in
                     try? await Task.sleep(for: .milliseconds(450))
                     guard !Task.isCancelled, let self else { return }
-                    if !self.menuIsOpen { self.setShown(false) }
+                    if !self.menuIsOpen, self.model.openFolder == nil { self.setShown(false) }
                     self.hideTask = nil
                 }
             }

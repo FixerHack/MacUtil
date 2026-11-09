@@ -120,6 +120,33 @@ struct DockSettingsView: View {
             }
 
             Section {
+                ForEach(model.folders, id: \.self) { url in
+                    HStack {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 20, height: 20)
+                        Text(verbatim: FileManager.default.displayName(atPath: url.path))
+                        Spacer()
+                        Button {
+                            model.unpinFolder(url)
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(Text("Remove from Dock"))
+                    }
+                }
+                Picker("Open as", selection: $model.folderStyle) {
+                    Text("Fan out").tag(DockModel.FolderStyle.fan)
+                    Text("Grid").tag(DockModel.FolderStyle.grid)
+                    Text("List").tag(DockModel.FolderStyle.list)
+                }
+                Button("Add Folder…") { addFolder() }
+            } header: {
+                Text("Folders")
+            } footer: {
+                Text("Folders sit by the Trash and open over the Dock, newest first. Drag a folder from Finder onto the Dock to add it; files dropped on a folder move into it.")
+            }
+
+            Section {
                 ForEach(DockModel.Widget.allCases) { widget in
                     Toggle(isOn: Binding(
                         get: { model.widgets.contains(widget) },
@@ -188,6 +215,15 @@ struct DockSettingsView: View {
     private func saveTown() {
         let name = town
         Task { await model.lookUpTown(name) }
+    }
+
+    private func addFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
+        panel.urls.forEach(model.pinFolder)
     }
 
     private func addApp() {
