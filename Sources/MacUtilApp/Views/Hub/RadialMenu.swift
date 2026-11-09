@@ -15,6 +15,16 @@ struct AnnularSector: Shape, Equatable {
     /// Degrees shaved off each end, so neighbours stand apart.
     var gap: Double = 3.0
 
+    /// Where it starts and how far it reaches turn smoothly, so the ring winds round from
+    /// one level to the next instead of jumping.
+    var animatableData: AnimatablePair<Double, Double> {
+        get { AnimatablePair(start, sweep) }
+        set {
+            start = newValue.first
+            sweep = newValue.second
+        }
+    }
+
     func path(in rect: CGRect) -> Path {
         let centre = CGPoint(x: rect.midX, y: rect.midY)
         let radius = min(rect.width, rect.height) / 2
@@ -52,6 +62,8 @@ struct RadialMenu: View {
 
     @Environment(AppState.self) private var state
     @State private var hovered: Int?
+    /// Degrees the whole ring is turned by while it winds into another level.
+    @State private var twist: Double = 0
     @Namespace private var ring
 
     private struct Entry {
@@ -81,13 +93,11 @@ struct RadialMenu: View {
             let centre = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
 
             ZStack {
-                // Named by level as well as place. By place alone, a section with as many
-                // tools as there are sections kept the same eight slices and only swapped
-                // their labels, so it opened without the ring drawing itself again.
-                let level = opened.map { String(describing: $0) } ?? "sections"
+                // Known by place, so the same slices wind round into the next level's; the
+                // twist turns them even when a section has exactly as many tools as there
+                // are sections, and nothing else would move.
                 ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
                     segment(index: index, entry: entry, side: side, centre: centre)
-                        .id(level + "." + String(index))
                 }
                 core(side: side)
                     .position(centre)
@@ -111,7 +121,14 @@ struct RadialMenu: View {
         }
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: opened)
         .onChange(of: hovered) { report() }
-        .onChange(of: opened) { report() }
+        .onChange(of: opened) { old, new in
+            report()
+            // Wound back a little, then let go: in when a section opens, out when it closes.
+            var still = Transaction()
+            still.disablesAnimations = true
+            withTransaction(still) { twist = new == nil ? 50 : -50 }
+            withAnimation(.spring(response: 0.62, dampingFraction: 0.8)) { twist = 0 }
+        }
     }
 
     private func report() {
@@ -158,15 +175,10 @@ struct RadialMenu: View {
         index: Int, entry: Entry,
         side: CGFloat, centre: CGPoint
     ) -> some View {
-        let start = Double(index) * sweep
+        let start = Double(index) * sweep + twist
         let shape = AnnularSector(start: start, sweep: sweep, inner: inner, outer: outer)
         let isHovered = hovered == index
-        let middle = Angle.degrees(start + sweep / 2 - 90)
         let radius = side / 2 * (inner + outer) / 2
-        let label = CGPoint(
-            x: centre.x + cos(middle.radians) * radius,
-            y: centre.y + sin(middle.radians) * radius
-        )
 
         return ZStack {
             shape
@@ -199,7 +211,7 @@ struct RadialMenu: View {
             }
             .foregroundStyle(entry.planned ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.primary))
             .scaleEffect(isHovered ? 1.08 : 1)
-            .position(label)
+            .modifier(OnArc(degrees: start + sweep / 2, radius: radius, centre: centre))
             .allowsHitTesting(false)
         }
         // Each slice arrives a moment after the one before it, so the ring draws itself.
@@ -260,5 +272,26 @@ struct RadialMenu: View {
             hovered = nil
             opened = sections[index]
         }
+    }
+}
+
+/// Places a label on the ring by its angle, so it travels round the arc, not across it.
+private struct OnArc: ViewModifier, @preconcurrency Animatable {
+    /// From straight up, clockwise.
+    var degrees: Double
+    let radius: CGFloat
+    let centre: CGPoint
+
+    var animatableData: Double {
+        get { degrees }
+        set { degrees = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        let angle = Angle.degrees(degrees - 90)
+        content.position(
+            x: centre.x + cos(angle.radians) * radius,
+            y: centre.y + sin(angle.radians) * radius
+        )
     }
 }
