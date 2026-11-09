@@ -2,6 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 import CleanerCore
 import Observation
+import UserNotifications
 
 /// The assistant: its settings, the conversation, the loop that runs actions, the log of
 /// what it did, and dictation into other apps.
@@ -17,9 +18,9 @@ final class AssistantModel {
         case confirming(String)
     }
 
-    struct Line: Identifiable, Equatable {
-        enum Kind { case person, assistant, action, problem }
-        let id = UUID()
+    struct Line: Identifiable, Equatable, Codable {
+        enum Kind: String, Codable { case person, assistant, action, problem }
+        var id = UUID()
         let kind: Kind
         let text: String
     }
@@ -49,6 +50,8 @@ final class AssistantModel {
         static let table = "assistantPermissions"
         static let dictation = "assistantDictation"
         static let dictionary = "assistantDictionary"
+        static let engine = "assistantVoiceEngine"
+        static let localVoice = "assistantLocalVoice"
     }
 
     // MARK: - Settings
@@ -59,6 +62,9 @@ final class AssistantModel {
     var language: String { didSet { defaults.set(language, forKey: Keys.language) } }
     var speaksAnswers: Bool { didSet { defaults.set(speaksAnswers, forKey: Keys.speaks) } }
     var voiceID: String { didSet { defaults.set(voiceID, forKey: Keys.voice) } }
+    var voiceEngine: VoiceEngine { didSet { defaults.set(voiceEngine.rawValue, forKey: Keys.engine) } }
+    /// The downloaded voice chosen, by its catalogue id.
+    var localVoice: String { didSet { defaults.set(localVoice, forKey: Keys.localVoice) } }
     var rate: Double { didSet { defaults.set(rate, forKey: Keys.rate) } }
     var persona: Persona { didSet { defaults.set(persona.rawValue, forKey: Keys.persona) } }
     var customManner: String { didSet { defaults.set(customManner, forKey: Keys.manner) } }
@@ -84,6 +90,8 @@ final class AssistantModel {
     /// Entries that can still be undone, this session.
     private(set) var undoable: Set<UUID> = []
     private(set) var isDictating = false
+    /// What it was asked to remember, and reminders.
+    private(set) var notes: [AssistantContext.Note] = []
     private(set) var dictated: [String] = []
 
     var isBusy: Bool { phase != .idle }
@@ -93,7 +101,7 @@ final class AssistantModel {
     @ObservationIgnored private weak var state: AppState?
     @ObservationIgnored private let defaults = UserDefaults.standard
     @ObservationIgnored private var turns: [ConversationTurn] = []
-    @ObservationIgnored private var lastTurn = Date.distantPast
+    @ObservationIgnored private var reminderTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var work: Task<Void, Never>?
     @ObservationIgnored private var answer: CheckedContinuation<Bool, Never>?
     @ObservationIgnored private let input = SpeechInput()
@@ -104,6 +112,13 @@ final class AssistantModel {
     @ObservationIgnored private var lastInserted = ""
 
     static let logFile = AppPaths.file("assistant-log.json")
+    static let chatFile = AppPaths.file("assistant-chat.json")
+    static let memoryFile = AppPaths.file("assistant-memory.json")
+
+    private struct Chat: Codable {
+        var turns: [ConversationTurn]
+        var lines: [Line]
+    }
 
     init() {
         defaults.register(defaults: [
@@ -113,10 +128,12 @@ final class AssistantModel {
         ])
         isEnabled = defaults.bool(forKey: Keys.enabled)
         provider = defaults.data(forKey: Keys.provider).flatMap { try? JSONDecoder().decode(ProviderSettings.self, from: $0) }
-            ?? ProviderSettings(kind: .gateway)
+            ?? ProviderSettings(kind: ClaudeCodeRunner.find() != nil ? .claudeCode : .gateway)
         language = defaults.string(forKey: Keys.language) ?? "en"
         speaksAnswers = defaults.bool(forKey: Keys.speaks)
         voiceID = defaults.string(forKey: Keys.voice) ?? ""
+        voiceEngine = VoiceEngine(rawValue: defaults.string(forKey: Keys.engine) ?? "") ?? .system
+        localVoice = defaults.string(forKey: Keys.localVoice) ?? ""
         rate = defaults.double(forKey: Keys.rate)
         persona = Persona(rawValue: defaults.string(forKey: Keys.persona) ?? "") ?? .plain
         customManner = defaults.string(forKey: Keys.manner) ?? ""
@@ -127,6 +144,13 @@ final class AssistantModel {
         usesDictation = defaults.bool(forKey: Keys.dictation)
         dictionary = defaults.dictionary(forKey: Keys.dictionary) as? [String: String] ?? [:]
         log = (try? Data(contentsOf: Self.logFile)).flatMap { try? JSONDecoder().decode([LogEntry].self, from: $0) } ?? []
+        // One conversation that carries on across launches.
+        if let chat = (try? Data(contentsOf: Self.chatFile)).flatMap({ try? JSONDecoder().decode(Chat.self, from: $0) }) {
+            turns = chat.turns
+            lines = chat.lines
+        }
+        notes = (try? Data(contentsOf: Self.memoryFile)).flatMap { try? JSONDecoder().decode([AssistantContext.Note].self, from: $0) } ?? []
+        for note in notes where note.due.map({ $0 > Date() }) == true { scheduleSpoken(note) }
         input.onText = { [weak self] text, final in self?.heard(text, final: final) }
         output.onFinished = { [weak self] in
             guard let self, self.phase == .speaking else { return }
@@ -207,9 +231,12 @@ final class AssistantModel {
         ask(text)
     }
 
-    /// The standing instructions for the mode, with the person's own rules in custom mode.
+    /// The standing instructions for the mode, with what it remembers and, in custom mode,
+    /// the person's own rules.
     private var system: String {
         var text = AssistantPrompt.system(language: language, persona: persona, customManner: customManner)
+        let memory = AssistantContext.memory(notes)
+        if !memory.isEmpty { text += "\n" + memory }
         if mode == .custom, !table.rules.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             text += "\nThe person's own rules, which you follow:\n" + table.rules
         }
@@ -220,11 +247,15 @@ final class AssistantModel {
     func ask(_ text: String) {
         guard let state else { return }
         stop()
-        // A new conversation after ten quiet minutes: old context only confuses.
-        if Date().timeIntervalSince(lastTurn) > 600 { turns = [] }
-        lastTurn = Date()
+        // One conversation throughout; when it would fill the model's context, it starts over.
+        // What should outlive that belongs in the notes, which are always sent.
+        if AssistantContext.size(of: turns) + text.count > AssistantContext.limit(for: provider.kind) {
+            turns = []
+            lines.append(Line(kind: .action, text: String(localized: "The conversation filled the model's memory, so it starts afresh. Notes are kept.")))
+        }
         lines.append(Line(kind: .person, text: text))
         turns.append(.user(text))
+        saveChat()
         phase = .thinking
         let client = AssistantClient(settings: provider, secret: AssistantSecrets.load(provider.kind))
         let system = system
@@ -259,6 +290,76 @@ final class AssistantModel {
             }
             guard let self else { return }
             if self.phase == .thinking { self.phase = self.output.isSpeaking ? .speaking : .idle }
+            self.saveChat()
+        }
+    }
+
+    private func saveChat() {
+        try? FileManager.default.createDirectory(at: Self.chatFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // Pictures are dropped from what is kept: they are large, and old screens say little.
+        let kept = turns.map { turn -> ConversationTurn in
+            if case let .result(id, name, text, failed, image) = turn, image != nil {
+                return .result(callID: id, name: name, text: text + " [screenshot not kept]", failed: failed)
+            }
+            return turn
+        }
+        try? JSONEncoder().encode(Chat(turns: kept, lines: Array(lines.suffix(60)))).write(to: Self.chatFile, options: .atomic)
+    }
+
+    // MARK: - Memory
+
+    @discardableResult
+    func remember(_ text: String, due: Date? = nil) -> AssistantContext.Note {
+        let note = AssistantContext.Note(text: text, due: due)
+        notes.append(note)
+        saveNotes()
+        if due != nil { schedule(note) }
+        return note
+    }
+
+    func forget(_ id: UUID) {
+        notes.removeAll { $0.id == id }
+        reminderTasks.removeValue(forKey: id)?.cancel()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id.uuidString])
+        saveNotes()
+    }
+
+    func forgetEverything() {
+        for note in notes { forget(note.id) }
+    }
+
+    private func saveNotes() {
+        try? FileManager.default.createDirectory(at: Self.memoryFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? JSONEncoder().encode(notes).write(to: Self.memoryFile, options: .atomic)
+    }
+
+    /// A notification at the time, and said aloud too if UniMacHub is open then.
+    private func schedule(_ note: AssistantContext.Note) {
+        guard let due = note.due else { return }
+        Task {
+            let center = UNUserNotificationCenter.current()
+            _ = try? await center.requestAuthorization(options: [.alert, .sound])
+            let content = UNMutableNotificationContent()
+            content.title = String(localized: "Reminder")
+            content.body = note.text
+            content.sound = .default
+            let seconds = max(1, due.timeIntervalSinceNow)
+            try? await center.add(UNNotificationRequest(
+                identifier: note.id.uuidString, content: content,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)
+            ))
+        }
+        scheduleSpoken(note)
+    }
+
+    private func scheduleSpoken(_ note: AssistantContext.Note) {
+        guard let due = note.due else { return }
+        reminderTasks[note.id] = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(0, due.timeIntervalSinceNow)))
+            guard !Task.isCancelled, let self else { return }
+            self.present?()
+            self.say(String(localized: "Reminder: \(note.text)"), kind: .assistant)
+            self.reminderTasks[note.id] = nil
         }
     }
 
@@ -385,6 +486,7 @@ final class AssistantModel {
         stop()
         turns = []
         lines = []
+        saveChat()
     }
 
     private func say(_ text: String, kind: Line.Kind) {
@@ -392,7 +494,22 @@ final class AssistantModel {
         if lines.count > 60 { lines.removeFirst(lines.count - 60) }
         guard speaksAnswers, kind != .action else { return }
         phase = .speaking
-        output.speak(text, language: language, voiceID: voiceID.isEmpty ? nil : voiceID, rate: Float(rate))
+        output.speak(text, language: language, engine: voiceEngine, voiceID: currentVoice, rate: Float(rate))
+    }
+
+    private var currentVoice: String? {
+        switch voiceEngine {
+        case .system: voiceID.isEmpty ? nil : voiceID
+        case .local: localVoice
+        }
+    }
+
+    /// Says a line in the chosen voice, to hear it.
+    func preview() {
+        output.speak(
+            language == "uk" ? "Привіт! Я асистент UniMacHub." : "Hi! I'm UniMacHub's assistant.",
+            language: language, engine: voiceEngine, voiceID: currentVoice, rate: Float(rate)
+        )
     }
 
     /// Checks the provider with one short request.

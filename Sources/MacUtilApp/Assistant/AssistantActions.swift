@@ -264,6 +264,47 @@ enum AssistantActions {
                 await state.dns.flushCache()
                 return ActionOutcome(text: "Cleared the DNS cache.")
             })
+        list.append(AssistantAction(
+            "remember", "Writes down something the person asks you to remember, kept across conversations and always shown to you. With minutes or at, it is a reminder: a notification, and said aloud, at that time.",
+            category: .uniMacHub, level: .reversible,
+            parameters: [
+                "text": string(),
+                "minutes": .object(["type": .string("number"), "description": .string("Remind in this many minutes")]),
+                "at": string("Remind at a time: HH:mm, or yyyy-MM-dd HH:mm, in the person's time zone"),
+            ],
+            required: ["text"]
+        ) { arguments, state in
+            let text = arguments["text"]?.string ?? ""
+            guard !text.isEmpty else { return ActionOutcome(text: "Nothing to remember.", failed: true) }
+            let due = AssistantContext.due(minutes: arguments["minutes"]?.number, at: arguments["at"]?.string)
+            if arguments["at"]?.string != nil || arguments["minutes"]?.number != nil, due == nil {
+                return ActionOutcome(text: "That time could not be read; use HH:mm or yyyy-MM-dd HH:mm.", failed: true)
+            }
+            let note = state.assistant.remember(text, due: due)
+            let said = due.map { "Will remind at \($0.formatted(date: .abbreviated, time: .shortened))." } ?? "Noted."
+            return ActionOutcome(text: said) {
+                state.assistant.forget(note.id)
+                return String(localized: "Forgot it again.")
+            }
+        })
+        list.append(AssistantAction(
+            "forget", "Removes notes or reminders whose text contains these words; all of them with everything set to true.",
+            category: .uniMacHub, level: .reversible, parameters: ["words": string(), "everything": boolean]
+        ) { arguments, state in
+            let gone: [AssistantContext.Note]
+            if arguments["everything"]?.bool == true {
+                gone = state.assistant.notes
+            } else {
+                let words = arguments["words"]?.string ?? ""
+                gone = state.assistant.notes.filter { !words.isEmpty && $0.text.localizedCaseInsensitiveContains(words) }
+            }
+            guard !gone.isEmpty else { return ActionOutcome(text: "No such note.", failed: true) }
+            gone.forEach { state.assistant.forget($0.id) }
+            return ActionOutcome(text: "Forgot \(gone.count).") {
+                for note in gone { state.assistant.remember(note.text, due: note.due.flatMap { $0 > Date() ? $0 : nil }) }
+                return String(localized: "The notes are back.")
+            }
+        })
         list.append(AssistantAction("clipboard_history", "The last things copied, from UniMacHub's clipboard history, newest first.", category: .uniMacHub, level: .read) { _, _ in
                 let entries = ClipboardHistory.load().prefix(10).map(\.preview)
                 return ActionOutcome(text: entries.isEmpty ? "The history is empty or switched off." : entries.joined(separator: "\n"))

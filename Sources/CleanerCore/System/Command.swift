@@ -16,12 +16,14 @@ public enum Command {
         _ arguments: [String] = [],
         timeout: Duration = .seconds(15),
         environment: [String: String] = [:],
-        input: Data? = nil
+        input: Data? = nil,
+        directory: URL? = nil
     ) async -> Output? {
         await Task.detached {
             let process = Process()
             process.executableURL = URL(filePath: executable)
             process.arguments = arguments
+            if let directory { process.currentDirectoryURL = directory }
             if !environment.isEmpty {
                 process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
             }

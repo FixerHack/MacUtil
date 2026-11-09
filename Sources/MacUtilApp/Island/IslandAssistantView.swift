@@ -79,6 +79,16 @@ struct AssistantPage: View {
             }
             .buttonStyle(.plain)
             .help(Text(assistant.phase == .listening ? "Done talking" : "Talk"))
+            if !assistant.lines.isEmpty, !assistant.isBusy {
+                Button {
+                    assistant.clearConversation()
+                } label: {
+                    Image(systemName: "plus.bubble").font(.system(size: 16))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white.opacity(0.6))
+                .help(Text("New conversation: what it remembers stays"))
+            }
             if assistant.isBusy {
                 Button {
                     assistant.stop()

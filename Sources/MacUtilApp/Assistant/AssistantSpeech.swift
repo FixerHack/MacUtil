@@ -1,4 +1,5 @@
 import AVFoundation
+import CleanerCore
 import Speech
 
 /// Hears the person: the microphone through macOS's speech recognition, on this Mac when it
@@ -121,10 +122,22 @@ final class SpeechInput {
     }
 }
 
-/// Speaks the answers in a system voice.
+/// Who speaks the answers.
+enum VoiceEngine: String, CaseIterable, Identifiable {
+    /// macOS's own voices.
+    case system
+    /// A Piper voice downloaded to this Mac (see `LocalVoices`).
+    case local
+    var id: String { rawValue }
+}
+
+/// Speaks the answers in a macOS voice or a downloaded one, falling back to macOS's when
+/// the downloaded one cannot speak.
 @MainActor
-final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
+final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
+    private var player: AVAudioPlayer?
+    private var making: Task<Void, Never>?
     var onFinished: (() -> Void)?
 
     override init() {
@@ -132,7 +145,7 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
-    var isSpeaking: Bool { synthesizer.isSpeaking }
+    var isSpeaking: Bool { synthesizer.isSpeaking || player?.isPlaying == true || making != nil }
 
     static func voices(for language: String) -> [AVSpeechSynthesisVoice] {
         AVSpeechSynthesisVoice.speechVoices()
@@ -140,7 +153,30 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
             .sorted { ($0.quality.rawValue, $0.name) > ($1.quality.rawValue, $1.name) }
     }
 
-    func speak(_ text: String, language: String, voiceID: String?, rate: Float) {
+    func speak(_ text: String, language: String, engine: VoiceEngine, voiceID: String?, rate: Float) {
+        stop()
+        guard engine == .local, let voice = LocalVoices.catalogue.first(where: { $0.id == voiceID }),
+              LocalVoices.shared.isInstalled(voice)
+        else {
+            speakWithSystem(text, language: language, voiceID: engine == .system ? voiceID : nil, rate: rate)
+            return
+        }
+        making = Task { [weak self] in
+            let file = await LocalVoices.shared.synthesize(text, voice: voice, rate: Double(rate))
+            guard let self, !Task.isCancelled else { return }
+            self.making = nil
+            if let file, let player = try? AVAudioPlayer(contentsOf: file) {
+                try? FileManager.default.removeItem(at: file)
+                player.delegate = self
+                self.player = player
+                player.play()
+            } else {
+                self.speakWithSystem(text, language: language, voiceID: nil, rate: rate)
+            }
+        }
+    }
+
+    private func speakWithSystem(_ text: String, language: String, voiceID: String?, rate: Float) {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voiceID.flatMap(AVSpeechSynthesisVoice.init(identifier:))
             ?? Self.voices(for: language).first
@@ -150,10 +186,18 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func stop() {
+        making?.cancel()
+        making = nil
+        player?.stop()
+        player = nil
         synthesizer.stopSpeaking(at: .immediate)
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.onFinished?() }
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in self.onFinished?() }
     }
 }

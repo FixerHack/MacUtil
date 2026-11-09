@@ -89,7 +89,7 @@ public struct ActionSpec: Sendable, Equatable {
 }
 
 /// A request from the model to run an action.
-public struct ActionCall: Sendable, Equatable {
+public struct ActionCall: Sendable, Equatable, Codable {
     public let id: String
     public let name: String
     public let arguments: JSONValue
@@ -102,7 +102,7 @@ public struct ActionCall: Sendable, Equatable {
 }
 
 /// One step of a conversation, as every provider is told it.
-public enum ConversationTurn: Sendable, Equatable {
+public enum ConversationTurn: Sendable, Equatable, Codable {
     case user(String)
     /// What the model said and asked for. `raw` keeps the provider's own content exactly as
     /// it came, since some models need it back unchanged on the next request.
@@ -130,6 +130,8 @@ public struct ModelReply: Sendable, Equatable {
 // MARK: - Providers
 
 public enum ProviderKind: String, Codable, CaseIterable, Sendable, Identifiable {
+    /// Claude Code installed on this Mac, run directly, the way claude-gateway runs it.
+    case claudeCode
     /// The author's claude-gateway: Claude Code as a service.
     case gateway
     /// Anthropic's API with one's own key.
@@ -143,6 +145,7 @@ public enum ProviderKind: String, Codable, CaseIterable, Sendable, Identifiable 
 
     public var defaultURL: String {
         switch self {
+        case .claudeCode: ClaudeCodeRunner.find() ?? ""
         case .gateway: "http://127.0.0.1:8787"
         case .anthropic: "https://api.anthropic.com"
         case .openAI: "https://api.openai.com/v1"
@@ -152,6 +155,7 @@ public enum ProviderKind: String, Codable, CaseIterable, Sendable, Identifiable 
 
     public var defaultModel: String {
         switch self {
+        case .claudeCode: "opus"
         case .gateway: "opus"
         case .anthropic: "claude-opus-5-5"
         case .openAI: ""
@@ -162,17 +166,17 @@ public enum ProviderKind: String, Codable, CaseIterable, Sendable, Identifiable 
     /// Suggestions for the model field.
     public var models: [String] {
         switch self {
-        case .gateway: ["opus", "sonnet", "haiku"]
+        case .claudeCode, .gateway: ["opus", "sonnet", "haiku"]
         case .anthropic: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
         case .openAI, .local: []
         }
     }
 
     /// Whether the model can be shown a screenshot. claude-gateway takes text only so far.
-    public var seesImages: Bool { self != .gateway }
+    public var seesImages: Bool { self != .gateway && self != .claudeCode }
 
     /// Whether it needs a key or token at all.
-    public var needsSecret: Bool { self != .local }
+    public var needsSecret: Bool { self != .local && self != .claudeCode }
 }
 
 public struct ProviderSettings: Codable, Equatable, Sendable {
@@ -190,6 +194,8 @@ public struct ProviderSettings: Codable, Equatable, Sendable {
 public enum AssistantError: Error, Equatable, LocalizedError {
     case noSecret
     case badURL
+    case noClaudeCode
+    case claudeCode(String)
     case http(Int, String)
     case unreadable(String)
 
@@ -197,6 +203,8 @@ public enum AssistantError: Error, Equatable, LocalizedError {
         switch self {
         case .noSecret: String(localized: "No key or token yet: add it in the Assistant's settings.")
         case .badURL: String(localized: "The address is not a valid URL.")
+        case .noClaudeCode: String(localized: "Claude Code is not installed on this Mac, or not where it usually is.")
+        case let .claudeCode(detail): String(localized: "Claude Code: \(detail)")
         case let .http(code, message): String(localized: "The service answered \(code): \(message)")
         case let .unreadable(detail): String(localized: "The answer could not be read: \(detail)")
         }
@@ -436,6 +444,13 @@ public struct AssistantClient: Sendable {
 
     public func reply(system: String, turns: [ConversationTurn], actions: [ActionSpec]) async throws -> ModelReply {
         if settings.kind.needsSecret, (secret ?? "").isEmpty { throw AssistantError.noSecret }
+        if settings.kind == .claudeCode {
+            let body = ProviderWire.gatewayBody(system: system, turns: turns, actions: actions, model: settings.model)
+            return try await ClaudeCodeRunner.run(
+                binary: settings.url, prompt: body["prompt"]?.string ?? "", system: system,
+                model: settings.model, schema: body["json_schema"] ?? .null
+            )
+        }
         let base = settings.url.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
         let path: String
         let body: JSONValue
@@ -450,6 +465,8 @@ public struct AssistantClient: Sendable {
             body = ProviderWire.anthropicBody(system: system, turns: turns, actions: actions, model: settings.model)
             headers.merge(ProviderWire.anthropicHeaders(model: settings.model)) { _, new in new }
             headers["x-api-key"] = secret ?? ""
+        case .claudeCode:
+            throw AssistantError.badURL
         case .openAI, .local:
             path = base + "/chat/completions"
             body = ProviderWire.openAIBody(system: system, turns: turns, actions: actions, model: settings.model)
@@ -469,7 +486,7 @@ public struct AssistantClient: Sendable {
             throw AssistantError.http(status, message)
         }
         switch settings.kind {
-        case .gateway: return try ProviderWire.gatewayReply(json)
+        case .claudeCode, .gateway: return try ProviderWire.gatewayReply(json)
         case .anthropic: return try ProviderWire.anthropicReply(json)
         case .openAI, .local: return try ProviderWire.openAIReply(json)
         }
@@ -515,7 +532,43 @@ public enum AssistantPrompt {
 
 /// Each provider's key or token, in the login Keychain only.
 public enum AssistantSecrets {
-    static func service(_ kind: ProviderKind) -> String { MacUtilInfo.bundleIdentifier + ".assistant." + kind.rawValue }
+    static func service(_ kind: ProviderKind) -> String { service(named: kind.rawValue) }
+    static func service(named name: String) -> String { MacUtilInfo.bundleIdentifier + ".assistant." + name }
+
+    public static func load(named name: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service(named: name),
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    public static func has(named name: String) -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service(named: name),
+            kSecReturnAttributes as String: true, kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
+    }
+
+    @discardableResult
+    public static func save(_ secret: String, named name: String) -> Bool {
+        delete(named: name)
+        let item: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service(named: name),
+            kSecAttrAccount as String: name, kSecValueData as String: Data(secret.utf8),
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+        ]
+        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
+    }
+
+    public static func delete(named name: String) {
+        SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service(named: name)] as CFDictionary)
+    }
 
     public static func load(_ kind: ProviderKind) -> String? {
         let query: [String: Any] = [
@@ -559,3 +612,135 @@ public enum AssistantSecrets {
         SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service(kind)] as CFDictionary)
     }
 }
+
+/// Runs the Claude Code installed on this Mac as a plain model, the way claude-gateway does:
+/// no tools, no MCP, no session kept, in an empty folder of its own, answering to a schema.
+/// It uses the person's own sign-in to Claude Code.
+public enum ClaudeCodeRunner {
+    /// Where Claude Code usually lives.
+    public static func find() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let places = [
+            "\(home)/.local/bin/claude", "\(home)/.claude/local/claude", "/opt/homebrew/bin/claude",
+            "/usr/local/bin/claude", "\(home)/.npm-global/bin/claude", "\(home)/.bun/bin/claude",
+        ]
+        return places.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    public static func arguments(system: String, model: String, schema: JSONValue) -> [String] {
+        var arguments = [
+            // The person's hooks stay out: UniMacHub's own would list every question as an agent.
+            "-p", "--output-format", "json", "--settings", #"{"disableAllHooks":true}"#,
+            "--system-prompt", system, "--model", model,
+            "--tools", "", "--disallowedTools", "mcp__*", "--no-session-persistence",
+        ]
+        if schema != .null { arguments += ["--json-schema", schema.text] }
+        return arguments
+    }
+
+    /// Its `--output-format json` answer, read the way the gateway reads it.
+    public static func reply(fromOutput text: String) throws -> ModelReply {
+        // Anything printed before the answer is skipped: the answer is the last JSON object.
+        let line = text.split(separator: "\n").last { $0.hasPrefix("{") }.map(String.init) ?? text
+        guard let json = JSONValue.parse(line), case .object = json else {
+            throw AssistantError.claudeCode(String(text.suffix(300)).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        if json["is_error"]?.bool == true {
+            throw AssistantError.claudeCode(json["result"]?.string ?? "error")
+        }
+        var response: [String: JSONValue] = ["text": json["result"] ?? .string("")]
+        if let structured = json["structured_output"], structured != .null { response["structured"] = structured }
+        return try ProviderWire.gatewayReply(.object(response))
+    }
+
+    public static func run(binary: String, prompt: String, system: String, model: String, schema: JSONValue) async throws -> ModelReply {
+        let path = binary.isEmpty ? (find() ?? "") : binary
+        guard FileManager.default.isExecutableFile(atPath: path) else { throw AssistantError.noClaudeCode }
+        let folder = FileManager.default.temporaryDirectory.appending(path: "unimachub-claude-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let output = await Command.run(
+            path, arguments(system: system, model: model, schema: schema),
+            timeout: .seconds(180),
+            // A spoken answer to a plain request does not need long thought.
+            environment: ["MAX_THINKING_TOKENS": "0"],
+            input: Data(prompt.utf8),
+            directory: folder
+        )
+        guard let output else { throw AssistantError.claudeCode(String(localized: "no answer in three minutes")) }
+        return try reply(fromOutput: output.text)
+    }
+}
+
+/// The one long conversation: how much of the model's context it fills, and the notes the
+/// assistant keeps when asked to remember something.
+public enum AssistantContext {
+    /// Roughly how many characters the conversation sends, a picture counting as a page.
+    public static func size(of turns: [ConversationTurn]) -> Int {
+        turns.reduce(0) { total, turn in
+            switch turn {
+            case let .user(text): return total + text.count
+            case let .assistant(text, calls, raw): return total + text.count + calls.reduce(0) { $0 + $1.arguments.text.count } + (raw?.text.count ?? 0) / 2
+            case let .result(_, _, text, _, image): return total + text.count + (image == nil ? 0 : 6000)
+            }
+        }
+    }
+
+    /// How much one provider takes before the conversation starts over. Claude Code and the
+    /// gateway are sent the whole conversation as one text each time, and local models have
+    /// small contexts; Anthropic's and OpenAI's models take far more.
+    public static func limit(for kind: ProviderKind) -> Int {
+        switch kind {
+        case .claudeCode, .gateway: 80000
+        case .anthropic: 400_000
+        case .openAI: 200_000
+        case .local: 24000
+        }
+    }
+
+    /// One thing the person asked it to remember, or to remind them of at a time.
+    public struct Note: Codable, Equatable, Sendable, Identifiable {
+        public var id = UUID()
+        public var text: String
+        public var saved = Date()
+        public var due: Date?
+
+        public init(text: String, due: Date? = nil) {
+            self.text = text
+            self.due = due
+        }
+    }
+
+    /// The notes, for the standing instructions.
+    public static func memory(_ notes: [Note], now: Date = Date()) -> String {
+        guard !notes.isEmpty else { return "" }
+        let lines = notes.map { note -> String in
+            if let due = note.due {
+                return "- Reminder \(due > now ? "due" : "given") \(due.formatted(date: .abbreviated, time: .shortened)): \(note.text)"
+            }
+            return "- \(note.text) (noted \(note.saved.formatted(date: .abbreviated, time: .omitted)))"
+        }
+        return "What the person asked you to remember (use it; remove a note with forget when they ask):\n" + lines.joined(separator: "\n")
+    }
+
+    /// When a reminder is due: in so many minutes, or at a time today or later, written as
+    /// "18:30" or "2026-11-10 09:00".
+    public static func due(minutes: Double?, at text: String?, now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        if let minutes, minutes > 0 { return now.addingTimeInterval(minutes * 60) }
+        guard let text = text?.trimmingCharacters(in: .whitespaces), !text.isEmpty else { return nil }
+        let full = DateFormatter()
+        full.locale = Locale(identifier: "en_US_POSIX")
+        full.calendar = calendar
+        full.timeZone = calendar.timeZone
+        for format in ["yyyy-MM-dd HH:mm", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss"] {
+            full.dateFormat = format
+            if let date = full.date(from: text) { return date }
+        }
+        let parts = text.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2, (0 ..< 24).contains(parts[0]), (0 ..< 60).contains(parts[1]),
+              let today = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: now)
+        else { return nil }
+        return today > now ? today : calendar.date(byAdding: .day, value: 1, to: today)
+    }
+}
+

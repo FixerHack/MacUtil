@@ -224,3 +224,43 @@ struct AssistantPolicyTests {
         #expect(toolUse.calls.count == 1 && toolUse.text == "On it.")
     }
 }
+
+struct ClaudeCodeRunnerTests {
+    @Test func readsItsAnswerAndSkipsWhatComesAfter() throws {
+        let output = #"{"type":"result","is_error":false,"result":"{\"say\":\"2 + 2 = 4\",\"action\":null}","structured_output":{"say":"2 + 2 = 4","action":null}}"# + "\nSessionEnd hook failed: ECONNREFUSED\n"
+        let reply = try ClaudeCodeRunner.reply(fromOutput: output)
+        #expect(reply.text == "2 + 2 = 4" && reply.calls.isEmpty)
+        let acting = #"{"is_error":false,"result":"","structured_output":{"say":"Opening.","action":{"name":"open_tool","arguments":{"tool":"dashboard"}}}}"#
+        #expect(try ClaudeCodeRunner.reply(fromOutput: acting).calls.first?.arguments["tool"]?.string == "dashboard")
+        #expect(throws: AssistantError.self) { try ClaudeCodeRunner.reply(fromOutput: #"{"is_error":true,"result":"Not logged in"}"#) }
+        let arguments = ClaudeCodeRunner.arguments(system: "s", model: "haiku", schema: .object([:]))
+        #expect(arguments.contains("--no-session-persistence") && arguments.contains("--tools") && arguments.contains(#"{"disableAllHooks":true}"#))
+    }
+}
+
+struct AssistantMemoryTests {
+    @Test func readsWhenAReminderIsDue() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Kyiv")!
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 20, minute: 0)))
+        #expect(AssistantContext.due(minutes: 15, at: nil, now: now) == now.addingTimeInterval(900))
+        let later = try #require(AssistantContext.due(minutes: nil, at: "21:30", now: now, calendar: calendar))
+        #expect(calendar.component(.hour, from: later) == 21 && calendar.component(.day, from: later) == 9)
+        // A time already gone today means tomorrow.
+        let morning = try #require(AssistantContext.due(minutes: nil, at: "08:00", now: now, calendar: calendar))
+        #expect(calendar.component(.day, from: morning) == 10)
+        #expect(AssistantContext.due(minutes: nil, at: "2026-11-12 09:15", now: now, calendar: calendar) != nil)
+        #expect(AssistantContext.due(minutes: nil, at: "soon", now: now, calendar: calendar) == nil)
+    }
+
+    @Test func knowsWhenTheConversationIsFull() {
+        let turns: [ConversationTurn] = [.user(String(repeating: "a", count: 1000)), .result(callID: "x", name: "screenshot", text: "ok", failed: false, image: Data([1]))]
+        #expect(AssistantContext.size(of: turns) > 6000)
+        #expect(AssistantContext.limit(for: .local) < AssistantContext.limit(for: .anthropic))
+        let memory = AssistantContext.memory([AssistantContext.Note(text: "Parking on level 3")])
+        #expect(memory.contains("Parking on level 3"))
+        // The conversation survives a restart.
+        let data = try? JSONEncoder().encode(turns)
+        #expect(data.flatMap { try? JSONDecoder().decode([ConversationTurn].self, from: $0) } == turns)
+    }
+}

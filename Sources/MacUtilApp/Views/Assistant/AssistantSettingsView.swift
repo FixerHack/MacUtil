@@ -8,6 +8,7 @@ struct AssistantSettingsView: View {
     @Environment(AppState.self) private var state
     @State private var heard = ""
     @State private var written = ""
+
     @State private var secret = ""
     @State private var hasSecret = false
     @State private var testing = false
@@ -28,16 +29,29 @@ struct AssistantSettingsView: View {
                 Picker("Provider", selection: Binding(
                     get: { model.provider.kind },
                     set: { kind in
-                        model.provider = ProviderSettings(kind: kind)
+                        // Keeps the model when the new provider knows it, as opus, sonnet and haiku.
+                        let model = kind.models.contains(self.model.provider.model) ? self.model.provider.model : nil
+                        self.model.provider = ProviderSettings(kind: kind, model: model)
                         loadSecret()
                     }
                 )) {
+                    Text("Claude Code on this Mac").tag(ProviderKind.claudeCode)
                     Text("claude-gateway").tag(ProviderKind.gateway)
                     Text("Anthropic API").tag(ProviderKind.anthropic)
                     Text("OpenAI-compatible (OpenAI, OpenRouter)").tag(ProviderKind.openAI)
                     Text("On this Mac (Ollama, LM Studio)").tag(ProviderKind.local)
                 }
-                TextField("Address", text: $model.provider.url)
+                if model.provider.kind == .claudeCode {
+                    LabeledContent("Claude Code") {
+                        if FileManager.default.isExecutableFile(atPath: model.provider.url) {
+                            Text(verbatim: (model.provider.url as NSString).abbreviatingWithTildeInPath).foregroundStyle(.secondary)
+                        } else {
+                            Text("Not found").foregroundStyle(.orange)
+                        }
+                    }
+                } else {
+                    TextField("Address", text: $model.provider.url)
+                }
                 HStack {
                     TextField("Model", text: $model.provider.model)
                     if !model.provider.kind.models.isEmpty {
@@ -98,15 +112,35 @@ struct AssistantSettingsView: View {
                 }
                 Toggle("Speak the answers", isOn: $model.speaksAnswers)
                 if model.speaksAnswers {
-                    Picker("Voice", selection: $model.voiceID) {
-                        Text("Automatic").tag("")
-                        ForEach(SpeechOutput.voices(for: model.language), id: \.identifier) { voice in
-                            Text(verbatim: voice.name + (voice.quality == .enhanced || voice.quality == .premium ? " ★" : "")).tag(voice.identifier)
+                    Picker("Voices", selection: $model.voiceEngine) {
+                        Text("macOS").tag(VoiceEngine.system)
+                        Text("Downloaded").tag(VoiceEngine.local)
+                    }
+                    .pickerStyle(.segmented)
+                    if model.voiceEngine == .system {
+                        Picker("Voice", selection: $model.voiceID) {
+                            Text("Automatic").tag("")
+                            ForEach(SpeechOutput.voices(for: model.language), id: \.identifier) { voice in
+                                Text(verbatim: voice.name + (voice.quality == .enhanced || voice.quality == .premium ? " ★" : "")).tag(voice.identifier)
+                            }
                         }
+                        HStack {
+                            Text("macOS has more voices to download, the better ones marked ★.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Get More Voices…") {
+                                let pane = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension?SpokenContent")
+                                if let pane { NSWorkspace.shared.open(pane) }
+                            }
+                        }
+                    } else {
+                        LocalVoicesList(voices: LocalVoices.shared, chosen: $model.localVoice, language: model.language)
                     }
                     LabeledContent("Speed") {
                         Slider(value: $model.rate, in: 0.6 ... 1.6)
                     }
+                    Button("Listen") { model.preview() }
                 }
                 Picker("Character", selection: $model.persona) {
                     Text("Plain").tag(Persona.plain)
@@ -259,6 +293,41 @@ struct AssistantSettingsView: View {
             }
 
             Section {
+                if model.notes.isEmpty {
+                    Text("Nothing yet. Say “remember…” or “remind me at 18:00…”.").foregroundStyle(.secondary)
+                }
+                ForEach(model.notes) { note in
+                    HStack(alignment: .top) {
+                        Image(systemName: note.due == nil ? "note.text" : "bell")
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(verbatim: note.text)
+                            Text(note.due.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? note.saved.formatted(date: .abbreviated, time: .omitted))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            model.forget(note.id)
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                HStack {
+                    Button("New Conversation") { model.clearConversation() }
+                    if !model.notes.isEmpty {
+                        Button("Forget Everything", role: .destructive) { model.forgetEverything() }
+                    }
+                }
+            } header: {
+                Text("Memory")
+            } footer: {
+                Text("One conversation carries on, across launches too, until it fills the model's context; then it starts afresh on its own. What you ask it to remember or to remind you of is kept here apart from the conversation, and it always knows it. Reminders come as a notification and are said aloud if UniMacHub is open.")
+            }
+
+            Section {
                 if model.log.isEmpty {
                     Text("Nothing yet.").foregroundStyle(.secondary)
                 }
@@ -296,6 +365,8 @@ struct AssistantSettingsView: View {
 
     private var providerNote: LocalizedStringKey {
         switch model.provider.kind {
+        case .claudeCode:
+            "Runs the Claude Code installed on this Mac, signed in as you, the way claude-gateway does: no tools of its own, nothing kept, in an empty folder. No gateway, address or token. Haiku answers in about three seconds; Opus thinks longer. If it is not found, install Claude Code and sign in with “claude” in Terminal."
         case .gateway:
             "claude-gateway runs Claude Code as a service, on this Mac or a server of yours. A personal Claude subscription is for its owner: anyone else uses their own gateway or API key. The token stays in your Keychain."
         case .anthropic:
@@ -379,6 +450,90 @@ extension ActionCategory {
         case .messages: "Messages and mail"
         case .systemSettings: "System settings"
         case .admin: "Administrator rights"
+        }
+    }
+}
+
+/// Piper voices for the language: hear a sample, download light or full, choose, delete.
+private struct LocalVoicesList: View {
+    let voices: LocalVoices
+    @Binding var chosen: String
+    let language: String
+    @State private var confirmingFull: LocalVoice?
+
+    var body: some View {
+        ForEach(LocalVoices.catalogue.filter { $0.language == language }) { voice in
+            HStack(spacing: 10) {
+                Button {
+                    chosen = voice.id
+                } label: {
+                    Image(systemName: chosen == voice.id ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(chosen == voice.id ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!voices.isInstalled(voice))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verbatim: voice.name)
+                    Text(status(of: voice))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    voices.playSample(voice)
+                } label: {
+                    Image(systemName: "play.circle")
+                }
+                .buttonStyle(.plain)
+                .help(Text("Hear a sample"))
+                if let progress = voices.progress(of: voice) {
+                    ProgressView(value: progress).frame(width: 80)
+                } else {
+                    if voice.full != nil, !voices.isFull(voice) {
+                        Button("Full Quality…") { confirmingFull = voice }
+                    }
+                    if voices.isInstalled(voice) {
+                        Button("Delete", role: .destructive) {
+                            if chosen == voice.id { chosen = "" }
+                            voices.delete(voice)
+                        }
+                    } else {
+                        Button("Download") { get(voice, full: false) }
+                    }
+                }
+            }
+        }
+        .alert(
+            "Download the full-quality voice?",
+            isPresented: Binding(get: { confirmingFull != nil }, set: { if !$0 { confirmingFull = nil } }),
+            presenting: confirmingFull
+        ) { voice in
+            Button("Download") { get(voice, full: true) }
+            Button("Cancel", role: .cancel) {}
+        } message: { voice in
+            let size = (voice.full?.bytes ?? 0).formatted(.byteCount(style: .file))
+            Text("It sounds more natural, but takes about \(size) on disk, about three times as much memory while it speaks, and a little longer to start each answer. It replaces the light version.")
+        }
+        if let problem = voices.problem {
+            Text(verbatim: problem).font(.caption).foregroundStyle(.orange)
+        }
+        Text("Open voices from the Piper project, spoken on this Mac by sherpa-onnx: no account, no key, nothing sent anywhere. The first voice also brings the speaking tool, about 20 MB; deleting the last voice removes it. Each download is checked against the checksum GitHub publishes for it. In use now: \(voices.usedBytes.formatted(.byteCount(style: .file))).")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    private func status(of voice: LocalVoice) -> String {
+        if let package = voices.installedPackage(voice) {
+            let kind = package == voice.full ? String(localized: "full quality") : String(localized: "light")
+            return "\(voice.detail) · \(kind) · \(package.bytes.formatted(.byteCount(style: .file)))"
+        }
+        return "\(voice.detail) · \(voice.light.bytes.formatted(.byteCount(style: .file)))"
+    }
+
+    private func get(_ voice: LocalVoice, full: Bool) {
+        Task {
+            await voices.download(voice, full: full)
+            if voices.isInstalled(voice), chosen.isEmpty { chosen = voice.id }
         }
     }
 }
