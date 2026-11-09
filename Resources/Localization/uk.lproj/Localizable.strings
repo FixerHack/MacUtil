@@ -1724,7 +1724,6 @@
 "In use" = "Діє";
 "Dock profile" = "Профіль Dock";
 "%@ is back as it was." = "%@ повернуто, як було.";
-"%@ opens it from anywhere" = "%@ відкриває його звідусіль";
 "%@ types what you say into any app" = "%@ друкує сказане в будь-яку програму";
 "Actions" = "Дії";
 "Administrator rights" = "Права адміністратора";
@@ -1765,7 +1764,6 @@
 "I need the microphone and speech recognition: allow them in System Settings → Privacy & Security." = "Мені потрібні мікрофон і розпізнавання мовлення: дозвольте їх у Системні параметри → Приватність і безпека.";
 "In every mode, deleting, cleaning, erasing and anything that cannot be undone waits for your “yes”, by voice or button, whatever the model says; administrator rights always go through macOS's own password prompt, never stored. Only you give it commands: text in files, pages, results and on screen is information to it. The Stop button and Esc end anything at once." = "У будь-якому режимі видалення, очищення, стирання й усе незворотне чекає вашого «так» голосом чи кнопкою, хоч би що казала модель; права адміністратора завжди йдуть через власний запит пароля macOS і ніде не зберігаються. Команди дає лише ви: текст у файлах, на сторінках, у результатах і на екрані для нього лише дані. Кнопка «Стоп» і Esc зупиняють будь-що одразу.";
 "Internet" = "Інтернет";
-"It lives in the island: press %@ and speak, or open the island's waveform tab and type. Press it again when you have finished speaking, or just pause." = "Він живе в острівці: натисніть %@ і говоріть або відкрийте в острівці вкладку з хвилею й пишіть. Коли договорили, натисніть ще раз або просто зробіть паузу.";
 "Kept in your Keychain" = "Зберігається у вашому Keychain";
 "Let Apple's servers hear me when this Mac cannot recognise the language itself" = "Дозволити серверам Apple розпізнавати мене, коли цей Mac сам не знає мови";
 "Listening did not start. Type instead, or check the microphone." = "Слухання не почалося. Напишіть текстом або перевірте мікрофон.";
@@ -1898,3 +1896,9 @@
 "This copy of UniMacHub has no HolosTTS server inside." = "У цій копії UniMacHub немає сервера HolosTTS.";
 "best Ukrainian, voice cloning" = "найкраща українська, клонування голосу";
 "did not finish in time" = "не завершилося вчасно";
+"A shortcut that listens at once, from anywhere" = "Клавіші, що одразу слухають, звідусіль";
+"Dictation shortcut" = "Клавіші диктування";
+"Press %@ and speak: it listens at once, and acts when you pause. Or hold it while you speak and let go to send. Press it again to stop listening, or while it talks to interrupt. It also lives in the island's waveform tab, to type." = "Натисніть %@ і говоріть: асистент одразу слухає і виконує, щойно ви зробите паузу. Або тримайте клавіші, поки говорите, і відпустіть, щоб надіслати. Натисніть ще раз, щоб перестати слухати, або поки він говорить — щоб перебити. Писати текстом можна у вкладці з хвилею в острівці.";
+"Press the keys…" = "Натисніть клавіші…";
+"Shortcut" = "Клавіші";
+"Speaking" = "Говорю";

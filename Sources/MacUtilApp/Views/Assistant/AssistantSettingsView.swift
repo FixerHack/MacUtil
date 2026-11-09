@@ -19,10 +19,15 @@ struct AssistantSettingsView: View {
         Form {
             Section {
                 Toggle("Assistant", isOn: $model.isEnabled)
-                Toggle("\(AssistantModel.hotKeyLabel) opens it from anywhere", isOn: $model.usesHotKey)
+                Toggle("A shortcut that listens at once, from anywhere", isOn: $model.usesHotKey)
                     .disabled(!model.isEnabled)
+                if model.usesHotKey {
+                    LabeledContent("Shortcut") {
+                        ShortcutRecorder(shortcut: $model.shortcut, fallback: .assistant, model: model)
+                    }
+                }
             } footer: {
-                Text("It lives in the island: press \(AssistantModel.hotKeyLabel) and speak, or open the island's waveform tab and type. Press it again when you have finished speaking, or just pause.")
+                Text("Press \(model.hotKeyLabel) and speak: it listens at once, and acts when you pause. Or hold it while you speak and let go to send. Press it again to stop listening, or while it talks to interrupt. It also lives in the island's waveform tab, to type.")
             }
 
             Section {
@@ -252,7 +257,12 @@ struct AssistantSettingsView: View {
             }
 
             Section {
-                Toggle("\(AssistantModel.dictationKeyLabel) types what you say into any app", isOn: $model.usesDictation)
+                Toggle("\(model.dictationKeyLabel) types what you say into any app", isOn: $model.usesDictation)
+                if model.usesDictation {
+                    LabeledContent("Dictation shortcut") {
+                        ShortcutRecorder(shortcut: $model.dictationShortcut, fallback: .dictation, model: model)
+                    }
+                }
                 Text("Press it, speak, pause or press it again: the text goes where the cursor is, without “um” and “ну”. Say “скасуй останнє речення” or “delete the last sentence” to take the last one back. The clipboard is put back as it was.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -681,6 +691,60 @@ private struct VoiceCloneSheet: View {
             }
             working = false
         }
+    }
+}
+
+/// Records a shortcut: click, then press the keys. Esc leaves it as it was.
+private struct ShortcutRecorder: View {
+    @Binding var shortcut: AssistantModel.Shortcut
+    let fallback: AssistantModel.Shortcut
+    let model: AssistantModel
+    @State private var recording = false
+    @State private var monitor: Any?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button {
+                recording ? stop() : start()
+            } label: {
+                Text(recording ? String(localized: "Press the keys…") : shortcut.label)
+                    .monospaced()
+                    .frame(minWidth: 90)
+            }
+            .buttonStyle(.bordered)
+            .tint(recording ? .accentColor : nil)
+            if !recording {
+                if shortcut != fallback {
+                    Button("Reset") { shortcut = fallback }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                }
+            }
+        }
+        .onDisappear { stop() }
+    }
+
+    private func start() {
+        recording = true
+        model.pauseHotKeys(true)
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 {
+                stop()
+                return nil
+            }
+            if let recorded = AssistantModel.Shortcut(event: event) {
+                shortcut = recorded
+                stop()
+            }
+            return nil
+        }
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        if recording { model.pauseHotKeys(false) }
+        recording = false
     }
 }
 

@@ -52,6 +52,8 @@ final class AssistantModel {
         static let dictionary = "assistantDictionary"
         static let engine = "assistantVoiceEngine"
         static let localVoice = "assistantLocalVoice"
+        static let shortcut = "assistantShortcut"
+        static let dictationShortcut = "assistantDictationShortcut"
     }
 
     // MARK: - Settings
@@ -90,6 +92,8 @@ final class AssistantModel {
     /// Entries that can still be undone, this session.
     private(set) var undoable: Set<UUID> = []
     private(set) var isDictating = false
+    /// The microphone's loudness, 0…1, for the animation.
+    private(set) var level: Double = 0
     /// What it was asked to remember, and reminders.
     private(set) var notes: [AssistantContext.Note] = []
     private(set) var dictated: [String] = []
@@ -134,6 +138,8 @@ final class AssistantModel {
         voiceID = defaults.string(forKey: Keys.voice) ?? ""
         voiceEngine = VoiceEngine(rawValue: defaults.string(forKey: Keys.engine) ?? "") ?? .system
         localVoice = defaults.string(forKey: Keys.localVoice) ?? ""
+        shortcut = defaults.data(forKey: Keys.shortcut).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .assistant
+        dictationShortcut = defaults.data(forKey: Keys.dictationShortcut).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .dictation
         rate = defaults.double(forKey: Keys.rate)
         persona = Persona(rawValue: defaults.string(forKey: Keys.persona) ?? "") ?? .plain
         customManner = defaults.string(forKey: Keys.manner) ?? ""
@@ -152,6 +158,11 @@ final class AssistantModel {
         notes = (try? Data(contentsOf: Self.memoryFile)).flatMap { try? JSONDecoder().decode([AssistantContext.Note].self, from: $0) } ?? []
         for note in notes where note.due.map({ $0 > Date() }) == true { scheduleSpoken(note) }
         input.onText = { [weak self] text, final in self?.heard(text, final: final) }
+        input.onLevel = { [weak self] level in
+            guard let self else { return }
+            // Quick to rise, slower to fall, so the wave breathes rather than flickers.
+            self.level = level > self.level ? level : self.level * 0.75 + level * 0.25
+        }
         output.onFinished = { [weak self] in
             guard let self, self.phase == .speaking else { return }
             self.phase = .idle
@@ -585,10 +596,96 @@ final class AssistantModel {
         }
     }
 
-    // MARK: - Hot keys: ⌃⌥Space for the assistant, ⌃⌥D for dictation
+    // MARK: - Hot keys
 
-    static let hotKeyLabel = "⌃⌥Space"
-    static let dictationKeyLabel = "⌃⌥D"
+    /// A global key: Carbon's key code and modifiers, which need no permission.
+    struct Shortcut: Codable, Equatable {
+        var key: UInt32
+        var modifiers: UInt32
+
+        /// ⌥Space: ⌃⌥Space is macOS's own for switching the input language.
+        static let assistant = Shortcut(key: UInt32(kVK_Space), modifiers: UInt32(optionKey))
+        static let dictation = Shortcut(key: UInt32(kVK_ANSI_D), modifiers: UInt32(controlKey | optionKey))
+
+        var label: String {
+            var text = ""
+            if modifiers & UInt32(controlKey) != 0 { text += "⌃" }
+            if modifiers & UInt32(optionKey) != 0 { text += "⌥" }
+            if modifiers & UInt32(shiftKey) != 0 { text += "⇧" }
+            if modifiers & UInt32(cmdKey) != 0 { text += "⌘" }
+            return text + Self.name(of: key)
+        }
+
+        static func name(of key: UInt32) -> String {
+            let names: [Int: String] = [
+                kVK_Space: "Space", kVK_Return: "↩", kVK_Tab: "⇥", kVK_Escape: "⎋", kVK_Delete: "⌫",
+                kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4", kVK_F5: "F5", kVK_F6: "F6",
+                kVK_F7: "F7", kVK_F8: "F8", kVK_F9: "F9", kVK_F10: "F10", kVK_F11: "F11", kVK_F12: "F12",
+                kVK_F13: "F13", kVK_F14: "F14", kVK_F15: "F15", kVK_F16: "F16", kVK_F17: "F17", kVK_F18: "F18",
+                kVK_F19: "F19", kVK_LeftArrow: "←", kVK_RightArrow: "→", kVK_UpArrow: "↑", kVK_DownArrow: "↓",
+                kVK_ANSI_Grave: "`", kVK_ANSI_Minus: "-", kVK_ANSI_Equal: "=", kVK_ANSI_Comma: ",", kVK_ANSI_Period: ".",
+                kVK_ANSI_Slash: "/", kVK_ANSI_Semicolon: ";", kVK_ANSI_Quote: "'", kVK_ANSI_LeftBracket: "[",
+                kVK_ANSI_RightBracket: "]", kVK_ANSI_Backslash: "\\",
+            ]
+            if let name = names[Int(key)] { return name }
+            let letters: [Int: String] = [
+                kVK_ANSI_A: "A", kVK_ANSI_B: "B", kVK_ANSI_C: "C", kVK_ANSI_D: "D", kVK_ANSI_E: "E", kVK_ANSI_F: "F",
+                kVK_ANSI_G: "G", kVK_ANSI_H: "H", kVK_ANSI_I: "I", kVK_ANSI_J: "J", kVK_ANSI_K: "K", kVK_ANSI_L: "L",
+                kVK_ANSI_M: "M", kVK_ANSI_N: "N", kVK_ANSI_O: "O", kVK_ANSI_P: "P", kVK_ANSI_Q: "Q", kVK_ANSI_R: "R",
+                kVK_ANSI_S: "S", kVK_ANSI_T: "T", kVK_ANSI_U: "U", kVK_ANSI_V: "V", kVK_ANSI_W: "W", kVK_ANSI_X: "X",
+                kVK_ANSI_Y: "Y", kVK_ANSI_Z: "Z", kVK_ANSI_0: "0", kVK_ANSI_1: "1", kVK_ANSI_2: "2", kVK_ANSI_3: "3",
+                kVK_ANSI_4: "4", kVK_ANSI_5: "5", kVK_ANSI_6: "6", kVK_ANSI_7: "7", kVK_ANSI_8: "8", kVK_ANSI_9: "9",
+            ]
+            return letters[Int(key)] ?? "#\(key)"
+        }
+
+        /// From a key press in a window, as the settings page records it.
+        init?(event: NSEvent) {
+            var carbon: UInt32 = 0
+            if event.modifierFlags.contains(.control) { carbon |= UInt32(controlKey) }
+            if event.modifierFlags.contains(.option) { carbon |= UInt32(optionKey) }
+            if event.modifierFlags.contains(.shift) { carbon |= UInt32(shiftKey) }
+            if event.modifierFlags.contains(.command) { carbon |= UInt32(cmdKey) }
+            let key = UInt32(event.keyCode)
+            // A bare key would fire while typing; function keys may stand alone.
+            let function = (Int(kVK_F1) ... Int(kVK_F20)).contains(Int(key)) || [kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19].contains(Int(key))
+            guard carbon != 0 || function else { return nil }
+            self.init(key: key, modifiers: carbon)
+        }
+
+        init(key: UInt32, modifiers: UInt32) {
+            self.key = key
+            self.modifiers = modifiers
+        }
+    }
+
+    var shortcut: Shortcut { didSet { defaults.set(try? JSONEncoder().encode(shortcut), forKey: Keys.shortcut); updateHotKeys() } }
+    var dictationShortcut: Shortcut { didSet { defaults.set(try? JSONEncoder().encode(dictationShortcut), forKey: Keys.dictationShortcut); updateHotKeys() } }
+    var hotKeyLabel: String { shortcut.label }
+    var dictationKeyLabel: String { dictationShortcut.label }
+
+    /// Held down this long, the key works as press-to-talk: talking ends when it is let go.
+    @ObservationIgnored private var pressedAt: Date?
+
+    private func hotKeyDown() {
+        pressedAt = Date()
+        guard isEnabled else { return }
+        if isDictating { input.finish(); return }
+        present?()
+        switch phase {
+        case .listening: input.finish()
+        case .thinking: break
+        case .confirming: listen()
+        case .speaking, .idle: listen()
+        }
+    }
+
+    private func hotKeyUp() {
+        defer { pressedAt = nil }
+        guard let pressedAt, Date().timeIntervalSince(pressedAt) > 0.45 else { return }
+        // Held, then let go: what was said goes at once.
+        if phase == .listening { input.finish() }
+    }
 
     private func updateHotKeys() {
         hotKeys.forEach { UnregisterEventHotKey($0) }
@@ -596,28 +693,46 @@ final class AssistantModel {
         guard isEnabled, state != nil else { return }
         if hotKeyHandler == nil {
             var handler: EventHandlerRef?
-            var type = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+            var types = [
+                EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+                EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased)),
+            ]
             InstallEventHandler(GetApplicationEventTarget(), { _, event, data in
                 guard let data, let event else { return noErr }
                 var key = EventHotKeyID()
                 GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &key)
                 let model = Unmanaged<AssistantModel>.fromOpaque(data).takeUnretainedValue()
                 let id = key.id
+                let pressed = GetEventKind(event) == UInt32(kEventHotKeyPressed)
                 MainActor.assumeIsolated {
-                    if id == 2 { model.dictate() } else { model.activate() }
+                    switch (id, pressed) {
+                    case (2, true): model.dictate()
+                    case (2, false): break
+                    case (_, true): model.hotKeyDown()
+                    case (_, false): model.hotKeyUp()
+                    }
                 }
                 return noErr
-            }, 1, &type, Unmanaged.passUnretained(self).toOpaque(), &handler)
+            }, 2, &types, Unmanaged.passUnretained(self).toOpaque(), &handler)
             hotKeyHandler = handler
         }
-        let modifiers = UInt32(controlKey | optionKey)
-        if usesHotKey { register(UInt32(kVK_Space), modifiers, id: 1) }
-        if usesDictation { register(UInt32(kVK_ANSI_D), modifiers, id: 2) }
+        if usesHotKey { register(shortcut.key, shortcut.modifiers, id: 1) }
+        if usesDictation { register(dictationShortcut.key, dictationShortcut.modifiers, id: 2) }
     }
 
     private func register(_ key: UInt32, _ modifiers: UInt32, id: UInt32) {
         var reference: EventHotKeyRef?
         RegisterEventHotKey(key, modifiers, EventHotKeyID(signature: OSType(0x554D_4841), id: id), GetApplicationEventTarget(), 0, &reference)
         if let reference { hotKeys.append(reference) }
+    }
+
+    /// While the settings page records a shortcut, the old one must not fire.
+    func pauseHotKeys(_ paused: Bool) {
+        if paused {
+            hotKeys.forEach { UnregisterEventHotKey($0) }
+            hotKeys = []
+        } else {
+            updateHotKeys()
+        }
     }
 }

@@ -12,6 +12,8 @@ final class SpeechInput {
 
     /// Partial text as it is heard, then the final text once the person stops.
     var onText: ((String, _ final: Bool) -> Void)?
+    /// How loud the microphone is, 0…1, about twenty times a second, for the animation.
+    var onLevel: ((Double) -> Void)?
     private(set) var isListening = false
 
     private let engine = AVAudioEngine()
@@ -61,8 +63,18 @@ final class SpeechInput {
         let format = input.outputFormat(forBus: 0)
         guard format.channelCount > 0 else { throw Problem.noMicrophone }
         nonisolated(unsafe) let feed = request
+        let report: @Sendable (Double) -> Void = { [weak self] level in
+            Task { @MainActor in self?.onLevel?(level) }
+        }
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             feed.append(buffer)
+            // Loudness for the animation: the buffer's RMS, on a scale that suits speech.
+            guard let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
+            var sum: Float = 0
+            for index in 0 ..< Int(buffer.frameLength) { sum += samples[index] * samples[index] }
+            let rms = sqrt(sum / Float(buffer.frameLength))
+            let decibels = 20 * log10(max(rms, 0.000_01))
+            report(Double(max(0, min(1, (decibels + 55) / 45))))
         }
         engine.prepare()
         try engine.start()

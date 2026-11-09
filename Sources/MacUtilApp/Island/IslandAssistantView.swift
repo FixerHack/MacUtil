@@ -9,6 +9,18 @@ struct AssistantPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if assistant.phase == .listening || assistant.phase == .thinking || assistant.phase == .speaking {
+                HStack(spacing: 12) {
+                    VoiceWave(level: assistant.level, phase: assistant.phase)
+                        .frame(width: 120, height: 34)
+                    Text(statusText)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .contentTransition(.opacity)
+                    Spacer()
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
             conversation
             if case let .confirming(question) = assistant.phase {
                 HStack(spacing: 10) {
@@ -30,12 +42,20 @@ struct AssistantPage: View {
         .onChange(of: assistant.focusRequest) { focus() }
     }
 
+    private var statusText: LocalizedStringKey {
+        switch assistant.phase {
+        case .listening: "Listening…"
+        case .thinking: "Thinking…"
+        default: "Speaking"
+        }
+    }
+
     private var conversation: some View {
         ScrollViewReader { reader in
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
                     if assistant.lines.isEmpty, assistant.hearing.isEmpty {
-                        Text("Ask by voice or by typing. \(AssistantModel.hotKeyLabel) opens this from anywhere.")
+                        Text("Ask by voice or by typing. \(assistant.hotKeyLabel) opens this from anywhere.")
                             .font(.callout)
                             .foregroundStyle(.white.opacity(0.55))
                     }
@@ -144,3 +164,32 @@ private struct LineView: View {
         }
     }
 }
+
+/// Bars that move with the voice while listening, ripple while thinking, and sway while speaking.
+private struct VoiceWave: View {
+    let level: Double
+    let phase: AssistantModel.Phase
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let time = context.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .center, spacing: 4) {
+                ForEach(0 ..< 11, id: \.self) { index in
+                    let position = Double(index) / 10
+                    // Taller in the middle, as a voice's shape is.
+                    let envelope = 0.35 + 0.65 * sin(position * .pi)
+                    let height: Double = switch phase {
+                    case .listening: 0.12 + envelope * level * (0.7 + 0.3 * sin(time * 9 + Double(index)))
+                    case .thinking: 0.15 + 0.25 * (0.5 + 0.5 * sin(time * 4 - Double(index) * 0.6))
+                    default: 0.15 + envelope * 0.55 * (0.5 + 0.5 * sin(time * 7 + Double(index) * 1.3))
+                    }
+                    Capsule()
+                        .fill(LinearGradient(colors: [Color(red: 0.55, green: 0.35, blue: 1), Color(red: 0.25, green: 0.9, blue: 0.9)], startPoint: .top, endPoint: .bottom))
+                        .frame(width: 5, height: max(4, 34 * height))
+                }
+            }
+            .frame(maxHeight: .infinity)
+        }
+    }
+}
+

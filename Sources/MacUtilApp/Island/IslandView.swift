@@ -30,6 +30,14 @@ struct IslandView: View {
         }
         .frame(width: size.width + 2 * shoulder, height: size.height)
         .clipShape(shape)
+        .overlay {
+            // The assistant at work: light runs round the island, brighter as the voice rises.
+            if let assistant = model.assistant, assistant.phase != .idle || assistant.isDictating {
+                IslandGlow(shape: shape, level: assistant.phase == .listening || assistant.isDictating ? assistant.level : 0.35)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.35), value: model.assistant?.phase)
         .shadow(color: .black.opacity(presentation == .expanded ? 0.5 : 0), radius: 14, y: 6)
         .contentShape(shape)
         .onTapGesture { model.tapped() }
@@ -630,3 +638,29 @@ private struct KeepAwakeToggle: View {
         .onAppear { isOn = KeepAwake.shared.isOn }
     }
 }
+
+/// Light running round the island's edge while the assistant listens, thinks or speaks.
+struct IslandGlow: View {
+    let shape: IslandShape
+    let level: Double
+
+    private static let colours: [Color] = [
+        Color(red: 0.55, green: 0.35, blue: 1), Color(red: 0.2, green: 0.6, blue: 1),
+        Color(red: 0.25, green: 0.95, blue: 0.85), Color(red: 1, green: 0.45, blue: 0.7),
+        Color(red: 0.55, green: 0.35, blue: 1),
+    ]
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 4) / 4 * 360
+            let gradient = AngularGradient(colors: Self.colours, center: .center, angle: .degrees(turn))
+            ZStack {
+                shape.stroke(gradient, lineWidth: 2 + 6 * level).blur(radius: 6 + 10 * level).opacity(0.9)
+                shape.stroke(gradient, lineWidth: 1.5)
+            }
+        }
+        .allowsHitTesting(false)
+        .animation(.easeOut(duration: 0.12), value: level)
+    }
+}
+
