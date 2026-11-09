@@ -1637,7 +1637,7 @@
 "Calendar" = "Календар";
 "Clock" = "Годинник";
 "Dots under open apps" = "Крапки під відкритими програмами";
-"Drag an app from Finder onto the Dock to keep it there, or one icon onto another to reorder. Files dropped on an app open in it; dropped on the Trash, they go to the Trash." = "Перетягніть програму з Finder на Dock, щоб закріпити її, або один значок на інший, щоб змінити порядок. Файли, кинуті на програму, відкриваються в ній; кинуті на Кошик — ідуть у Кошик.";
+"Drag an app from Finder onto the Dock to keep it there, or one icon onto another to reorder. Files dropped on an app open in it; dropped on the Trash, they go to the Trash. UniMacHub's tools are in the menu of its icon: click it with the right button." = "Перетягніть програму з Finder на Dock, щоб закріпити її, або один значок на інший, щоб змінити порядок. Файли, кинуті на програму, відкриваються в ній; кинуті на Кошик — ідуть у Кошик. Інструменти UniMacHub — у меню його значка: клікніть по ньому правою кнопкою.";
 "Hide and show automatically" = "Автоматично ховати й показувати";
 "Icon size" = "Розмір значків";
 "Keep in Dock" = "Залишити в Dock";
@@ -1658,7 +1658,6 @@
 "Turn on UniMacHub's Dock?" = "Увімкнути Dock UniMacHub?";
 "Turning it on hides macOS's own Dock rather than removing it, and puts it back exactly as it was when you turn this off or quit UniMacHub." = "Увімкнення ховає системний Dock, а не видаляє його, і повертає його точно таким, як був, коли ви це вимкнете чи закриєте UniMacHub.";
 "UniMacHub's Dock" = "Dock UniMacHub";
-"UniMacHub's tools, one button per section" = "Інструменти UniMacHub, по кнопці на розділ";
 "Weather" = "Погода";
 "Widgets" = "Віджети";
 "Clock and system sit at the start of the Dock; music, calendar and weather at the end. While the music widget is on, Music and Spotify keep out of the Dock: a click on the cover opens the one playing. The weather comes from Open-Meteo, which needs no account: only the town, then its coordinates, are sent, at most every half hour. The calendar asks for access the first time, for the Dock's own part of UniMacHub." = "Годинник і система стоять на початку Dock, музика, календар і погода — в кінці. Поки віджет музики ввімкнений, Music і Spotify у Dock не показуються: клік по обкладинці відкриває ту, що грає. Погода береться з Open-Meteo, якому не потрібен обліковий запис: надсилається лише місто, а далі його координати, не частіше ніж раз на пів години. Календар попросить доступ першого разу — для частини UniMacHub, що відповідає за Dock.";

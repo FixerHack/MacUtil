@@ -52,6 +52,10 @@ final class DockAgent: NSObject, NSApplicationDelegate {
             exit(0)
         }
         model.onDisabled = { exit(0) }
+        // Which build is running, so UniMacHub can tell when an update needs a fresh start.
+        UserDefaults(suiteName: MacUtilInfo.bundleIdentifier)?.set(
+            DockService.buildDate(of: Bundle.main.executableURL), forKey: DockService.runningBuildKey
+        )
         self.model = model
         let sources = DockSources(model: model)
         self.sources = sources
@@ -222,6 +226,15 @@ enum DockService {
         Task { try? await service.unregister() }
     }
 
+    nonisolated static let runningBuildKey = "dockAgentBuild"
+
+    /// When an executable was built, as a number to compare.
+    nonisolated static func buildDate(of url: URL?) -> Double {
+        guard let url, let date = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+        else { return 0 }
+        return date.timeIntervalSince1970
+    }
+
     static var runningAgent: NSRunningApplication? {
         NSRunningApplication.runningApplications(withBundleIdentifier: DockAgent.bundleID).first
     }
@@ -246,11 +259,11 @@ enum DockService {
                 }
                 return
             }
-            // Updated since it started: start the new one.
+            // Updated since it started: start the new one. (A process launchd started has no
+            // launch date to compare, so it writes down which build it is.)
             let executable = helperURL.appending(path: "Contents/MacOS/UniMacHub Dock")
-            if let agent = runningAgent, let started = agent.launchDate,
-               let built = (try? FileManager.default.attributesOfItem(atPath: executable.path))?[.modificationDate] as? Date,
-               built > started {
+            let running = UserDefaults.standard.double(forKey: runningBuildKey)
+            if runningAgent != nil, running != buildDate(of: executable) {
                 kickstart(restart: true)
             }
         } else {

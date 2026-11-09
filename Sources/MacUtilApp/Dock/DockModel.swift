@@ -60,7 +60,6 @@ final class DockModel {
     enum Entry: Identifiable, Equatable {
         case widget(Widget)
         case app(App)
-        case tools(SidebarSection)
         case divider(Int)
         case trash
 
@@ -68,7 +67,6 @@ final class DockModel {
             switch self {
             case let .widget(widget): "widget." + widget.rawValue
             case let .app(app): "app." + app.id
-            case let .tools(section): "tools.\(section)"
             case let .divider(index): "divider.\(index)"
             case .trash: "trash"
             }
@@ -76,7 +74,7 @@ final class DockModel {
 
         func slot(vertical: Bool) -> DockLayout.Slot {
             switch self {
-            case .app, .tools, .trash: .init(units: 1, grows: true)
+            case .app, .trash: .init(units: 1, grows: true)
             case .divider: .init(units: 0.32, grows: false)
             case let .widget(widget): .init(units: vertical ? 1 : widget.units, grows: false)
             }
@@ -92,7 +90,6 @@ final class DockModel {
         static let position = "dockPosition"
         static let indicators = "dockIndicators"
         static let runningApps = "dockRunningApps"
-        static let tools = "dockTools"
         static let widgets = "dockWidgets"
         static let pinned = "dockPinned"
         static let town = "dockWeatherTown"
@@ -117,7 +114,6 @@ final class DockModel {
     var position: Position { didSet { save(position.rawValue, Keys.position) } }
     var showsIndicators: Bool { didSet { save(showsIndicators, Keys.indicators) } }
     var showsRunningApps: Bool { didSet { save(showsRunningApps, Keys.runningApps); rebuild() } }
-    var showsTools: Bool { didSet { save(showsTools, Keys.tools) } }
     var widgets: Set<Widget> { didSet { save(widgets.map(\.rawValue).sorted(), Keys.widgets); rebuild() } }
     private(set) var weatherTown: String { didSet { save(weatherTown, Keys.town) } }
 
@@ -151,7 +147,7 @@ final class DockModel {
         defaults.register(defaults: [
             Keys.iconSize: 64.0, Keys.magnifies: true, Keys.magnification: 1.335, Keys.autohides: true,
             Keys.position: Position.bottom.rawValue, Keys.indicators: true, Keys.runningApps: true,
-            Keys.tools: true, Keys.widgets: [Widget.clock.rawValue, Widget.system.rawValue, Widget.music.rawValue],
+            Keys.widgets: [Widget.clock.rawValue, Widget.system.rawValue, Widget.music.rawValue],
         ])
         isEnabled = false
         iconSize = 64
@@ -161,7 +157,6 @@ final class DockModel {
         position = .bottom
         showsIndicators = true
         showsRunningApps = true
-        showsTools = true
         widgets = []
         weatherTown = ""
         pinned = []
@@ -209,7 +204,6 @@ final class DockModel {
         if position != side { position = side }
         if showsIndicators != read.bool(forKey: Keys.indicators) { showsIndicators = read.bool(forKey: Keys.indicators) }
         if showsRunningApps != read.bool(forKey: Keys.runningApps) { showsRunningApps = read.bool(forKey: Keys.runningApps) }
-        if showsTools != read.bool(forKey: Keys.tools) { showsTools = read.bool(forKey: Keys.tools) }
         let chosen = Set((read.stringArray(forKey: Keys.widgets) ?? []).compactMap(Widget.init))
         if widgets != chosen { widgets = chosen }
         let town = read.string(forKey: Keys.town) ?? ""
@@ -301,7 +295,8 @@ final class DockModel {
         )
     }
 
-    /// Everything along the Dock, in order: widgets, apps, UniMacHub's tools, the Trash last.
+    /// Everything along the Dock, in order: widgets, apps, the Trash last. UniMacHub's tools
+    /// are in the menu of its own icon.
     var entries: [Entry] {
         var result: [Entry] = []
         let leading = Widget.allCases.filter { widgets.contains($0) && $0.leading }
@@ -314,10 +309,6 @@ final class DockModel {
         if !others.isEmpty {
             if !kept.isEmpty { result.append(.divider(1)) }
             result += others.map(Entry.app)
-        }
-        if showsTools {
-            result.append(.divider(2))
-            result += SidebarSection.allCases.map(Entry.tools)
         }
         if !trailing.isEmpty {
             result.append(.divider(3))

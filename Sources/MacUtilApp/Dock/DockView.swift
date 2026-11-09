@@ -33,7 +33,6 @@ struct DockView: View {
             .offset(hiddenOffset(geometry))
         }
         .environment(\.colorScheme, .dark)
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: model.isShown)
         .animation(.spring(response: 0.35, dampingFraction: 0.82), value: model.entries.map(\.id))
     }
 
@@ -78,7 +77,7 @@ struct DockView: View {
         switch entry {
         case let .app(app):
             let side = geometry.icon * item.scale
-            AppTile(app: app, model: model, side: side, position: model.position)
+            AppTile(app: app, model: model, sources: sources, side: side, position: model.position)
                 .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + side / 2, in: size))
             if app.isRunning, model.showsIndicators {
                 Circle()
@@ -87,10 +86,6 @@ struct DockView: View {
                     .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset / 2, in: size))
                     .allowsHitTesting(false)
             }
-        case let .tools(section):
-            let side = geometry.icon * item.scale
-            ToolTile(section: section, side: side, sources: sources)
-                .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + side / 2, in: size))
         case .trash:
             let side = geometry.icon * item.scale
             TrashTile(model: model, side: side)
@@ -118,7 +113,6 @@ struct DockView: View {
     private func label(for entry: DockModel.Entry, at item: DockLayout.Placed, _ geometry: DockGeometry, size: CGSize) -> some View {
         let text: Text? = switch entry {
         case let .app(app): Text(verbatim: app.name)
-        case let .tools(section): Text(section.title)
         case .trash: Text("Trash")
         default: nil
         }
@@ -183,6 +177,7 @@ private struct DockGlass: View {
 private struct AppTile: View {
     let app: DockModel.App
     let model: DockModel
+    let sources: DockSources
     let side: CGFloat
     let position: DockModel.Position
     @State private var bounce = false
@@ -196,6 +191,23 @@ private struct AppTile: View {
             .contentShape(.rect)
             .onTapGesture { model.open(app) }
             .contextMenu {
+                // UniMacHub's own icon opens straight onto any of its tools.
+                if app.bundleID == MacUtilInfo.bundleIdentifier {
+                    ForEach(SidebarSection.allCases) { section in
+                        Menu {
+                            ForEach(section.modules.filter { !$0.isPlanned }) { module in
+                                Button {
+                                    sources.openInHub(module)
+                                } label: {
+                                    Label { Text(module.title) } icon: { Image(systemName: module.symbol) }
+                                }
+                            }
+                        } label: {
+                            Label { Text(section.title) } icon: { Image(systemName: section.symbol) }
+                        }
+                    }
+                    Divider()
+                }
                 if app.isRunning {
                     Button("Show") { model.open(app) }
                     Button("Hide") { model.hide(app) }
@@ -240,65 +252,6 @@ private struct AppTile: View {
         case .right: return CGSize(width: -distance, height: 0)
         }
     }
-}
-
-/// A section of UniMacHub, opening a menu of its tools.
-private struct ToolTile: View {
-    let section: SidebarSection
-    let side: CGFloat
-    let sources: DockSources
-
-    var body: some View {
-        // App icons leave a margin round their artwork; this tile does the same, so the two
-        // look the same size side by side.
-        let tile = side * 0.8
-        RoundedRectangle(cornerRadius: tile * 0.225, style: .continuous)
-            .fill(LinearGradient(colors: [Palette.accentLight, Palette.accent], startPoint: .top, endPoint: .bottom))
-            .overlay {
-                Image(systemName: section.symbol)
-                    .font(.system(size: tile * 0.46, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: tile * 0.225, style: .continuous)
-                    .strokeBorder(.white.opacity(0.18), lineWidth: 0.5)
-            )
-            .shadow(color: .black.opacity(0.25), radius: side * 0.03, y: side * 0.015)
-            .frame(width: tile, height: tile)
-            .frame(width: side, height: side)
-            .contentShape(.rect)
-            .onTapGesture { ToolMenu.show(section, sources: sources) }
-    }
-}
-
-/// The tools of a section, as a menu at the pointer.
-@MainActor
-enum ToolMenu {
-    static func show(_ section: SidebarSection, sources: DockSources) {
-        let menu = NSMenu()
-        for module in section.modules where !module.isPlanned {
-            let item = ClosureMenuItem(title: module.titleText) { sources.openInHub(module) }
-            item.image = NSImage(systemSymbolName: module.symbol, accessibilityDescription: nil)
-            menu.addItem(item)
-        }
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-    }
-}
-
-/// A menu item that runs a closure.
-final class ClosureMenuItem: NSMenuItem {
-    private let handler: () -> Void
-
-    init(title: String, handler: @escaping () -> Void) {
-        self.handler = handler
-        super.init(title: title, action: #selector(run), keyEquivalent: "")
-        target = self
-    }
-
-    @available(*, unavailable)
-    required init(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    @objc private func run() { handler() }
 }
 
 private struct TrashTile: View {

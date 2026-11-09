@@ -73,7 +73,6 @@ struct DockSettingsView: View {
 
             Section {
                 Toggle("Apps that are open but not kept in the Dock", isOn: $model.showsRunningApps)
-                Toggle("UniMacHub's tools, one button per section", isOn: $model.showsTools)
                 ForEach(model.pinned, id: \.self) { url in
                     HStack {
                         Image(nsImage: model.icon(for: url)).resizable().frame(width: 20, height: 20)
@@ -95,7 +94,7 @@ struct DockSettingsView: View {
             } header: {
                 Text("Apps")
             } footer: {
-                Text("Drag an app from Finder onto the Dock to keep it there, or one icon onto another to reorder. Files dropped on an app open in it; dropped on the Trash, they go to the Trash.")
+                Text("Drag an app from Finder onto the Dock to keep it there, or one icon onto another to reorder. Files dropped on an app open in it; dropped on the Trash, they go to the Trash. UniMacHub's tools are in the menu of its icon: click it with the right button.")
             }
 
             Section {

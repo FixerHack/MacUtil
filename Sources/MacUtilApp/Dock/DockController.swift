@@ -179,6 +179,14 @@ final class DockController {
         monitors = []
     }
 
+    /// Slides the Dock out with a soft spring, and back in without one, as the system Dock does.
+    private func setShown(_ shown: Bool) {
+        let animation: Animation = shown
+            ? .spring(response: 0.5, dampingFraction: 0.86)
+            : .timingCurve(0.4, 0, 0.6, 1, duration: 0.32)
+        withAnimation(animation) { model.isShown = shown }
+    }
+
     /// The pointer, as how far along the edge and how far from it, within the window.
     private func measure(_ point: NSPoint, in frame: CGRect) -> (along: CGFloat, depth: CGFloat) {
         switch model.position {
@@ -211,12 +219,12 @@ final class DockController {
             if atEdge || inside || menuIsOpen {
                 hideTask?.cancel()
                 hideTask = nil
-                if !model.isShown { model.isShown = true }
+                if !model.isShown { setShown(true) }
             } else if model.isShown, hideTask == nil {
                 hideTask = Task { [weak self] in
                     try? await Task.sleep(for: .milliseconds(450))
                     guard !Task.isCancelled, let self else { return }
-                    if !self.menuIsOpen { self.model.isShown = false }
+                    if !self.menuIsOpen { self.setShown(false) }
                     self.hideTask = nil
                 }
             }
