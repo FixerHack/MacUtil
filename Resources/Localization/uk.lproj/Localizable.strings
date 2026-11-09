@@ -1484,7 +1484,6 @@
 "Electron this old no longer gets Chromium's security fixes. Updating the app usually brings a newer one." = "Такий старий Electron більше не отримує виправлень безпеки Chromium. Оновлення програми зазвичай приносить новіший.";
 "Encrypted DNS" = "Зашифрований DNS";
 "Encrypted folders in a single file, opened with a password." = "Зашифровані теки в одному файлі, що відкриваються паролем.";
-"Every device on the local network by name and address, and which services each one offers. Your own network only." = "Кожен пристрій локальної мережі з назвою й адресою і служби, які кожен пропонує. Лише у вашій власній мережі.";
 "Every name under the domain, such as app.test or api.shop.test, points at this Mac, so a project can run under a real name instead of a port number. Only these domains are touched; a small resolver of UniMacHub's answers for them on this Mac alone." = "Кожна назва під доменом, як-от app.test чи api.shop.test, вказує на цей Mac, тож проєкт може працювати під справжньою назвою замість номера порту. Зачіпаються лише ці домени; за них відповідає маленький резолвер UniMacHub і лише на цьому Mac.";
 "Every transfer with its progress, the files iCloud keeps failing on, and a history of what finished." = "Кожна передача з її перебігом, файли, на яких iCloud постійно спотикається, і історія завершеного.";
 "Flush DNS Cache" = "Очистити кеш DNS";
@@ -1559,3 +1558,5 @@
 "Your choice of model: Claude through your own gateway or key, OpenAI, or one running on this Mac. Three modes: limited to UniMacHub, free, or exactly what you allow. Deleting, erasing, changing settings or sending anything always waits for your yes." = "Модель на ваш вибір: Claude через ваш шлюз чи ключ, OpenAI або та, що працює на цьому Mac. Три режими: лише в межах UniMacHub, вільний або рівно те, що ви дозволите. Видалення, стирання, зміна налаштувань чи надсилання завжди чекають на ваше «так».";
 "iCloud Sync" = "Синхронізація iCloud";
 "iPhone app" = "Програма iPhone";
+"Add Entry" = "Додати запис";
+"Every device on the local network with its name, address and maker, the services it offers, and a connection in one press: SSH, RDP, VNC, FTP, SMB, Telnet or the browser. Your own network only." = "Кожен пристрій локальної мережі з назвою, адресою й виробником, служби, які він пропонує, і підключення одним натиском: SSH, RDP, VNC, FTP, SMB, Telnet чи браузер. Лише у вашій власній мережі.";

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// A public DNS service that can be chosen in one press.
@@ -80,8 +81,15 @@ public enum DNSControl {
     /// Only the person can install a profile: macOS puts it in System Settings to be
     /// reviewed and approved, which is the point — encrypted DNS changes where every name
     /// on this Mac is looked up.
+    ///
+    /// Laid out like the profiles known to install on macOS. Two things matter: the scope is
+    /// System, because macOS sets encrypted DNS up as a system network service (installed for
+    /// one user it fails with "could not create VPN service"), and the identifiers are fixed
+    /// per provider, so installing it again replaces the old one instead of adding a second.
     public static func encryptedProfile(for preset: DNSPreset) -> String {
-        let addresses = preset.servers.map { "\t\t\t\t<string>\($0)</string>" }.joined(separator: "\n")
+        let addresses = preset.servers.map { "\t\t\t\t\t<string>\($0)</string>" }.joined(separator: "\n")
+        let inner = stableUUID("dns.settings." + preset.id)
+        let outer = stableUUID("dns.profile." + preset.id)
         return """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -94,38 +102,57 @@ public enum DNSControl {
         \t\t\t<dict>
         \t\t\t\t<key>DNSProtocol</key>
         \t\t\t\t<string>HTTPS</string>
-        \t\t\t\t<key>ServerURL</key>
-        \t\t\t\t<string>\(preset.httpsURL)</string>
         \t\t\t\t<key>ServerAddresses</key>
         \t\t\t\t<array>
         \(addresses)
         \t\t\t\t</array>
+        \t\t\t\t<key>ServerURL</key>
+        \t\t\t\t<string>\(preset.httpsURL)</string>
         \t\t\t</dict>
+        \t\t\t<key>PayloadDescription</key>
+        \t\t\t<string>Looks names up through \(preset.name) over HTTPS.</string>
         \t\t\t<key>PayloadDisplayName</key>
         \t\t\t<string>\(preset.name) DNS over HTTPS</string>
         \t\t\t<key>PayloadIdentifier</key>
-        \t\t\t<string>com.fixerhack.unimachub.dns.\(preset.id).settings</string>
+        \t\t\t<string>com.apple.dnsSettings.managed.\(inner.lowercased())</string>
         \t\t\t<key>PayloadType</key>
         \t\t\t<string>com.apple.dnsSettings.managed</string>
         \t\t\t<key>PayloadUUID</key>
-        \t\t\t<string>\(UUID().uuidString)</string>
+        \t\t\t<string>\(inner)</string>
         \t\t\t<key>PayloadVersion</key>
         \t\t\t<integer>1</integer>
+        \t\t\t<key>ProhibitDisablement</key>
+        \t\t\t<false/>
         \t\t</dict>
         \t</array>
+        \t<key>PayloadDescription</key>
+        \t<string>Encrypted DNS through \(preset.name), prepared by UniMacHub. Remove it here to go back to ordinary DNS.</string>
         \t<key>PayloadDisplayName</key>
         \t<string>\(preset.name) encrypted DNS (UniMacHub)</string>
         \t<key>PayloadIdentifier</key>
         \t<string>com.fixerhack.unimachub.dns.\(preset.id)</string>
+        \t<key>PayloadRemovalDisallowed</key>
+        \t<false/>
+        \t<key>PayloadScope</key>
+        \t<string>System</string>
         \t<key>PayloadType</key>
         \t<string>Configuration</string>
         \t<key>PayloadUUID</key>
-        \t<string>\(UUID().uuidString)</string>
+        \t<string>\(outer)</string>
         \t<key>PayloadVersion</key>
         \t<integer>1</integer>
         </dict>
         </plist>
         """
+    }
+
+    /// The same UUID every time for the same name.
+    static func stableUUID(_ name: String) -> String {
+        var hash = Array(Insecure.SHA1.hash(data: Data(("com.fixerhack.unimachub." + name).utf8)).prefix(16))
+        hash[6] = (hash[6] & 0x0F) | 0x50  // version 5
+        hash[8] = (hash[8] & 0x3F) | 0x80  // RFC 4122 variant
+        return UUID(uuid: (hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
+                           hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15])).uuidString
     }
 
     /// Whether this is an IPv4 or IPv6 address, as macOS itself parses one.

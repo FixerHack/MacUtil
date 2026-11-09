@@ -164,18 +164,17 @@ struct DNSView: View {
                     Button("Remove") { Task { await store.removeOverride(entry) } }
                 }
             }
+            TextField("Name", text: $hostname, prompt: Text(verbatim: "api.example.com"))
+            TextField("Address", text: $address, prompt: Text(verbatim: "127.0.0.1"))
+            Picker("For", selection: $minutes) {
+                Text("15 minutes").tag(Int?.some(15))
+                Text("1 hour").tag(Int?.some(60))
+                Text("1 day").tag(Int?.some(1440))
+                Text("Until removed").tag(Int?.none)
+            }
             HStack {
-                TextField("Name", text: $hostname, prompt: Text(verbatim: "api.example.com"))
-                TextField("Address", text: $address)
-                    .frame(width: 140)
-                Picker("For", selection: $minutes) {
-                    Text("15 minutes").tag(Int?.some(15))
-                    Text("1 hour").tag(Int?.some(60))
-                    Text("1 day").tag(Int?.some(1440))
-                    Text("Until removed").tag(Int?.none)
-                }
-                .fixedSize()
-                Button("Add") {
+                Spacer()
+                Button("Add Entry") {
                     Task {
                         if await store.addOverride(hostname: hostname, address: address, minutes: minutes) {
                             hostname = ""

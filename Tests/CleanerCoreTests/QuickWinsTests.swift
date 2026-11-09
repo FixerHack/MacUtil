@@ -105,6 +105,11 @@ struct DNSControlTests {
         let settings = try #require(payload["DNSSettings"] as? [String: Any])
         #expect(settings["ServerURL"] as? String == "https://dns.quad9.net/dns-query")
         #expect(settings["DNSProtocol"] as? String == "HTTPS")
+        // Installed for one user, macOS fails to make the network service it needs.
+        #expect(plist["PayloadScope"] as? String == "System")
+        #expect((payload["PayloadIdentifier"] as? String)?.hasPrefix("com.apple.dnsSettings.managed.") == true)
+        // The same profile each time, so installing it again replaces it.
+        #expect(DNSControl.encryptedProfile(for: preset) == DNSControl.encryptedProfile(for: preset))
     }
 
     @Test func checksAddressesAndNames() {

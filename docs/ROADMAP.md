@@ -67,7 +67,7 @@
 ### 🌐 DNS і домени для розробки
 
 - **Готові DNS** для вибраного мережевого сервісу: Cloudflare, Quad9, AdGuard, Google, «як було» (`networksetup -setdnsservers`, пароль адміністратора).
-- **Зашифрований DNS (DoH/DoT):** профіль конфігурації з [DNSSettings](https://developer.apple.com/documentation/devicemanagement/dnssettings); програма створює його й відкриває, встановлює людина в Системних параметрах.
+- **Зашифрований DNS (DoH/DoT):** профіль конфігурації з [DNSSettings](https://developer.apple.com/documentation/devicemanagement/dnssettings); програма створює його й відкриває, встановлює людина в Системних параметрах. Профіль має бути з `PayloadScope` = `System` (встановлений для одного користувача, він падає з «не вдалося створити сервіс VPN»); зразок — [paulmillr/encrypted-dns](https://github.com/paulmillr/encrypted-dns).
 - **Очищення DNS-кешу:** `dscacheutil -flushcache` і перезапуск `mDNSResponder`.
 - **Домени для розробки** `*.test` → 127.0.0.1: файл `/etc/resolver/test` з `nameserver 127.0.0.1` і `port`, плюс маленький DNS-відповідач UniMacHub на високому порту.
 - **Підміна в hosts з автовідкатом:** записи між позначеними рядками (як `ManagedBlock` у Терміналі), з часом закінчення; відкат за таймером.
@@ -277,7 +277,22 @@
 Звідки: [FileWheel](https://github.com/danny19862025/FileWheel). Не беремо ffmpeg і LibreOffice.
 
 ## 0.11.2 — 🌐 Мережа
-- **Хто в мережі:** пристрої локальної мережі (таблиця ARP, перебір підмережі, імена через Bonjour — [NWBrowser](https://developer.apple.com/documentation/network/nwbrowser)), відкриті порти вибраного пристрою — лише у своїй мережі.
+- **Хто в мережі** — як [Advanced IP Scanner](https://www.advanced-ip-scanner.com/) чи [Angry IP Scanner](https://angryip.org) ([код](https://github.com/angryip/ipscan)), але нативно:
+  - пристрої локальної мережі: таблиця ARP, перебір підмережі, імена через Bonjour ([NWBrowser](https://developer.apple.com/documentation/network/nwbrowser)) і зворотний DNS;
+  - **виробник за MAC-адресою** з офлайн-бази OUI, без інтернету;
+  - **відкриті служби** кожного пристрою: SSH (22), Telnet (23), FTP (21), SFTP, HTTP/HTTPS (80/443/8080), SMB (445), AFP (548), VNC/Спільний екран (5900), RDP (3389), принтери (631, 9100) — лише у своїй мережі;
+  - **підключення одним натиском** через те, що macOS уже вміє:
+    - SSH і SFTP → Термінал (`ssh://`, `sftp://`), з вибором користувача;
+    - VNC → вбудований «Спільний екран» (`vnc://`);
+    - RDP → Windows App (Microsoft Remote Desktop) через `rdp://`, якщо встановлено, інакше пояснення, де взяти;
+    - FTP, SMB, AFP → Finder («Під'єднатися до сервера»: `ftp://`, `smb://`, `afp://`);
+    - Telnet → Термінал; програми `telnet` у macOS давно немає, тож через `nc` або `telnet` з Homebrew, якщо є;
+    - HTTP/HTTPS → браузер;
+  - **спільні теки** SMB на пристрої (`smbutil view`);
+  - **Wake-on-LAN**: розбудити пристрій «магічним» пакетом за MAC-адресою;
+  - позначки й власні назви пристроїв, «нове в мережі» з минулого сканування, **експорт у CSV**;
+  - паролі до підключень — лише в Keychain, як і все інше.
+  - Не беремо: віддалене вимкнення Windows-машин і власний протокол Radmin (потребує їхнього агента на тій стороні).
 - **Куди з'єднуються програми:** `nettop`, `lsof -i`, групування за програмою, доменом чи адресою.
 - **Брандмауер:** стан і список програм (`socketfilterfw`), лише перегляд і перемикачі.
 
@@ -327,6 +342,7 @@
 | [numa](https://github.com/razvandimescu/numa) | Готові та зашифровані DNS, очищення кешу, `*.test`, hosts з автовідкатом | 🌐 | 0.10.1 | Свій DNS-сервер і блокування реклами |
 | [FileWheel](https://github.com/danny19862025/FileWheel) | Конвертер-кільце | 📁 | 0.11.1 | ffmpeg, LibreOffice |
 | [bgscan](https://github.com/MohsenBg/bgscan) | Хто в мережі, відкриті порти | 🌐 | 0.11.2 | Тунелі, Xray, CDN |
+| [Advanced IP Scanner](https://www.advanced-ip-scanner.com/), [Angry IP Scanner](https://angryip.org) | Сканування мережі, виробник за MAC, підключення SSH / RDP / VNC / FTP / SMB / Telnet / HTTP, спільні теки, Wake-on-LAN, CSV | 🌐 | 0.11.2 | Radmin і віддалене вимкнення (потребують агента на тій стороні) |
 | [TCPViewer](https://github.com/ProxymanApp/TCPViewer) | Куди з'єднуються програми | 🌐 | 0.11.2 | Захоплення пакетів |
 | [mooziac](https://github.com/shirkeharsh/mooziac) | — | — | — | YouTube-плеєр (окрема програма); гучність краєм трекпада (приватний API) |
 

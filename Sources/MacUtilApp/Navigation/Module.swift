@@ -431,7 +431,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .converter:
             "Images, video, audio and PDF turned into other formats, made smaller or stripped of their metadata, with what macOS already has, saved beside the original."
         case .lanScan:
-            "Every device on the local network by name and address, and which services each one offers. Your own network only."
+            "Every device on the local network with its name, address and maker, the services it offers, and a connection in one press: SSH, RDP, VNC, FTP, SMB, Telnet or the browser. Your own network only."
         case .appConnections:
             "Live connections grouped by app, domain or address, so an app phoning home is easy to spot."
         default:
