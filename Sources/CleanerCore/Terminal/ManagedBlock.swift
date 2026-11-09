@@ -27,6 +27,13 @@ public enum ManagedBlock {
         return nil
     }
 
+    /// The file as it would be without UniMacHub's block: what the person wrote themselves.
+    public static func outside(_ text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        if let range = range(in: lines) { lines.removeSubrange(range) }
+        return lines.joined(separator: "\n")
+    }
+
     /// The lines MacUtil currently keeps in that file.
     public static func read(from path: String) -> [String] {
         guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return [] }

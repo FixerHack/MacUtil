@@ -1,3 +1,4 @@
+import CleanerCore
 import SecurityCore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -118,7 +119,7 @@ struct SecurityView: View {
         let count = store.issues.count { issue in
             switch issue.target {
             case .check: section == .system
-            case .app: section == .apps
+            case .app, .outdatedEngine: section == .apps
             case .persistence: section == .autostart
             case .permission: section == .permissions
             case .port, .network: section == .network
@@ -248,6 +249,14 @@ private struct IssueRow: View {
                 case let .app(app):
                     Text(verbatim: app.name).font(.headline)
                     Text(app.signature.summary).foregroundStyle(.secondary)
+                case let .outdatedEngine(app):
+                    Text(verbatim: app.name).font(.headline)
+                    if let runtime = app.runtime, let major = runtime.majorVersion {
+                        Text("Built on Electron \(runtime.version ?? String(major)), about \(ElectronReleases.releasesBehind(major)) versions behind the newest.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("Electron this old no longer gets Chromium's security fixes. Updating the app usually brings a newer one.")
+                        .font(.callout)
                 case let .permission(grant):
                     Text(verbatim: PermissionsList.displayName(of: grant)).font(.headline)
                     Text(grant.service.title).foregroundStyle(.secondary)
@@ -353,7 +362,7 @@ private struct IssueRow: View {
                 }
             case .persistence:
                 Button("Show") { section = .autostart }
-            case .app:
+            case .app, .outdatedEngine:
                 Button("Show") { section = .apps }
             case .permission:
                 Button("Show") { section = .permissions }

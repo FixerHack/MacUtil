@@ -13,7 +13,7 @@ struct MUCLI: AsyncParsableCommand {
         commandName: "mucli",
         abstract: "UniMacHub command-line tools.",
         version: MacUtilInfo.version,
-        subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self, Security.self, Search.self, Carve.self, Undelete.self, Verify.self, Sensors.self]
+        subcommands: [FDA.self, Disk.self, Scan.self, Large.self, Junk.self, Security.self, Search.self, Carve.self, Undelete.self, Verify.self, Sensors.self, DNSServe.self]
     )
 }
 

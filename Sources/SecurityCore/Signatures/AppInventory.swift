@@ -8,6 +8,8 @@ public struct InstalledApp: Sendable, Identifiable {
     public let bundleID: String?
     public let version: String?
     public let signature: CodeSignature
+    /// What it is built on; an old Electron is a finding of its own.
+    public let runtime: AppRuntime?
 
     public var id: String { path }
 
@@ -54,7 +56,8 @@ public enum AppInventory {
             name: displayName ?? ((path as NSString).lastPathComponent as NSString).deletingPathExtension,
             bundleID: bundle?.bundleIdentifier,
             version: info["CFBundleShortVersionString"] as? String,
-            signature: CodeSignature.inspect(path)
+            signature: CodeSignature.inspect(path),
+            runtime: AppRuntimeDetector.detect(path)
         )
     }
 }

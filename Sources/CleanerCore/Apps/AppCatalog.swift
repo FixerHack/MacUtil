@@ -11,6 +11,8 @@ public struct AppRecord: Sendable, Identifiable, Hashable {
     public let lastUsed: Date?
     /// Size of the bundle itself, without data in ~/Library.
     public let size: Int64
+    /// Electron, Catalyst and the like; nil for a plain Mac app.
+    public var runtime: AppRuntime? = nil
 
     public var id: String { path }
 }
@@ -53,7 +55,8 @@ public enum AppCatalog {
             version: info["CFBundleShortVersionString"] as? String,
             isAppStore: FileManager.default.fileExists(atPath: path + "/Contents/_MASReceipt/receipt"),
             lastUsed: lastUsedDate(path),
-            size: DiskUsage.allocatedSize(of: path) ?? 0
+            size: DiskUsage.allocatedSize(of: path) ?? 0,
+            runtime: AppRuntimeDetector.detect(path)
         )
     }
 

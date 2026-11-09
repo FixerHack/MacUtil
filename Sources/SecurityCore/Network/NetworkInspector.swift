@@ -52,7 +52,8 @@ public enum NetworkInspector {
         report.ports = await parseListeningPorts(lsof?.text ?? "")
         report.dnsServers = await parseNameservers(dns?.text ?? "")
         report.proxies = await parseProxies(proxy?.text ?? "")
-        report.hostsEntries = parseHosts((try? String(contentsOfFile: "/etc/hosts", encoding: .utf8)) ?? "")
+        // UniMacHub's own overrides were made on purpose, from its DNS screen, and are listed there.
+        report.hostsEntries = parseHosts(ManagedBlock.outside((try? String(contentsOfFile: "/etc/hosts", encoding: .utf8)) ?? ""))
         report.trustedCertificates = await parseTrustSettings((userTrust?.text ?? "") + "\n" + (adminTrust?.text ?? ""))
         return report
     }

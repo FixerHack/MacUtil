@@ -58,7 +58,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
     case uninstaller, leftovers, updater, slimming, addOns
     case folderOrganizer, deepSearch
     case taskManager, loginItems, maintenance, hiddenSettings, terminal
-    case networkAdapters
+    case vault
+    case networkAdapters, dns
     case securityAnalyzer
 
     // Planned, listed so the shape of the app is honest about where it is going.
@@ -66,6 +67,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
     case dockWidgets, batchRename, terminalThemes
     case networkControl, linkAggregation
     case firewall, permissions
+    case island, assistant, timeMachine, iCloudSync, converter, lanScan, appConnections
 
     var id: Self { self }
 
@@ -82,7 +84,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
         switch self {
         case .menuBarTidy, .windowTiling, .audioSwitch, .displayControl, .batteryCare,
              .dockWidgets, .batchRename, .terminalThemes, .networkControl, .linkAggregation,
-             .firewall, .permissions:
+             .firewall, .permissions,
+             .island, .assistant, .timeMachine, .iCloudSync, .converter, .lanScan, .appConnections:
             true
         default:
             false
@@ -107,15 +110,15 @@ enum Module: CaseIterable, Identifiable, Hashable {
 
     var section: SidebarSection {
         switch self {
-        case .hub, .smartScan, .dashboard, .history, .clipboard, .settings: .overview
+        case .hub, .smartScan, .dashboard, .history, .clipboard, .settings, .island, .assistant: .overview
         case .systemJunk, .developerJunk, .projectBuilds, .messengers, .installers, .trash, .privacy: .cleanup
-        case .spaceLens, .largeFiles, .duplicates, .disks, .fileRecovery: .storage
+        case .spaceLens, .largeFiles, .duplicates, .disks, .fileRecovery, .vault, .timeMachine, .iCloudSync: .storage
         case .uninstaller, .leftovers, .updater, .slimming, .addOns, .dockWidgets: .applications
-        case .folderOrganizer, .deepSearch, .batchRename: .files
+        case .folderOrganizer, .deepSearch, .batchRename, .converter: .files
         case .taskManager, .loginItems, .maintenance, .hiddenSettings, .terminal,
              .terminalThemes, .menuBarTidy, .windowTiling, .audioSwitch, .displayControl, .batteryCare:
             .system
-        case .networkAdapters, .networkControl, .linkAggregation: .network
+        case .networkAdapters, .dns, .networkControl, .linkAggregation, .lanScan, .appConnections: .network
         case .securityAnalyzer, .firewall, .permissions: .security
         }
     }
@@ -166,6 +169,15 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .linkAggregation: "Combine Connections"
         case .firewall: "Firewall"
         case .permissions: "App Permissions"
+        case .vault: "Vault"
+        case .dns: "DNS & Domains"
+        case .island: "Dynamic Island"
+        case .assistant: "Assistant"
+        case .timeMachine: "Time Machine"
+        case .iCloudSync: "iCloud Sync"
+        case .converter: "Convert Files"
+        case .lanScan: "Who's on the Network"
+        case .appConnections: "App Connections"
         }
     }
 
@@ -217,6 +229,15 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .linkAggregation: String(localized: "Combine Connections")
         case .firewall: String(localized: "Firewall")
         case .permissions: String(localized: "App Permissions")
+        case .vault: String(localized: "Vault")
+        case .dns: String(localized: "DNS & Domains")
+        case .island: String(localized: "Dynamic Island")
+        case .assistant: String(localized: "Assistant")
+        case .timeMachine: String(localized: "Time Machine")
+        case .iCloudSync: String(localized: "iCloud Sync")
+        case .converter: String(localized: "Convert Files")
+        case .lanScan: String(localized: "Who's on the Network")
+        case .appConnections: String(localized: "App Connections")
         }
     }
 
@@ -262,10 +283,19 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .dockWidgets: "A Dock of your own, with the apps you choose as live widgets."
         case .batchRename: "Rename many files at once, by a rule you can see first."
         case .terminalThemes: "Colours for Terminal, built to be read for hours."
-        case .networkControl: "Change DNS, the order of adapters, and what is switched on."
+        case .networkControl: "The order macOS tries adapters in, and what is switched on."
         case .linkAggregation: "Use Wi-Fi and Ethernet at once, adding up their speed."
         case .firewall: "What is allowed to listen, and what is reaching out."
         case .permissions: "Which apps hold which permissions, in one list."
+        case .vault: "Encrypted folders in a single file, opened with a password."
+        case .dns: "DNS servers, encrypted DNS, development domains and temporary hosts entries."
+        case .island: "Music, progress and what needs you, around the notch."
+        case .assistant: "Ask by voice or text, in Ukrainian or English, and it acts on this Mac."
+        case .timeMachine: "Whether backups are really happening, and any file back from them."
+        case .iCloudSync: "What iCloud is uploading and downloading, and what is stuck."
+        case .converter: "Drop a file and choose what it should become."
+        case .lanScan: "Devices on your network and the services they offer."
+        case .appConnections: "Which app is talking to which server, right now."
         }
     }
 
@@ -315,6 +345,15 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .linkAggregation: "arrow.triangle.merge"
         case .firewall: "flame"
         case .permissions: "hand.raised.square"
+        case .vault: "lock.rectangle.stack"
+        case .dns: "globe"
+        case .island: "rectangle.topthird.inset.filled"
+        case .assistant: "waveform.circle"
+        case .timeMachine: "clock.arrow.2.circlepath"
+        case .iCloudSync: "icloud.and.arrow.up"
+        case .converter: "arrow.triangle.2.circlepath"
+        case .lanScan: "wifi.router"
+        case .appConnections: "point.3.connected.trianglepath.dotted"
         }
     }
 
@@ -342,6 +381,10 @@ enum Module: CaseIterable, Identifiable, Hashable {
             "Anything a password manager marks as concealed is skipped, and the list never leaves this Mac."
         case .taskManager:
             "Quitting asks the program to stop and save. Forcing it does not, and anything unsaved is lost."
+        case .vault:
+            "A vault is an ordinary encrypted disk image: it opens in Disk Utility on any Mac, with or without UniMacHub. Forget the password and nothing can open it, not UniMacHub and not Apple."
+        case .dns:
+            "Each change here is for the whole Mac, so macOS asks for your password. Everything UniMacHub writes can be taken back out from this screen."
         case .securityAnalyzer:
             "A finding is a question, not a verdict. Settling one with a clean VirusTotal result or your own judgement keeps it settled until the file changes."
         default:
@@ -370,13 +413,27 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .terminalThemes:
             "Colour schemes for Terminal that hold up over a long day, applied to its profiles."
         case .networkControl:
-            "Change DNS servers, reorder the adapters macOS tries, and switch a service off — each needing your password, as these are settings for the whole Mac."
+            "Reorder the adapters macOS tries and switch a service off, each needing your password, as these are settings for the whole Mac. DNS has a screen of its own now."
         case .linkAggregation:
             "Sending different connections over Wi-Fi and Ethernet at once, so their speeds add up. This needs a virtual network device and administrator rights, which changes how much trust the app is asking for."
         case .firewall:
             "What may listen for connections and what is reaching out, with a switch for each."
         case .permissions:
             "Camera, microphone, screen, files and automation: which app was granted what, gathered in one list instead of a dozen panes."
+        case .island:
+            "A live strip around the notch: volume and brightness, music, scans in progress, files to hand on, and coding agents that are waiting for you. On a screen without a notch, a small tab at the top."
+        case .assistant:
+            "Your choice of model: Claude through your own gateway or key, OpenAI, or one running on this Mac. Three modes: limited to UniMacHub, free, or exactly what you allow. Deleting, erasing, changing settings or sending anything always waits for your yes."
+        case .timeMachine:
+            "A watch on backups that quietly stopped, a search for deleted files across every backup, restoring into any folder, and a warning before Time Machine thins away the last copy of something."
+        case .iCloudSync:
+            "Every transfer with its progress, the files iCloud keeps failing on, and a history of what finished."
+        case .converter:
+            "Images, video, audio and PDF turned into other formats, made smaller or stripped of their metadata, with what macOS already has, saved beside the original."
+        case .lanScan:
+            "Every device on the local network by name and address, and which services each one offers. Your own network only."
+        case .appConnections:
+            "Live connections grouped by app, domain or address, so an app phoning home is easy to spot."
         default:
             nil
         }

@@ -9,9 +9,12 @@ struct UninstallerView: View {
     @Bindable var store: UninstallerStore
     @State private var search = ""
     @State private var sortOrder = SortOrder.name
+    /// Only apps built on this, or every app when nil.
+    @State private var runtime: AppRuntime.Kind?
 
     private var apps: [AppRecord] {
-        let filtered = search.isEmpty ? store.apps : store.apps.filter {
+        let built = runtime.map { kind in store.apps.filter { $0.runtime?.kind == kind } } ?? store.apps
+        let filtered = search.isEmpty ? built : built.filter {
             $0.name.localizedCaseInsensitiveContains(search) || ($0.bundleID ?? "")
                 .localizedCaseInsensitiveContains(search)
         }
@@ -76,6 +79,20 @@ struct UninstallerView: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: .infinity)
                 Menu {
+                    Picker("Built on", selection: $runtime) {
+                        Text("Any").tag(AppRuntime.Kind?.none)
+                        ForEach(AppRuntime.Kind.allCases, id: \.self) { kind in
+                            Text(kind.title).tag(AppRuntime.Kind?.some(kind))
+                        }
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    Image(systemName: runtime == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                }
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Show only apps built on Electron, Catalyst and the like")
+                Menu {
                     Picker("Sort", selection: $sortOrder) {
                         Text("Name").tag(SortOrder.name)
                         Text("Size").tag(SortOrder.size)
@@ -90,14 +107,27 @@ struct UninstallerView: View {
                 .help("Sort")
             }
             .padding(10)
+            if let runtime {
+                let total = apps.reduce(Int64(0)) { $0 + $1.size }
+                Text("\(apps.count) apps on \(runtime.title) take \(total.formatted(.byteCount(style: .file)))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+            }
             List(apps, selection: $store.selectedAppID) { app in
                 HStack(spacing: 10) {
                     Image(nsImage: NSWorkspace.shared.icon(forFile: app.path))
                         .resizable()
                         .frame(width: 32, height: 32)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: app.name)
-                            .lineLimit(1)
+                        HStack(spacing: 6) {
+                            Text(verbatim: app.name)
+                                .lineLimit(1)
+                            if let runtime = app.runtime {
+                                RuntimeBadge(runtime: runtime)
+                            }
+                        }
                         Group {
                             if let lastUsed = app.lastUsed {
                                 Text("Opened \(lastUsed, format: .relative(presentation: .named))")
@@ -202,6 +232,15 @@ private struct AppDetail: View {
                     if app.isAppStore {
                         Badge(title: "App Store", color: .blue)
                     }
+                    if let runtime = app.runtime {
+                        RuntimeBadge(runtime: runtime)
+                    }
+                }
+                if let runtime = app.runtime {
+                    Text(runtime.explanation)
+                        .font(.callout)
+                        .foregroundStyle(runtime.isOutdated() ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Text(verbatim: [app.version, app.bundleID].compactMap(\.self).joined(separator: " · "))
                     .foregroundStyle(.secondary)

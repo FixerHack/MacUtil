@@ -183,6 +183,10 @@ struct ContentView: View {
             TerminalView(store: state.terminal)
         case .networkAdapters:
             NetworkView(store: state.network)
+        case .dns:
+            DNSView(store: state.dns)
+        case .vault:
+            VaultView(store: state.vault)
         case .securityAnalyzer:
             SecurityView(store: state.security)
         case let module:

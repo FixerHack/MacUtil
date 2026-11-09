@@ -25,6 +25,8 @@ final class SecurityStore {
             case check(SecurityCheck)
             case persistence(PersistenceItem)
             case app(InstalledApp)
+            /// An app on an Electron too old to get Chromium's security fixes.
+            case outdatedEngine(InstalledApp)
             case permission(PermissionGrant)
             case port(ListeningPort)
             case process(SuspiciousProcess)
@@ -53,6 +55,7 @@ final class SecurityStore {
             case let .check(check): String(localized: check.title)
             case let .persistence(item): item.label
             case let .app(app): app.name
+            case let .outdatedEngine(app): app.name
             case let .permission(grant): grant.client
             case let .port(port): "\(port.command):\(port.port)"
             case let .process(process): process.name
@@ -167,6 +170,13 @@ final class SecurityStore {
         }
         for app in apps where app.signature.trust == .untrusted {
             issues.append(Issue(id: "app." + app.id, severity: .medium, target: .app(app)))
+        }
+        for app in apps {
+            guard let runtime = app.runtime, runtime.isOutdated() else { continue }
+            // The version is part of the id: an update that is still behind asks again.
+            issues.append(Issue(
+                id: "engine." + app.id + "." + (runtime.version ?? ""), severity: .medium, target: .outdatedEngine(app)
+            ))
         }
         for grant in permissions ?? [] where grant.risk >= .medium {
             issues.append(Issue(id: "tcc." + grant.id, severity: grant.risk, target: .permission(grant)))

@@ -84,6 +84,8 @@ final class AppState {
     let slimming = SlimmingStore()
     let organize = OrganizeStore()
     let network = NetworkStore()
+    let dns = DNSStore()
+    let vault = VaultStore()
     let terminal = TerminalStore()
     let addOns = AddOnStore()
     let clipboard = ClipboardStore()
