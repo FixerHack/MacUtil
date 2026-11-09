@@ -64,8 +64,11 @@ enum AssistantActions {
         description.isEmpty ? .object(["type": .string("string")]) : .object(["type": .string("string"), "description": .string(description)])
     }
 
+    /// One of these values; with none to offer, any text (an empty list is not valid JSON Schema).
     private static func choice(_ values: [String]) -> JSONValue {
-        .object(["type": .string("string"), "enum": .array(values.map { .string($0) })])
+        values.isEmpty
+            ? .object(["type": .string("string")])
+            : .object(["type": .string("string"), "enum": .array(values.map { .string($0) })])
     }
 
     private static let integer: JSONValue = .object(["type": .string("integer")])

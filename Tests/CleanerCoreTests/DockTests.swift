@@ -264,3 +264,11 @@ struct AssistantMemoryTests {
         #expect(data.flatMap { try? JSONDecoder().decode([ConversationTurn].self, from: $0) } == turns)
     }
 }
+
+struct ReplySchemaTests {
+    @Test func neverListsNoNames() {
+        // Claude Code refuses a schema with an empty enum, as with no actions at all.
+        #expect(!ProviderWire.replySchema([]).text.contains("enum"))
+        #expect(ProviderWire.replySchema([ActionSpec(name: "a", summary: "", level: .read)]).text.contains(#""enum":["a"]"#))
+    }
+}

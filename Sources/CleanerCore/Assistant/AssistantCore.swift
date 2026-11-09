@@ -216,7 +216,15 @@ public enum AssistantError: Error, Equatable, LocalizedError {
 public enum ProviderWire {
     /// What the model is asked to answer with when the provider has no tools of its own.
     public static func replySchema(_ actions: [ActionSpec]) -> JSONValue {
-        .object([
+        // No actions: only something to say. An empty list of names is not valid JSON Schema.
+        guard !actions.isEmpty else {
+            return .object([
+                "type": .string("object"),
+                "properties": .object(["say": .object(["type": .string("string")]), "action": .object(["type": .string("null")])]),
+                "required": .array([.string("say"), .string("action")]),
+            ])
+        }
+        return .object([
             "type": .string("object"),
             "properties": .object([
                 "say": .object(["type": .string("string"), "description": .string("What to say to the person; short, spoken aloud.")]),
