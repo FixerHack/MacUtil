@@ -62,6 +62,23 @@ struct DockView: View {
         let radius = min(thickness / 2, geometry.icon * 0.36)
         return DockGlass(cornerRadius: radius)
             .frame(width: geometry.vertical ? thickness : length, height: geometry.vertical ? length : thickness)
+            .contextMenu {
+                if !model.profiles.isEmpty {
+                    ForEach(model.profiles) { profile in
+                        Button {
+                            model.switchProfile(to: profile.id)
+                        } label: {
+                            if model.activeProfile == profile.id {
+                                Label(profile.name, systemImage: "checkmark")
+                            } else {
+                                Text(verbatim: profile.name)
+                            }
+                        }
+                    }
+                    Divider()
+                }
+                Button("Dock Settings…") { sources.openInHub(.dockWidgets) }
+            }
             .dropDestination(for: URL.self) { urls, _ in
                 // Apps join the apps; folders go by the Trash, as in the system Dock.
                 let apps = urls.filter { $0.pathExtension == "app" }
@@ -113,7 +130,7 @@ struct DockView: View {
             let gap = geometry.icon * 0.1
             let length = item.length - gap
             let across = geometry.icon - gap
-            DockWidgetView(widget: widget, model: model, sources: sources, icon: geometry.icon, compact: geometry.vertical)
+            DockWidgetView(widget: widget, model: model, sources: sources, state: state, icon: geometry.icon, compact: geometry.vertical)
                 .frame(width: geometry.vertical ? across : length, height: geometry.vertical ? length : across)
                 .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + geometry.icon / 2, in: size))
         }
@@ -507,6 +524,7 @@ private struct DockWidgetView: View {
     let widget: DockModel.Widget
     let model: DockModel
     let sources: DockSources
+    let state: DockPanelState
     let icon: CGFloat
     let compact: Bool
 
@@ -530,6 +548,11 @@ private struct DockWidgetView: View {
         case .music: MusicWidget(island: sources.island, model: model, icon: icon, compact: compact)
         case .calendar: CalendarWidget(calendar: sources.island.calendar, icon: icon, compact: compact)
         case .weather: WeatherWidget(model: model, icon: icon, compact: compact)
+        case .timer: TimerWidget(gadgets: sources.gadgets, icon: icon, compact: compact)
+        case .pomodoro: PomodoroWidget(gadgets: sources.gadgets, icon: icon, compact: compact)
+        case .clipboard: ClipboardWidget(state: state, icon: icon)
+        case .colourPicker: ColourWidget(gadgets: sources.gadgets, icon: icon)
+        case .calculator: CalculatorWidget(state: state, icon: icon)
         }
     }
 }
@@ -731,3 +754,279 @@ private struct WeatherWidget: View {
         }
     }
 }
+
+// MARK: - Small tools
+
+/// How long is left, as the system writes durations: 4:05, or 1:02:00.
+private func remaining(_ seconds: TimeInterval) -> String {
+    let total = max(0, Int(seconds.rounded(.up)))
+    let hours = total / 3600, minutes = total / 60 % 60, rest = total % 60
+    return hours > 0 ? String(format: "%d:%02d:%02d", hours, minutes, rest) : String(format: "%d:%02d", minutes, rest)
+}
+
+/// A ring that empties as time runs out.
+private struct CountdownRing: View {
+    let fraction: Double
+    let tint: Color
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(.white.opacity(0.15), lineWidth: size * 0.12)
+            Circle()
+                .trim(from: 0, to: max(0, min(1, fraction)))
+                .stroke(tint, style: StrokeStyle(lineWidth: size * 0.12, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private struct TimerWidget: View {
+    let gadgets: DockGadgets
+    let icon: CGFloat
+    let compact: Bool
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            HStack(spacing: icon * 0.08) {
+                if let end = gadgets.timerEnd {
+                    let left = end.timeIntervalSince(context.date)
+                    CountdownRing(fraction: left / max(gadgets.timerLength, 1), tint: .orange, size: icon * 0.36)
+                    if !compact {
+                        Text(verbatim: remaining(left))
+                            .font(.system(size: icon * 0.2, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                    }
+                } else {
+                    Image(systemName: gadgets.timerRang ? "bell.and.waves.left.and.right.fill" : "timer")
+                        .font(.system(size: icon * 0.3))
+                        .foregroundStyle(gadgets.timerRang ? Color.orange : .white)
+                        .symbolEffect(.bounce, value: gadgets.timerRang)
+                    if !compact {
+                        Text(gadgets.timerRang ? "Time's up" : "Timer")
+                            .font(.system(size: icon * 0.14, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .contentShape(.rect)
+        .onTapGesture { menu() }
+    }
+
+    private func menu() {
+        let menu = NSMenu()
+        if gadgets.timerEnd != nil {
+            menu.addItem(ClosureMenuItem(title: String(localized: "Stop Timer")) { gadgets.stopTimer() })
+            menu.addItem(.separator())
+        }
+        for minutes in [1, 3, 5, 10, 15, 20, 30, 45, 60] {
+            menu.addItem(ClosureMenuItem(title: String(localized: "\(minutes) min")) { gadgets.startTimer(minutes: minutes) })
+        }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+}
+
+private struct PomodoroWidget: View {
+    let gadgets: DockGadgets
+    let icon: CGFloat
+    let compact: Bool
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let left = gadgets.phaseEnd.map { $0.timeIntervalSince(context.date) } ?? gadgets.pausedLeft ?? gadgets.phaseLength
+            let tint: Color = gadgets.phase == .focus ? .red : .green
+            HStack(spacing: icon * 0.08) {
+                ZStack {
+                    CountdownRing(fraction: left / gadgets.phaseLength, tint: tint, size: icon * 0.4)
+                    Image(systemName: gadgets.pomodoroRunning ? (gadgets.phase == .focus ? "brain.head.profile" : "cup.and.saucer.fill") : "play.fill")
+                        .font(.system(size: icon * 0.14))
+                }
+                if !compact {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(gadgets.phase == .focus ? "Focus" : "Break")
+                            .font(.system(size: icon * 0.12, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text(verbatim: remaining(left))
+                            .font(.system(size: icon * 0.19, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .contentShape(.rect)
+        .onTapGesture { gadgets.togglePomodoro() }
+        .contextMenu {
+            Button("Skip to the Next Part") { gadgets.skipPhase() }
+            Button("Reset") { gadgets.resetPomodoro() }
+        }
+    }
+}
+
+/// What was copied lately, from UniMacHub's clipboard history.
+private struct ClipboardWidget: View {
+    let state: DockPanelState
+    let icon: CGFloat
+
+    var body: some View {
+        Image(systemName: "list.clipboard")
+            .font(.system(size: icon * 0.32))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(.rect)
+            .onTapGesture { toggle() }
+            .popover(isPresented: Binding(
+                get: { state.openWidget == .clipboard },
+                set: { if !$0, state.openWidget == .clipboard { state.openWidget = nil } }
+            )) {
+                ClipboardList { state.openWidget = nil }
+            }
+    }
+
+    private func toggle() {
+        state.openWidget = state.openWidget == .clipboard ? nil : .clipboard
+    }
+}
+
+private struct ClipboardList: View {
+    let close: () -> Void
+    @State private var entries: [ClipboardEntry] = []
+
+    /// The history is switched on in UniMacHub, whose setting this is.
+    private var isOn: Bool {
+        UserDefaults(suiteName: MacUtilInfo.bundleIdentifier)?.bool(forKey: ClipboardHistory.enabledKey) ?? false
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if !isOn {
+                Text("Clipboard history is off. Turn it on in UniMacHub under Overview → Clipboard History.")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 260)
+                    .padding(8)
+            } else if entries.isEmpty {
+                Text("Nothing copied yet")
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(entries.prefix(20)) { entry in
+                            HStack(spacing: 8) {
+                                Image(systemName: entry.kind == .url ? "link" : entry.kind == .file ? "doc" : "text.alignleft")
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 16)
+                                Text(verbatim: entry.preview).lineLimit(1)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .contentShape(.rect)
+                            .onTapGesture {
+                                ClipboardHistory.copy(entry)
+                                close()
+                            }
+                        }
+                    }
+                }
+                .frame(width: 320, height: min(400, CGFloat(min(entries.count, 20)) * 26 + 6))
+                Text("Click one to copy it again")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+            }
+        }
+        .padding(8)
+        .onAppear { entries = ClipboardHistory.load() }
+    }
+}
+
+private struct ColourWidget: View {
+    let gadgets: DockGadgets
+    let icon: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Image(systemName: "eyedropper.halffull")
+                .font(.system(size: icon * 0.3))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let last = gadgets.colours.first, let colour = NSColor(hex: last) {
+                Circle()
+                    .fill(Color(nsColor: colour))
+                    .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1))
+                    .frame(width: icon * 0.2, height: icon * 0.2)
+                    .help(Text(verbatim: last))
+            }
+        }
+        .contentShape(.rect)
+        .onTapGesture { gadgets.pickColour() }
+        .contextMenu {
+            ForEach(gadgets.colours, id: \.self) { hex in
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(hex, forType: .string)
+                } label: {
+                    Text(verbatim: hex)
+                }
+            }
+        }
+    }
+}
+
+private struct CalculatorWidget: View {
+    let state: DockPanelState
+    let icon: CGFloat
+
+    var body: some View {
+        Image(systemName: "plusminus.circle")
+            .font(.system(size: icon * 0.32))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(.rect)
+            .onTapGesture { state.openWidget = state.openWidget == .calculator ? nil : .calculator }
+            .popover(isPresented: Binding(
+                get: { state.openWidget == .calculator },
+                set: { if !$0, state.openWidget == .calculator { state.openWidget = nil } }
+            )) {
+                CalculatorPanel()
+            }
+    }
+}
+
+private struct CalculatorPanel: View {
+    @State private var input = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        let result = Arithmetic.evaluate(input).map(Arithmetic.format)
+        VStack(alignment: .trailing, spacing: 6) {
+            TextField("12 × (3 + 4) ÷ 2", text: $input)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 15).monospacedDigit())
+                .focused($focused)
+                .onSubmit { copy(result) }
+            Text(verbatim: result.map { "= \($0)" } ?? (input.isEmpty ? " " : "…"))
+                .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                .textSelection(.enabled)
+            Text("Return copies the answer")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .frame(width: 260)
+        .onAppear {
+            // A panel in an app that is never in front gets no typing until it is made key.
+            NSApp.activate()
+            focused = true
+        }
+    }
+
+    private func copy(_ result: String?) {
+        guard let result else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(result, forType: .string)
+    }
+}
+

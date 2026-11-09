@@ -11,6 +11,8 @@ struct DockSettingsView: View {
     @State private var confirmsEnabling = false
     @State private var town = ""
     @State private var problem: DockService.Problem?
+    @State private var namingProfile = false
+    @State private var newProfileName = ""
 
     var body: some View {
         Form {
@@ -154,6 +156,27 @@ struct DockSettingsView: View {
             }
 
             Section {
+                if model.profiles.isEmpty {
+                    Text("One Dock for everything. A profile keeps its own apps, folders and widgets, for work, study or games, and can switch itself on when one of its apps comes to the front.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(model.profiles) { profile in
+                    ProfileRow(profile: profile, model: model)
+                }
+                Button("New Profile from This Dock…") {
+                    newProfileName = ""
+                    namingProfile = true
+                }
+            } header: {
+                Text("Profiles")
+            } footer: {
+                if !model.profiles.isEmpty {
+                    Text("Changes to the Dock go into the profile in use. Switch from here, from the menu bar or with a right click on the Dock. When an app that switched it leaves the front, the Dock goes back to the profile chosen by hand.")
+                }
+            }
+
+            Section {
                 ForEach(model.folders, id: \.self) { url in
                     HStack {
                         Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 20, height: 20)
@@ -217,6 +240,16 @@ struct DockSettingsView: View {
         .navigationTitle("Dock & Widgets")
         .onAppear { town = model.weatherTown }
         .onChange(of: model.weatherTown) { _, name in town = name }
+        .alert("New Profile", isPresented: $namingProfile) {
+            TextField("Name, such as Work or Games", text: $newProfileName)
+            Button("Create") {
+                let name = newProfileName.trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty { model.createProfile(named: name) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It starts as a copy of the Dock as it is now and is switched to at once.")
+        }
         .alert("Turn on UniMacHub's Dock?", isPresented: $confirmsEnabling) {
             Button("Turn On") { problem = DockService.turnOn(model) }
             Button("Cancel", role: .cancel) {}
@@ -270,6 +303,70 @@ struct DockSettingsView: View {
     }
 }
 
+/// One profile: in use or not, its name, and the apps that switch to it.
+private struct ProfileRow: View {
+    let profile: DockModel.Profile
+    let model: DockModel
+    @State private var name = ""
+
+    var body: some View {
+        let active = model.activeProfile == profile.id
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Button {
+                    model.switchProfile(to: profile.id)
+                } label: {
+                    Image(systemName: active ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(active ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(Text("Use This Profile"))
+                TextField("Name", text: $name)
+                    .textFieldStyle(.plain)
+                    .onSubmit { model.renameProfile(profile.id, to: name) }
+                Spacer()
+                Button {
+                    model.deleteProfile(profile.id)
+                } label: {
+                    Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(Text("Delete Profile"))
+            }
+            HStack(spacing: 6) {
+                Text("Switches on with:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(profile.triggers, id: \.self) { bundleID in
+                    if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                        Button {
+                            model.setTriggers(profile.triggers.filter { $0 != bundleID }, for: profile.id)
+                        } label: {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 18, height: 18)
+                        }
+                        .buttonStyle(.plain)
+                        .help(Text("\(FileManager.default.displayName(atPath: url.path)): click to take it off"))
+                    }
+                }
+                Button("Add App…") { addTrigger() }
+                    .controlSize(.small)
+            }
+        }
+        .onAppear { name = profile.name }
+        .onChange(of: profile.name) { _, new in name = new }
+    }
+
+    private func addTrigger() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = true
+        panel.directoryURL = URL(filePath: "/Applications")
+        guard panel.runModal() == .OK else { return }
+        let added = panel.urls.compactMap { Bundle(url: $0)?.bundleIdentifier }
+        model.setTriggers(Array(Set(profile.triggers + added)).sorted(), for: profile.id)
+    }
+}
+
 extension DockModel.Widget {
     var title: LocalizedStringKey {
         switch self {
@@ -278,6 +375,11 @@ extension DockModel.Widget {
         case .music: "Music"
         case .calendar: "Calendar"
         case .weather: "Weather"
+        case .timer: "Timer"
+        case .pomodoro: "Pomodoro: 25 minutes of focus, 5 of rest"
+        case .clipboard: "Clipboard history"
+        case .colourPicker: "Colour picker"
+        case .calculator: "Calculator"
         }
     }
 
@@ -288,6 +390,11 @@ extension DockModel.Widget {
         case .music: "music.note"
         case .calendar: "calendar"
         case .weather: "cloud.sun"
+        case .timer: "timer"
+        case .pomodoro: "brain.head.profile"
+        case .clipboard: "list.clipboard"
+        case .colourPicker: "eyedropper.halffull"
+        case .calculator: "plusminus.circle"
         }
     }
 }

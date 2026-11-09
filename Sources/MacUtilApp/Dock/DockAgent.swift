@@ -102,6 +102,7 @@ final class DockAgent: NSObject, NSApplicationDelegate {
 final class DockSources {
     let island = IslandModel()
     let windows = MinimizedWindows()
+    let gadgets = DockGadgets()
     let previews: WindowPreviews
     private(set) var sample = SystemStats.Sample()
     @ObservationIgnored private let model: DockModel

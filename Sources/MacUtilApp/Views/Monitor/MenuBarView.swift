@@ -74,6 +74,20 @@ struct MenuBarView: View {
                 }
             }
 
+            if state.dock.isEnabled, !state.dock.profiles.isEmpty {
+                Divider()
+                Picker(selection: Binding(
+                    get: { state.dock.activeProfile ?? state.dock.profiles[0].id },
+                    set: { state.dock.switchProfile(to: $0) }
+                )) {
+                    ForEach(state.dock.profiles) { profile in
+                        Text(verbatim: profile.name).tag(profile.id)
+                    }
+                } label: {
+                    Label("Dock", systemImage: "dock.rectangle")
+                }
+            }
+
             Divider()
             QuickActionsRow()
 

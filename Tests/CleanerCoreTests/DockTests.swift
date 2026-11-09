@@ -118,3 +118,28 @@ struct WeatherTests {
         #expect(Weather.symbol(for: 0, isDay: false) == "moon.stars.fill")
     }
 }
+
+struct ArithmeticTests {
+    @Test func worksOutWhatIsTyped() {
+        #expect(Arithmetic.evaluate("12 × (3 + 4) ÷ 2") == 42)
+        #expect(Arithmetic.evaluate("2^3^2") == 512)
+        #expect(Arithmetic.evaluate("-3 + 5") == 2)
+        #expect(Arithmetic.evaluate("1,5 * 2") == 3)
+        #expect(Arithmetic.evaluate("200 * 15%") == 30)
+        #expect(Arithmetic.evaluate("10 − 4") == 6)
+    }
+
+    @Test func refusesWhatIsNotArithmetic() {
+        #expect(Arithmetic.evaluate("") == nil)
+        #expect(Arithmetic.evaluate("1 / 0") == nil)
+        #expect(Arithmetic.evaluate("2 +") == nil)
+        #expect(Arithmetic.evaluate("(1 + 2") == nil)
+        #expect(Arithmetic.evaluate("FUNCTION(1, 'exit')") == nil)
+    }
+
+    @Test func writesTheAnswerPlainly() {
+        #expect(Arithmetic.format(42) == "42")
+        #expect(Arithmetic.format(0.1 + 0.2) == "0.3")
+        #expect(Arithmetic.format(-2.5) == "-2.5")
+    }
+}

@@ -20,6 +20,18 @@ final class DockModel {
         var isVertical: Bool { self != .bottom }
     }
 
+    /// A set of apps, folders and widgets for one kind of work, switched to by hand or when
+    /// one of its apps comes to the front.
+    struct Profile: Codable, Identifiable, Equatable {
+        var id = UUID()
+        var name: String
+        var pinned: [String]
+        var folders: [String]
+        var widgets: [String]
+        /// Bundle identifiers of the apps that switch to it when they come to the front.
+        var triggers: [String] = []
+    }
+
     /// How a folder opens: a fan rising from it, a grid, or a list.
     enum FolderStyle: String, CaseIterable, Identifiable {
         case fan, grid, list
@@ -27,14 +39,14 @@ final class DockModel {
     }
 
     enum Widget: String, CaseIterable, Identifiable {
-        case clock, system, music, calendar, weather
+        case clock, system, music, calendar, weather, timer, pomodoro, clipboard, colourPicker, calculator
         var id: String { rawValue }
 
         /// Which end of the Dock it sits at.
         var leading: Bool {
             switch self {
             case .clock, .system: true
-            case .music, .calendar, .weather: false
+            default: false
             }
         }
 
@@ -46,6 +58,8 @@ final class DockModel {
             case .music: 3.3
             case .calendar: 1.55
             case .weather: 1.6
+            case .timer, .pomodoro: 1.5
+            case .clipboard, .colourPicker, .calculator: 1
             }
         }
     }
@@ -108,6 +122,9 @@ final class DockModel {
         static let folders = "dockFolders"
         static let displays = "dockDisplays"
         static let previews = "dockWindowPreviews"
+        static let profiles = "dockProfiles"
+        static let activeProfile = "dockActiveProfile"
+        static let manualProfile = "dockManualProfile"
         static let screenRecording = "dockScreenRecordingGranted"
         static let folderStyle = "dockFolderStyle"
         static let accessibility = "dockAccessibilityGranted"
@@ -135,12 +152,12 @@ final class DockModel {
     var position: Position { didSet { save(position.rawValue, Keys.position) } }
     var showsIndicators: Bool { didSet { save(showsIndicators, Keys.indicators) } }
     var showsRunningApps: Bool { didSet { save(showsRunningApps, Keys.runningApps); rebuild() } }
-    var widgets: Set<Widget> { didSet { save(widgets.map(\.rawValue).sorted(), Keys.widgets); rebuild() } }
+    var widgets: Set<Widget> { didSet { save(widgets.map(\.rawValue).sorted(), Keys.widgets); keepInProfile(); rebuild() } }
     private(set) var weatherTown: String { didSet { save(weatherTown, Keys.town) } }
     /// Minimised windows in the Dock, before the Trash, as the system Dock keeps them.
     var showsMinimized: Bool { didSet { save(showsMinimized, Keys.minimized) } }
     /// Folders kept by the Trash, as the system Dock keeps Downloads.
-    private(set) var folders: [URL] { didSet { save(folders.map(\.path), Keys.folders) } }
+    private(set) var folders: [URL] { didSet { save(folders.map(\.path), Keys.folders); keepInProfile() } }
     var folderStyle: FolderStyle { didSet { save(folderStyle.rawValue, Keys.folderStyle) } }
     /// The displays the Dock is on, by their lasting identifiers; none chosen means the main one.
     var displays: Set<String> { didSet { save(displays.sorted(), Keys.displays) } }
@@ -152,7 +169,13 @@ final class DockModel {
 
     // MARK: - Contents
 
-    private(set) var pinned: [URL] { didSet { save(pinned.map(\.path), Keys.pinned) } }
+    private(set) var pinned: [URL] { didSet { save(pinned.map(\.path), Keys.pinned); keepInProfile() } }
+    private(set) var profiles: [Profile] { didSet { save((try? JSONEncoder().encode(profiles)) ?? Data(), Keys.profiles) } }
+    private(set) var activeProfile: UUID? { didSet { save(activeProfile?.uuidString ?? "", Keys.activeProfile) } }
+    /// The profile last chosen by hand, which the Dock goes back to when an app that
+    /// switched it leaves the front.
+    @ObservationIgnored private var manualProfile: UUID? { didSet { save(manualProfile?.uuidString ?? "", Keys.manualProfile) } }
+    @ObservationIgnored private var switching = false
     private(set) var apps: [App] = []
     /// Set by the Dock's process from `MinimizedWindows`.
     var minimizedWindows: [MinimizedWindow] = []
@@ -196,6 +219,7 @@ final class DockModel {
         folders = []
         folderStyle = .grid
         displays = []
+        profiles = []
         showsPreviews = true
         screenRecordingGranted = false
         accessibilityGranted = false
@@ -211,7 +235,15 @@ final class DockModel {
                 self.changedElsewhere()
             }
         })
-        if role == .dock { watchApps() }
+        if role == .dock {
+            watchApps()
+            observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+            ) { [weak self] note in
+                let bundleID = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
+                Task { @MainActor in self?.frontmostChanged(to: bundleID) }
+            })
+        }
         rebuild()
     }
 
@@ -250,6 +282,11 @@ final class DockModel {
         if folders != keptFolders { folders = keptFolders }
         if showsPreviews != read.bool(forKey: Keys.previews) { showsPreviews = read.bool(forKey: Keys.previews) }
         if screenRecordingGranted != read.bool(forKey: Keys.screenRecording) { screenRecordingGranted = read.bool(forKey: Keys.screenRecording) }
+        let storedProfiles = read.data(forKey: Keys.profiles).flatMap { try? JSONDecoder().decode([Profile].self, from: $0) } ?? []
+        if profiles != storedProfiles { profiles = storedProfiles }
+        let active = UUID(uuidString: read.string(forKey: Keys.activeProfile) ?? "")
+        if activeProfile != active { activeProfile = active }
+        manualProfile = UUID(uuidString: read.string(forKey: Keys.manualProfile) ?? "")
         let chosenDisplays = Set(read.stringArray(forKey: Keys.displays) ?? [])
         if displays != chosenDisplays { displays = chosenDisplays }
         let style = FolderStyle(rawValue: read.string(forKey: Keys.folderStyle) ?? "") ?? .grid
@@ -378,6 +415,82 @@ final class DockModel {
         if showsMinimized { result += minimizedWindows.map(Entry.window) }
         result.append(.trash)
         return result
+    }
+
+    // MARK: - Profiles
+
+    /// Keeps the profile in use up to date with what is in the Dock.
+    private func keepInProfile() {
+        guard !loading, !switching, let activeProfile, let index = profiles.firstIndex(where: { $0.id == activeProfile }) else { return }
+        var profile = profiles[index]
+        profile.pinned = pinned.map(\.path)
+        profile.folders = folders.map(\.path)
+        profile.widgets = widgets.map(\.rawValue).sorted()
+        if profiles[index] != profile { profiles[index] = profile }
+    }
+
+    /// A new profile, starting from the Dock as it is, and switched to. The first one also
+    /// keeps the Dock as it was, under its own name, to come back to.
+    func createProfile(named name: String) {
+        let current = Profile(
+            name: name, pinned: pinned.map(\.path), folders: folders.map(\.path), widgets: widgets.map(\.rawValue).sorted()
+        )
+        if profiles.isEmpty {
+            var main = current
+            main.id = UUID()
+            main.name = String(localized: "Main")
+            profiles = [main]
+            activeProfile = main.id
+            manualProfile = main.id
+        }
+        profiles.append(current)
+        activeProfile = current.id
+        manualProfile = current.id
+    }
+
+    func switchProfile(to id: UUID, byHand: Bool = true) {
+        if byHand { manualProfile = id }
+        guard id != activeProfile, let profile = profiles.first(where: { $0.id == id }) else { return }
+        keepInProfile()
+        switching = true
+        pinned = profile.pinned.map { URL(filePath: $0) }
+        folders = profile.folders.map { URL(filePath: $0) }
+        widgets = Set(profile.widgets.compactMap(Widget.init))
+        switching = false
+        activeProfile = id
+        rebuild()
+        if role == .dock { refreshWeather() }
+    }
+
+    func renameProfile(_ id: UUID, to name: String) {
+        guard let index = profiles.firstIndex(where: { $0.id == id }), profiles[index].name != name else { return }
+        profiles[index].name = name
+    }
+
+    func deleteProfile(_ id: UUID) {
+        if activeProfile == id, let other = profiles.first(where: { $0.id != id }) { switchProfile(to: other.id) }
+        profiles.removeAll { $0.id == id }
+        if profiles.count <= 1 {
+            // One profile is the same as none.
+            profiles = []
+            activeProfile = nil
+            manualProfile = nil
+        }
+    }
+
+    func setTriggers(_ triggers: [String], for id: UUID) {
+        guard let index = profiles.firstIndex(where: { $0.id == id }) else { return }
+        profiles[index].triggers = triggers
+    }
+
+    /// An app came to the front: its profile, if one claims it, or back to the one chosen by hand.
+    private func frontmostChanged(to bundleID: String?) {
+        guard !profiles.isEmpty, let bundleID, bundleID != Bundle.main.bundleIdentifier else { return }
+        if let claimed = profiles.first(where: { $0.triggers.contains(bundleID) }) {
+            switchProfile(to: claimed.id, byHand: false)
+        } else if let manualProfile, manualProfile != activeProfile {
+            switchProfile(to: manualProfile, byHand: false)
+        }
     }
 
     // MARK: - Displays

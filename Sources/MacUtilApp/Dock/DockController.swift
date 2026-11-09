@@ -48,6 +48,9 @@ final class DockPanelState {
     var pointer: CGFloat?
     /// The folder whose contents are open over this Dock.
     var openFolder: URL?
+    /// A widget with its own panel open over this Dock, such as the calculator.
+    var openWidget: DockModel.Widget?
+    var holdsOpen: Bool { openFolder != nil || openWidget != nil }
 }
 
 /// The windows UniMacHub's Dock lives in, one per screen it is on, and the pointer that
@@ -211,7 +214,10 @@ final class DockController {
         if let clicks = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                for dock in self.docks.values where dock.state.openFolder != nil { dock.state.openFolder = nil }
+                for dock in self.docks.values where dock.state.holdsOpen {
+                    dock.state.openFolder = nil
+                    dock.state.openWidget = nil
+                }
                 self.pointerMoved()
             }
         }) {
@@ -254,7 +260,7 @@ final class DockController {
         let frame = panel.frame
         // A menu, an open folder or the window previews keep the Dock out.
         let overPreviews = sources.previews.contains(point)
-        let holding = (menuIsOpen && state.pointer != nil) || state.openFolder != nil || overPreviews
+        let holding = (menuIsOpen && state.pointer != nil) || state.holdsOpen || overPreviews
         let alongLength = model.position.isVertical ? frame.height : frame.width
         let available = alongLength - 24
         let base = model.layout(entries, available: available, pointer: nil)
@@ -286,7 +292,7 @@ final class DockController {
                 dock.hideTask = Task { [weak self, weak dock] in
                     try? await Task.sleep(for: .milliseconds(450))
                     guard !Task.isCancelled, let self, let dock else { return }
-                    if !(self.menuIsOpen && dock.state.pointer != nil), dock.state.openFolder == nil {
+                    if !(self.menuIsOpen && dock.state.pointer != nil), !dock.state.holdsOpen {
                         self.setShown(false, dock.state)
                     }
                     dock.hideTask = nil
