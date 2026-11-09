@@ -57,6 +57,8 @@ final class IslandModel {
     // MARK: - What is on show
 
     let agents = AgentsModel()
+    /// Brings UniMacHub's window forward; set by the controller, which knows the app.
+    @ObservationIgnored var openMain: (() -> Void)?
     let calendar = CalendarFeed()
     let batteries = BatteriesFeed()
     var page: Page = .home

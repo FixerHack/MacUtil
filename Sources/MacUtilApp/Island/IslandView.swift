@@ -407,8 +407,7 @@ private struct IslandPanel: View {
                 }
             }
             Button {
-                NSApp.activate(ignoringOtherApps: true)
-                NSApp.windows.first { $0.identifier?.rawValue.contains("main") == true }?.makeKeyAndOrderFront(nil)
+                model.openMain?()
                 model.close()
             } label: {
                 Label("Open UniMacHub", systemImage: "circle.hexagongrid")

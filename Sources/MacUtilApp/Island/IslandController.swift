@@ -25,6 +25,7 @@ final class IslandController {
     init(model: IslandModel, state: AppState) {
         self.model = model
         self.state = state
+        model.openMain = { [weak state] in state?.showMain() }
         observers.append(NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in

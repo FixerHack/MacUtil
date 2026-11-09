@@ -9,6 +9,7 @@ struct MacUtilApp: App {
         Window("UniMacHub", id: "main") {
             ContentView()
                 .environment(state)
+                .modifier(MainWindowOpener(state: state))
                 .frame(minWidth: 860, minHeight: 560)
                 .background(Backdrop())
                 .tint(Palette.accent)
@@ -34,5 +35,18 @@ struct MacUtilApp: App {
             MenuBarLabel(monitor: state.monitor)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// Hands the window-opening action to the app state, for the island and the Dock.
+private struct MainWindowOpener: ViewModifier {
+    let state: AppState
+    @Environment(\.openWindow) private var openWindow
+
+    func body(content: Content) -> some View {
+        content.onAppear {
+            let open = openWindow
+            state.openMainWindow = { open(id: "main") }
+        }
     }
 }

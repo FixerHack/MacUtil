@@ -83,7 +83,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
     var isPlanned: Bool {
         switch self {
         case .menuBarTidy, .windowTiling, .audioSwitch, .displayControl, .batteryCare,
-             .dockWidgets, .batchRename, .terminalThemes, .networkControl, .linkAggregation,
+             .batchRename, .terminalThemes, .networkControl, .linkAggregation,
              .firewall, .permissions,
              .assistant, .timeMachine, .iCloudSync, .converter, .lanScan, .appConnections:
             true
@@ -280,7 +280,7 @@ enum Module: CaseIterable, Identifiable, Hashable {
         case .audioSwitch: "Change output and per-app volume without opening Settings."
         case .displayControl: "Brightness and resolution, including on external screens."
         case .batteryCare: "Health, cycles, and holding the charge where it wears least."
-        case .dockWidgets: "A Dock of your own, with the apps you choose as live widgets."
+        case .dockWidgets: "A Dock of your own, with widgets and UniMacHub's tools."
         case .batchRename: "Rename many files at once, by a rule you can see first."
         case .terminalThemes: "Colours for Terminal, built to be read for hours."
         case .networkControl: "The order macOS tries adapters in, and what is switched on."
@@ -383,6 +383,8 @@ enum Module: CaseIterable, Identifiable, Hashable {
             "Quitting asks the program to stop and save. Forcing it does not, and anything unsaved is lost."
         case .island:
             "It lives in the notch, or as a small tab at the top. Point at it to open it; drop a file on it to keep it to hand. Showing volume and brightness there needs Accessibility, and is off until you turn it on."
+        case .dockWidgets:
+            "Turning it on hides macOS's own Dock rather than removing it, and puts it back exactly as it was when you turn this off or quit UniMacHub."
         case .vault:
             "A vault is an ordinary encrypted disk image: it opens in Disk Utility on any Mac, with or without UniMacHub. Forget the password and nothing can open it, not UniMacHub and not Apple."
         case .dns:

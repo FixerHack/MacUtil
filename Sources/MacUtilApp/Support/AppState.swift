@@ -1,3 +1,4 @@
+import AppKit
 import CleanerCore
 import Foundation
 import Observation
@@ -19,6 +20,21 @@ final class AppState {
     /// Opens a tool from anywhere: the menu bar, the dashboard, the hub.
     func open(_ module: Module) {
         path = module == .hub ? [] : [module]
+    }
+
+    /// Opens the main window, from places outside it such as the island and the Dock, which
+    /// have no scene of their own to ask. Set by the first window that appears.
+    @ObservationIgnored var openMainWindow: (() -> Void)?
+
+    /// Brings UniMacHub forward with a tool on screen, opening the window again if it was closed.
+    func showMain(_ module: Module? = nil) {
+        if let module { open(module) }
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue.contains("main") == true }) {
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            openMainWindow?()
+        }
     }
 
     // MARK: - Favourites
@@ -88,6 +104,8 @@ final class AppState {
     let vault = VaultStore()
     let island = IslandModel()
     @ObservationIgnored private var islandController: IslandController?
+    let dock = DockModel()
+    @ObservationIgnored private var dockController: DockController?
     let terminal = TerminalStore()
     let addOns = AddOnStore()
     let clipboard = ClipboardStore()
@@ -110,6 +128,7 @@ final class AppState {
                 if DebugSnapshot.isActive { return }
             #endif
             self.islandController = IslandController(model: self.island, state: self)
+            self.dockController = DockController(model: self.dock, state: self)
         }
     }
 
