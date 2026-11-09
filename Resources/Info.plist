@@ -29,6 +29,12 @@
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>UniMacHub shows your next event in the island at the top of the screen. Nothing leaves this Mac.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>UniMacHub shows your next event in the island at the top of the screen. Nothing leaves this Mac.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>UniMacHub shows the charge of your AirPods and other Bluetooth devices in the island.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>UniMacHub asks Finder to move apps that belong to an administrator to the Trash. Finder then asks for your password.</string>
 	<key>NSHighResolutionCapable</key>

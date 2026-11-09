@@ -6,6 +6,8 @@ import SwiftUI
 struct IslandSettingsView: View {
     @Bindable var model: IslandModel
     @State private var trusted = AXIsProcessTrusted()
+    @State private var confirmsConnection = false
+    @State private var connectionError: String?
 
     var body: some View {
         Form {
@@ -47,11 +49,102 @@ struct IslandSettingsView: View {
             } footer: {
                 Text("To show its own indicator, UniMacHub has to take the key before macOS does, which needs Accessibility. A key it cannot act on, such as the volume of HDMI speakers or keyboard light, is passed on to macOS unchanged. Speakers on AirPlay follow the player's own volume, which is why the keys change that while music plays.")
             }
+
+            agentsSection
+            calendarSection
         }
         .formStyle(.grouped)
+        .alert("Connect Claude Code?", isPresented: $confirmsConnection) {
+            Button("Connect") { connect() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("UniMacHub adds its hooks and a status line to ~/.claude/settings.json. Hooks other apps put there stay as they are. A status line you already have keeps showing; UniMacHub runs it and only reads the usage limits on the way. A copy of the file is kept next to it, and Disconnect takes out exactly what was added. Sessions that are already open pick this up when they start again.")
+        }
+        .alert("Claude Code was not changed", isPresented: Binding(get: { connectionError != nil }, set: { if !$0 { connectionError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(verbatim: connectionError ?? "")
+        }
         .navigationTitle("Dynamic Island")
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             trusted = AXIsProcessTrusted()
+        }
+    }
+
+    @ViewBuilder private var agentsSection: some View {
+        let agents = model.agents
+        Section {
+            Toggle("Show coding agents", isOn: Bindable(agents).showsAgents)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: "Claude Code")
+                    Text(agents.claudeConnected ? "Connected: sessions, questions and limits" : "Not connected")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if agents.claudeConnected {
+                    Button("Disconnect") { disconnect() }
+                } else {
+                    Button("Connect…") { confirmsConnection = true }
+                }
+            }
+            .disabled(!agents.showsAgents)
+            Toggle("Answer Claude Code's permission requests in the island", isOn: Bindable(agents).answersInIsland)
+                .disabled(!agents.showsAgents || !agents.claudeConnected)
+            Toggle("Codex", isOn: Bindable(agents).readsCodex)
+                .disabled(!agents.showsAgents)
+        } header: {
+            Text("Coding agents")
+        } footer: {
+            Text("The island shows which sessions are at work, which have finished and which wait for you, with Claude Code's and Codex's usage limits. A question goes to the island only when the terminal it comes from is not in front; otherwise Claude Code asks it there, as always. Codex is read from the logs it keeps anyway, and nothing is added to it.")
+        }
+    }
+
+    @ViewBuilder private var calendarSection: some View {
+        let calendar = model.calendar
+        Section {
+            Toggle("Next calendar event", isOn: Bindable(calendar).isEnabled)
+            if calendar.isEnabled, calendar.access == .denied {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    Text("UniMacHub may not read your calendars.").font(.callout)
+                    Spacer()
+                    Button("Open Settings") { calendar.openSettings() }
+                }
+            }
+            Toggle("Battery of this Mac and what is paired with it", isOn: Bindable(model.batteries).isEnabled)
+        } header: {
+            Text("Calendar and batteries")
+        } footer: {
+            Text("The next event shows in the opened island, and beside the notch ten minutes before it starts. Batteries cover this Mac, Bluetooth keyboards, mice and trackpads, and AirPods with each side and the case.")
+        }
+    }
+
+    private func connect() {
+        do {
+            try model.agents.connectClaude()
+        } catch {
+            connectionError = Self.describe(error)
+        }
+    }
+
+    private func disconnect() {
+        do {
+            try model.agents.disconnectClaude()
+        } catch {
+            connectionError = Self.describe(error)
+        }
+    }
+
+    private static func describe(_ error: AgentsModel.ConnectionError) -> String {
+        switch error {
+        case .noTool:
+            String(localized: "The command-line tool inside UniMacHub is missing. Reinstall UniMacHub and try again.")
+        case .settings(.unreadable):
+            String(localized: "~/.claude/settings.json is not plain JSON, so UniMacHub leaves it alone.")
+        case let .settings(.unwritable(reason)):
+            reason
         }
     }
 

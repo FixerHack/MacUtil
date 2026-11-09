@@ -43,6 +43,7 @@ final class IslandController {
             _ = model.replacesIndicators
             _ = model.showsNowPlaying
             _ = model.presentation
+            _ = model.calendar.isEnabled
             _ = state.islandWork
         } onChange: { [weak self] in
             Task { @MainActor in
@@ -91,6 +92,8 @@ final class IslandController {
         if model.work != work { model.work = work }
         updateKeyTap()
         model.setFeedRunning(model.isEnabled && model.showsNowPlaying)
+        model.agents.setRunning(model.isEnabled)
+        model.calendar.setRunning(model.isEnabled)
         guard model.isEnabled, let screen else { return hide() }
         let geometry = IslandGeometry(
             screen: screen.frame, topInset: screen.safeAreaInsets.top,
@@ -139,8 +142,9 @@ final class IslandController {
         panel.hasShadow = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = false
-        // Every desktop, out of Mission Control's way, and not over a full-screen app.
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        // Every desktop, and hidden while Mission Control is open: it sits right over the row
+        // of desktops there and would be in the way of picking one.
+        panel.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle]
         let host = IslandHostingView(rootView: IslandView(model: model, state: state), model: model)
         // The window follows the island's state, never the other way round.
         host.sizingOptions = []

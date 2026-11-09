@@ -51,7 +51,15 @@ final class IslandModel {
     var showsNowPlaying: Bool { didSet { save(showsNowPlaying, Keys.nowPlaying) } }
     var showsShelf: Bool { didSet { save(showsShelf, Keys.shelf) } }
 
+    /// What the opened island shows.
+    enum Page: Equatable { case home, agents }
+
     // MARK: - What is on show
+
+    let agents = AgentsModel()
+    let calendar = CalendarFeed()
+    let batteries = BatteriesFeed()
+    var page: Page = .home
 
     /// Where the island is; set by the controller, read by the view for its sizes.
     var geometry: IslandGeometry?
@@ -67,7 +75,15 @@ final class IslandModel {
     var work: Work?
     var isHovering = false { didSet { if isHovering != oldValue { hoverChanged() } } }
     var isDropTargeted = false { didSet { if isDropTargeted != oldValue { scheduleExpansion() } } }
-    private(set) var isExpanded = false
+    private(set) var isExpanded = false {
+        didSet {
+            guard isExpanded, !oldValue else { return }
+            batteries.refresh()
+            calendar.refresh()
+            // A question waiting for an answer is what the person came for.
+            if !agents.questions.isEmpty { page = .agents }
+        }
+    }
     /// For a few seconds after the music stops, so the island does not snap shut at once.
     private(set) var isLingering = false
 
@@ -105,7 +121,7 @@ final class IslandModel {
     /// How much room the island takes right now.
     var presentation: IslandGeometry.State {
         if isExpanded { return .expanded }
-        if indicator != nil || work != nil { return .wings }
+        if indicator != nil || work != nil || agents.attention != nil || calendar.soon != nil { return .wings }
         if showsNowPlaying, playing != nil || (isLingering && featured != nil) { return .wings }
         return .collapsed
     }

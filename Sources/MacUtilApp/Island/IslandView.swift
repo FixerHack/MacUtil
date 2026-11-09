@@ -53,11 +53,25 @@ struct IslandView: View {
             IslandWings(model: model)
                 .transition(.islandContent)
         case .expanded:
-            IslandPanel(model: model)
-                .padding(.top, (model.geometry?.resting.height ?? 24) + 4)
+            VStack(spacing: 0) {
+                IslandTopStrip(model: model)
+                    .frame(height: model.geometry?.resting.height ?? 24)
+                    .padding(.horizontal, 22)
+                ZStack {
+                    if model.page == .agents, model.agents.showsAgents {
+                        AgentsPage(model: model)
+                            .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)).combined(with: .opacity))
+                    } else {
+                        IslandPanel(model: model)
+                            .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .leading)).combined(with: .opacity))
+                    }
+                }
+                .padding(.top, 6)
                 .padding(.horizontal, 22)
                 .padding(.bottom, 16)
-                .transition(.islandContent)
+                .clipped()
+            }
+            .transition(.islandContent)
         }
     }
 }
@@ -154,6 +168,10 @@ private struct IslandWings: View {
         if let indicator = model.indicator {
             Image(systemName: symbol(for: indicator))
                 .contentTransition(.symbolEffect(.replace))
+        } else if let agent = model.agents.attention {
+            AgentSymbol(session: agent)
+        } else if model.calendar.soon != nil {
+            Image(systemName: "calendar").foregroundStyle(.red)
         } else if model.work != nil {
             ProgressView().controlSize(.small).tint(.white)
         } else if let session = model.featured {
@@ -172,7 +190,11 @@ private struct IslandWings: View {
     @ViewBuilder private var middle: some View {
         if model.geometry?.hasNotch == false, model.indicator == nil {
             Group {
-                if let work = model.work {
+                if let agent = model.agents.attention {
+                    Text(verbatim: "\(agent.project) · \(agent.stateText)")
+                } else if let event = model.calendar.soon {
+                    Text(verbatim: event.title)
+                } else if let work = model.work {
                     Text(verbatim: work.title)
                 } else if let session = model.featured {
                     Text(verbatim: session.title)
@@ -188,6 +210,16 @@ private struct IslandWings: View {
         if let indicator = model.indicator {
             LevelBar(level: indicator.muted ? 0 : indicator.level)
                 .frame(width: 56, height: 5)
+        } else if let agent = model.agents.attention {
+            Text(verbatim: agent.wingText)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(agent.needsYou ? Color.orange : .white.opacity(0.8))
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+        } else if let event = model.calendar.soon {
+            Text(event.start, style: .relative)
+                .font(.caption2.monospacedDigit())
+                .lineLimit(1)
         } else if let work = model.work {
             if model.geometry?.hasNotch == true {
                 Text(verbatim: work.title).lineLimit(1).font(.caption2)
@@ -258,13 +290,13 @@ private struct IslandPanel: View {
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             if model.showsNowPlaying {
-                music.frame(width: model.showsShelf ? 300 : nil)
+                music.frame(width: model.showsShelf ? 290 : nil)
                     .frame(maxWidth: model.showsShelf ? nil : .infinity, alignment: .leading)
             }
             if model.showsShelf {
                 shelf.frame(maxWidth: .infinity)
             }
-            mac.frame(width: 128, alignment: .leading)
+            mac.frame(width: 140, alignment: .leading)
         }
         .frame(maxHeight: .infinity, alignment: .top)
     }
@@ -365,6 +397,9 @@ private struct IslandPanel: View {
     private var mac: some View {
         VStack(alignment: .leading, spacing: 10) {
             KeepAwakeToggle()
+            if model.calendar.isEnabled, let event = model.calendar.next {
+                CalendarChip(event: event)
+            }
             if let work = model.work {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.mini).tint(.white)
