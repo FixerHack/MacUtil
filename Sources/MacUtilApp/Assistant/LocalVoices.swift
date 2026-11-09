@@ -12,6 +12,8 @@ enum VoiceModel: String {
     case supertonic
     /// Kokoro: natural English voices, many in one package.
     case kokoro
+    /// HolosTTS: the best Ukrainian voices and voice cloning, on its own Python (`HolosEngine`).
+    case holos
 }
 
 /// One download of voices: a package in sherpa-onnx's `tts-models` release.
@@ -154,8 +156,33 @@ final class LocalVoices {
         ]
     }()
 
-    static func voices(for language: String) -> [LocalVoice] {
-        catalogue.filter { $0.languages.contains(language) }
+    /// HolosTTS before it is installed: one entry that installs it.
+    static let holosPlaceholder = LocalVoice(
+        id: "holos", name: "HolosTTS", gender: .female, languages: ["uk"], model: .holos,
+        detail: String(localized: "best Ukrainian, voice cloning"),
+        light: VoicePackage(package: "holos", digest: "", bytes: HolosEngine.size), full: nil
+    )
+
+    /// HolosTTS's voices once it is installed, its presets and the person's own.
+    var holosVoices: [LocalVoice] {
+        let engine = HolosEngine.shared
+        guard engine.isInstalled else { return [Self.holosPlaceholder] }
+        return engine.voices.map { voice in
+            LocalVoice(
+                id: "holos-" + voice.name, name: voice.name, gender: voice.gender == "male" ? .male : .female,
+                languages: ["uk"], model: .holos,
+                detail: voice.custom ? String(localized: "HolosTTS · your voice") : "HolosTTS",
+                light: VoicePackage(package: "holos", digest: "", bytes: HolosEngine.size), full: nil
+            )
+        }
+    }
+
+    func voices(for language: String) -> [LocalVoice] {
+        (language == "uk" ? holosVoices : []) + Self.catalogue.filter { $0.languages.contains(language) }
+    }
+
+    func voice(withID id: String) -> LocalVoice? {
+        (holosVoices + Self.catalogue).first { $0.id == id }
     }
 
     // MARK: - State
@@ -185,7 +212,8 @@ final class LocalVoices {
 
     /// The package of the voice on disk, the full one when both are.
     func installedPackage(_ voice: LocalVoice) -> VoicePackage? {
-        voice.packages.reversed().first { installed.contains($0.package) }
+        if voice.model == .holos { return HolosEngine.shared.isInstalled && voice.id != "holos" ? voice.light : nil }
+        return voice.packages.reversed().first { installed.contains($0.package) }
     }
 
     func isInstalled(_ voice: LocalVoice) -> Bool { installedPackage(voice) != nil }
@@ -193,7 +221,8 @@ final class LocalVoices {
     func isFull(_ voice: LocalVoice) -> Bool { voice.full != nil && installedPackage(voice) == voice.full }
 
     func progress(of voice: LocalVoice) -> Double? {
-        voice.packages.lazy.compactMap { self.progress[$0.package] }.first
+        if voice.model == .holos { return HolosEngine.shared.progress }
+        return voice.packages.lazy.compactMap { self.progress[$0.package] }.first
     }
 
     // MARK: - Listening
@@ -242,6 +271,10 @@ final class LocalVoices {
 
     /// Downloads the light version, or the full one, which then replaces the light.
     func download(_ voice: LocalVoice, full: Bool = false) {
+        if voice.model == .holos {
+            HolosEngine.shared.install()
+            return
+        }
         guard let package = full ? voice.full : voice.light, progress(of: voice) == nil else { return }
         problem = nil
         progress[package.package] = 0
@@ -277,6 +310,7 @@ final class LocalVoices {
 
     /// Stops a download of the voice.
     func cancelDownload(_ voice: LocalVoice) {
+        if voice.model == .holos { HolosEngine.shared.cancel() }
         for package in voice.packages { downloads[package.package]?.cancel() }
     }
 
@@ -320,6 +354,15 @@ final class LocalVoices {
 
     /// Deletes the voice's package, and with it every other voice in the same package.
     func delete(_ voice: LocalVoice) {
+        if voice.model == .holos {
+            // The person's own voice goes alone; a preset takes HolosTTS with it.
+            if voice.detail == String(localized: "HolosTTS · your voice") {
+                Task { await HolosEngine.shared.forget(voice.name) }
+            } else {
+                HolosEngine.shared.remove()
+            }
+            return
+        }
         for package in voice.packages {
             try? FileManager.default.removeItem(at: Self.folder.appending(path: package.package))
         }
@@ -330,7 +373,8 @@ final class LocalVoices {
 
     /// Other voices that come and go with this one's package.
     func sharing(_ voice: LocalVoice) -> Int {
-        Self.catalogue.filter { $0.id != voice.id && $0.light == voice.light }.count
+        if voice.model == .holos { return max(0, holosVoices.count - 1) }
+        return Self.catalogue.filter { $0.id != voice.id && $0.light == voice.light }.count
     }
 
     var usedBytes: Int64 {
@@ -346,6 +390,11 @@ final class LocalVoices {
 
     /// The text as a WAV file in this voice, or nil when it cannot be made.
     func synthesize(_ text: String, voice: LocalVoice, rate: Double, language: String = "uk") async -> URL? {
+        if voice.model == .holos {
+            let file = await HolosEngine.shared.say(text, voice: voice.name, speed: rate)
+            if file == nil { problem = HolosEngine.shared.problem }
+            return file
+        }
         guard let package = installedPackage(voice) else { return nil }
         let folder = Self.folder.appending(path: package.package)
         let files = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
@@ -374,6 +423,8 @@ final class LocalVoices {
                 "--supertonic-voice-style=\(folder.appending(path: "voice.bin").path)",
                 "--lang=\(language == "uk" ? "uk" : "en")", "--num-steps=8",
             ]
+        case .holos:
+            return nil
         case .kokoro:
             guard let model = file("model", ".onnx") else { return nil }
             let british = voice.detail.hasSuffix("GB")

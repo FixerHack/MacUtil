@@ -155,7 +155,7 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDe
 
     func speak(_ text: String, language: String, engine: VoiceEngine, voiceID: String?, rate: Float) {
         stop()
-        guard engine == .local, let voice = LocalVoices.catalogue.first(where: { $0.id == voiceID }),
+        guard engine == .local, let voiceID, let voice = LocalVoices.shared.voice(withID: voiceID),
               LocalVoices.shared.isInstalled(voice)
         else {
             speakWithSystem(text, language: language, voiceID: engine == .system ? voiceID : nil, rate: rate)

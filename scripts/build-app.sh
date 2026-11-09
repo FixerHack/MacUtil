@@ -62,6 +62,8 @@ clang -dynamiclib -fobjc-arc -O2 -Wall -Werror -mmacosx-version-min=14.0 "${HELP
     -o "$APP/Contents/Frameworks/libUniMacHubNowPlaying.dylib" Helpers/NowPlaying/UniMacHubNowPlaying.m
 cp -R Resources/Localization/*.lproj "$APP/Contents/Resources/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
+# The HolosTTS server the assistant's Ukrainian voices run in (see HolosEngine.swift).
+cp Resources/Voices/holos_server.py "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \
     Resources/Info.plist > "$APP/Contents/Info.plist"
 plutil -lint -s "$APP/Contents/Info.plist"

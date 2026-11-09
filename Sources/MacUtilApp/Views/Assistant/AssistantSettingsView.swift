@@ -462,8 +462,11 @@ private struct LocalVoicesList: View {
     let language: String
     let rate: Double
     @State private var confirmingFull = false
+    @State private var confirmingHolos = false
+    @State private var cloning = false
+    private var holos: HolosEngine { HolosEngine.shared }
 
-    private var choices: [LocalVoice] { LocalVoices.voices(for: language) }
+    private var choices: [LocalVoice] { voices.voices(for: language) }
     private var current: LocalVoice? { choices.first { $0.id == chosen } }
 
     var body: some View {
@@ -495,7 +498,7 @@ private struct LocalVoicesList: View {
                     }
                 } else {
                     Button {
-                        voices.download(voice)
+                        if voice.model == .holos { confirmingHolos = true } else { voices.download(voice) }
                     } label: {
                         Label("Download", systemImage: "arrow.down.circle")
                     }
@@ -516,6 +519,15 @@ private struct LocalVoicesList: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
+        .alert("Install HolosTTS?", isPresented: $confirmingHolos) {
+            Button("Install") { holos.install() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The most natural Ukrainian voices, and your own voice from a recording. It needs its own Python with PyTorch: about 2.6 GB on disk, and about 1.5 GB of memory while it speaks, given back after ten quiet minutes. It downloads from GitHub, PyPI and Hugging Face, takes a while, and can be stopped; deleting removes all of it.")
+        }
+        .sheet(isPresented: $cloning) {
+            VoiceCloneSheet { voice in chosen = "holos-" + voice.name }
+        }
         .alert("Download the full-quality voice?", isPresented: $confirmingFull, presenting: current) { voice in
             Button("Download") { voices.download(voice, full: true) }
             Button("Cancel", role: .cancel) {}
@@ -527,6 +539,15 @@ private struct LocalVoicesList: View {
             Text(status(of: voice))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+        if let stage = holos.stage {
+            Text(verbatim: stage).font(.caption).foregroundStyle(.secondary)
+        }
+        if let problem = holos.problem {
+            Text(verbatim: problem).font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+        }
+        if holos.isInstalled, language == "uk" {
+            Button("Make My Voice…") { cloning = true }
         }
         if let problem = voices.problem {
             Text(verbatim: problem).font(.caption).foregroundStyle(.orange)
@@ -554,6 +575,112 @@ private struct LocalVoicesList: View {
         let others = voices.sharing(voice)
         if others > 0 { parts.append(String(localized: "downloads together with \(others) other voices")) }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// A voice of the person's own for HolosTTS: they read a passage aloud, or pick a recording.
+private struct VoiceCloneSheet: View {
+    let made: (HolosEngine.Voice) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = String(localized: "My voice")
+    @State private var recorder: AVAudioRecorder?
+    @State private var recording: URL?
+    @State private var working = false
+    @State private var seconds = 0
+
+    static let passage = "Добрий день! Мене звати так, як написано вище, і зараз я записую свій голос. Я говорю спокійно і чітко, як у звичайній розмові. Сьогодні гарна погода, тож після роботи я, мабуть, прогуляюся парком і вип'ю кави. А ввечері почитаю книжку або подивлюся фільм."
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Make my voice").font(.title2.weight(.semibold))
+            Text("Read this aloud in a quiet room, at your usual pace, about 20 seconds. Or pick a clear recording of one voice, without music.")
+                .foregroundStyle(.secondary)
+            Text(verbatim: Self.passage)
+                .padding(10)
+                .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 8))
+            TextField("Name", text: $name)
+            HStack {
+                if recorder?.isRecording == true {
+                    Button("Stop Recording") { finish() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                    Text(verbatim: "● \(seconds) s").foregroundStyle(.red).monospacedDigit()
+                } else {
+                    Button("Record") { record() }
+                    Button("Choose a Recording…") { choose() }
+                }
+                Spacer()
+                if let recording {
+                    Text(verbatim: recording.lastPathComponent).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            if let problem = HolosEngine.shared.problem {
+                Text(verbatim: problem).font(.caption).foregroundStyle(.orange)
+            }
+            Text("The recording stays on this Mac; HolosTTS turns it into 256 numbers that describe the voice. Make voices only of yourself, or of someone who agreed.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button {
+                    create()
+                } label: {
+                    if working { ProgressView().controlSize(.small) } else { Text("Make the Voice") }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(recording == nil || working || name.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 520)
+    }
+
+    private func record() {
+        Task {
+            guard await AVCaptureDevice.requestAccess(for: .audio) else { return }
+            let file = FileManager.default.temporaryDirectory.appending(path: "unimachub-voice-sample.wav")
+            let settings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 24000, AVNumberOfChannelsKey: 1,
+                AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false,
+            ]
+            guard let recorder = try? AVAudioRecorder(url: file, settings: settings) else { return }
+            recorder.record()
+            self.recorder = recorder
+            recording = nil
+            seconds = 0
+            while recorder.isRecording {
+                try? await Task.sleep(for: .seconds(1))
+                seconds += 1
+                if seconds >= 40 { finish() }
+            }
+        }
+    }
+
+    private func finish() {
+        guard let recorder else { return }
+        recorder.stop()
+        recording = recorder.url
+        self.recorder = nil
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.audio]
+        guard panel.runModal() == .OK else { return }
+        recording = panel.url
+    }
+
+    private func create() {
+        guard let recording else { return }
+        working = true
+        Task {
+            if let voice = await HolosEngine.shared.clone(recording, name: name.trimmingCharacters(in: .whitespaces)) {
+                made(voice)
+                dismiss()
+            }
+            working = false
+        }
     }
 }
 
