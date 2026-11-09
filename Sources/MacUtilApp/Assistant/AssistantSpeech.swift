@@ -162,7 +162,7 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDe
             return
         }
         making = Task { [weak self] in
-            let file = await LocalVoices.shared.synthesize(text, voice: voice, rate: Double(rate))
+            let file = await LocalVoices.shared.synthesize(text, voice: voice, rate: Double(rate), language: language)
             guard let self, !Task.isCancelled else { return }
             self.making = nil
             if let file, let player = try? AVAudioPlayer(contentsOf: file) {

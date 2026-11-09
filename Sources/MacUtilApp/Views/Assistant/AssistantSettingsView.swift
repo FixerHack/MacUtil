@@ -135,7 +135,7 @@ struct AssistantSettingsView: View {
                             }
                         }
                     } else {
-                        LocalVoicesList(voices: LocalVoices.shared, chosen: $model.localVoice, language: model.language)
+                        LocalVoicesList(voices: LocalVoices.shared, chosen: $model.localVoice, language: model.language, rate: model.rate)
                     }
                     LabeledContent("Speed") {
                         Slider(value: $model.rate, in: 0.6 ... 1.6)
@@ -454,87 +454,106 @@ extension ActionCategory {
     }
 }
 
-/// Piper voices for the language: hear a sample, download light or full, choose, delete.
+/// The downloadable voices: the voice in a menu on the right, marked by gender and
+/// whether it is on this Mac, and what to do with it on the left.
 private struct LocalVoicesList: View {
     let voices: LocalVoices
     @Binding var chosen: String
     let language: String
-    @State private var confirmingFull: LocalVoice?
+    let rate: Double
+    @State private var confirmingFull = false
+
+    private var choices: [LocalVoice] { LocalVoices.voices(for: language) }
+    private var current: LocalVoice? { choices.first { $0.id == chosen } }
 
     var body: some View {
-        ForEach(LocalVoices.catalogue.filter { $0.language == language }) { voice in
-            HStack(spacing: 10) {
+        HStack(spacing: 8) {
+            if let voice = current {
                 Button {
-                    chosen = voice.id
+                    voices.isPlaying ? voices.stopPlaying() : voices.listen(voice, language: language, rate: rate)
                 } label: {
-                    Image(systemName: chosen == voice.id ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(chosen == voice.id ? Color.accentColor : .secondary)
+                    Label(voices.isPlaying ? "Stop" : "Listen", systemImage: voices.isPlaying ? "stop.fill" : "play.fill")
                 }
-                .buttonStyle(.plain)
-                .disabled(!voices.isInstalled(voice))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: voice.name)
-                    Text(status(of: voice))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button {
-                    voices.playSample(voice)
-                } label: {
-                    Image(systemName: "play.circle")
-                }
-                .buttonStyle(.plain)
-                .help(Text("Hear a sample"))
+                .disabled(!voices.canListen(voice) && !voices.isPlaying)
+                .help(voices.canListen(voice) ? Text("Hear this voice") : Text("This voice has no published sample: download it to hear it"))
+
                 if let progress = voices.progress(of: voice) {
-                    ProgressView(value: progress).frame(width: 80)
-                } else {
-                    if voice.full != nil, !voices.isFull(voice) {
-                        Button("Full Quality…") { confirmingFull = voice }
+                    ProgressView(value: progress).frame(width: 90)
+                    Button {
+                        voices.cancelDownload(voice)
+                    } label: {
+                        Label("Stop", systemImage: "xmark.circle.fill")
                     }
-                    if voices.isInstalled(voice) {
-                        Button("Delete", role: .destructive) {
-                            if chosen == voice.id { chosen = "" }
-                            voices.delete(voice)
-                        }
-                    } else {
-                        Button("Download") { get(voice, full: false) }
+                } else if voices.isInstalled(voice) {
+                    if voice.full != nil, !voices.isFull(voice) {
+                        Button("Full Quality…") { confirmingFull = true }
+                    }
+                    Button(role: .destructive) {
+                        voices.delete(voice)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } else {
+                    Button {
+                        voices.download(voice)
+                    } label: {
+                        Label("Download", systemImage: "arrow.down.circle")
+                    }
+                    if voice.full != nil {
+                        Button("Full Quality…") { confirmingFull = true }
                     }
                 }
             }
+            Spacer(minLength: 12)
+            Picker("Voice", selection: $chosen) {
+                if current == nil { Text("Choose a voice").tag(chosen) }
+                ForEach(choices) { voice in
+                    Text(verbatim: label(voice)).tag(voice.id)
+                }
+            }
+            .labelsHidden()
+            .fixedSize()
         }
-        .alert(
-            "Download the full-quality voice?",
-            isPresented: Binding(get: { confirmingFull != nil }, set: { if !$0 { confirmingFull = nil } }),
-            presenting: confirmingFull
-        ) { voice in
-            Button("Download") { get(voice, full: true) }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .alert("Download the full-quality voice?", isPresented: $confirmingFull, presenting: current) { voice in
+            Button("Download") { voices.download(voice, full: true) }
             Button("Cancel", role: .cancel) {}
         } message: { voice in
             let size = (voice.full?.bytes ?? 0).formatted(.byteCount(style: .file))
             Text("It sounds more natural, but takes about \(size) on disk, about three times as much memory while it speaks, and a little longer to start each answer. It replaces the light version.")
         }
+        if let voice = current {
+            Text(status(of: voice))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
         if let problem = voices.problem {
             Text(verbatim: problem).font(.caption).foregroundStyle(.orange)
         }
-        Text("Open voices from the Piper project, spoken on this Mac by sherpa-onnx: no account, no key, nothing sent anywhere. The first voice also brings the speaking tool, about 20 MB; deleting the last voice removes it. Each download is checked against the checksum GitHub publishes for it. In use now: \(voices.usedBytes.formatted(.byteCount(style: .file))).")
+        Text("Open voices spoken on this Mac by sherpa-onnx: Supertonic 3 (Ukrainian and English, five women and five men), Kokoro (natural English), Piper. No account, no key, nothing sent anywhere. The first voice also brings the speaking tool, about 20 MB; deleting the last voice removes it. Each download is checked against the checksum GitHub publishes for it. In use now: \(voices.usedBytes.formatted(.byteCount(style: .file))).")
             .font(.caption)
             .foregroundStyle(.secondary)
     }
 
-    private func status(of voice: LocalVoice) -> String {
-        if let package = voices.installedPackage(voice) {
-            let kind = package == voice.full ? String(localized: "full quality") : String(localized: "light")
-            return "\(voice.detail) · \(kind) · \(package.bytes.formatted(.byteCount(style: .file)))"
-        }
-        return "\(voice.detail) · \(voice.light.bytes.formatted(.byteCount(style: .file)))"
+    /// "♀ Supertonic F1 · Supertonic 3 · 129 MB ✓"
+    private func label(_ voice: LocalVoice) -> String {
+        let sign = voice.gender == .female ? "♀" : "♂"
+        let size = (voices.installedPackage(voice) ?? voice.light).bytes.formatted(.byteCount(style: .file))
+        return "\(sign) \(voice.name) · \(voice.detail) · \(size)" + (voices.isInstalled(voice) ? " ✓" : "")
     }
 
-    private func get(_ voice: LocalVoice, full: Bool) {
-        Task {
-            await voices.download(voice, full: full)
-            if voices.isInstalled(voice), chosen.isEmpty { chosen = voice.id }
+    private func status(of voice: LocalVoice) -> String {
+        let gender = voice.gender == .female ? String(localized: "female") : String(localized: "male")
+        var parts = [gender, voice.detail]
+        if let package = voices.installedPackage(voice) {
+            parts.append(package == voice.full ? String(localized: "full quality, on this Mac") : String(localized: "light, on this Mac"))
+        } else {
+            parts.append(String(localized: "not downloaded: until it is, macOS's voice speaks"))
         }
+        let others = voices.sharing(voice)
+        if others > 0 { parts.append(String(localized: "downloads together with \(others) other voices")) }
+        return parts.joined(separator: " · ")
     }
 }
 
