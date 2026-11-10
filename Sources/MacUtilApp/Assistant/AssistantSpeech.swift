@@ -188,18 +188,27 @@ enum VoiceEngine: String, CaseIterable, Identifiable {
 /// Speaks the answers in a macOS voice or a downloaded one, falling back to macOS's when
 /// the downloaded one cannot speak.
 @MainActor
-final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
+final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
-    private var player: AVAudioPlayer?
+    /// Downloaded voices play through a pitch shifter, which raises the voice without
+    /// hurrying it.
+    private let engine = AVAudioEngine()
+    private let node = AVAudioPlayerNode()
+    private let shifter = AVAudioUnitTimePitch()
+    private var playing = false
     private var making: Task<Void, Never>?
     var onFinished: (() -> Void)?
+    /// Semitones up (or down) from the voice's own.
+    var pitch: Double = 0
 
     override init() {
         super.init()
         synthesizer.delegate = self
+        engine.attach(node)
+        engine.attach(shifter)
     }
 
-    var isSpeaking: Bool { synthesizer.isSpeaking || player?.isPlaying == true || making != nil }
+    var isSpeaking: Bool { synthesizer.isSpeaking || playing || making != nil }
 
     static func voices(for language: String) -> [AVSpeechSynthesisVoice] {
         AVSpeechSynthesisVoice.speechVoices()
@@ -219,11 +228,8 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDe
             let file = await LocalVoices.shared.synthesize(text, voice: voice, rate: Double(rate), language: language)
             guard let self, !Task.isCancelled else { return }
             self.making = nil
-            if let file, let player = try? AVAudioPlayer(contentsOf: file) {
+            if let file, self.play(file) {
                 try? FileManager.default.removeItem(at: file)
-                player.delegate = self
-                self.player = player
-                player.play()
             } else {
                 self.speakWithSystem(text, language: language, voiceID: nil, rate: rate)
             }
@@ -236,14 +242,43 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDe
             ?? Self.voices(for: language).first
             ?? AVSpeechSynthesisVoice(language: SpeechInput.locale(language).identifier)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * rate
+        utterance.pitchMultiplier = Float(max(0.5, min(2, pow(2, pitch / 12))))
         synthesizer.speak(utterance)
+    }
+
+    /// Plays a WAV through the pitch shifter.
+    private func play(_ url: URL) -> Bool {
+        guard let file = try? AVAudioFile(forReading: url),
+              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)),
+              (try? file.read(into: buffer)) != nil
+        else { return false }
+        engine.disconnectNodeOutput(node)
+        engine.disconnectNodeOutput(shifter)
+        engine.connect(node, to: shifter, format: buffer.format)
+        engine.connect(shifter, to: engine.mainMixerNode, format: buffer.format)
+        shifter.pitch = Float(pitch * 100)
+        do {
+            if !engine.isRunning { try engine.start() }
+        } catch {
+            return false
+        }
+        playing = true
+        node.scheduleBuffer(buffer, at: nil, options: [], completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.playing else { return }
+                self.playing = false
+                self.onFinished?()
+            }
+        }
+        node.play()
+        return true
     }
 
     func stop() {
         making?.cancel()
         making = nil
-        player?.stop()
-        player = nil
+        playing = false
+        node.stop()
         synthesizer.stopSpeaking(at: .immediate)
     }
 
@@ -251,7 +286,4 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDe
         Task { @MainActor in self.onFinished?() }
     }
 
-    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { @MainActor in self.onFinished?() }
-    }
 }

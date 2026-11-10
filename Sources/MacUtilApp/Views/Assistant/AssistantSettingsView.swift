@@ -140,11 +140,22 @@ struct AssistantSettingsView: View {
                             }
                         }
                     } else {
-                        LocalVoicesList(voices: LocalVoices.shared, chosen: $model.localVoice, language: model.language, rate: model.rate)
+                        LocalVoicesList(voices: LocalVoices.shared, chosen: $model.localVoice, language: model.language, rate: model.rate, preview: { model.preview() })
                     }
                     LabeledContent("Speed") {
                         Slider(value: $model.rate, in: 0.6 ... 1.6)
                     }
+                    LabeledContent("Pitch") {
+                        HStack {
+                            Slider(value: $model.pitch, in: -4 ... 8, step: 0.5)
+                            Text(verbatim: model.pitch == 0 ? "0" : String(format: "%+.1f", model.pitch))
+                                .monospacedDigit()
+                                .frame(width: 36, alignment: .trailing)
+                        }
+                    }
+                    Text("A few steps up make a voice lighter and brighter, the anime way; together with the Anime girl character, it talks like one too.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Button("Listen") { model.preview() }
                 }
                 Picker("Character", selection: $model.persona) {
@@ -471,6 +482,8 @@ private struct LocalVoicesList: View {
     @Binding var chosen: String
     let language: String
     let rate: Double
+    /// Says a line in the chosen voice, as the assistant would, pitch and all.
+    var preview: (() -> Void)?
     @State private var confirmingFull = false
     @State private var confirmingHolos = false
     @State private var cloning = false
@@ -483,7 +496,13 @@ private struct LocalVoicesList: View {
         HStack(spacing: 8) {
             if let voice = current {
                 Button {
-                    voices.isPlaying ? voices.stopPlaying() : voices.listen(voice, language: language, rate: rate)
+                    if voices.isPlaying {
+                        voices.stopPlaying()
+                    } else if voices.isInstalled(voice), let preview {
+                        preview()
+                    } else {
+                        voices.listen(voice, language: language, rate: rate)
+                    }
                 } label: {
                     Label(voices.isPlaying ? "Stop" : "Listen", systemImage: voices.isPlaying ? "stop.fill" : "play.fill")
                 }
@@ -627,6 +646,11 @@ private struct VoiceCloneSheet: View {
             if let problem = HolosEngine.shared.problem {
                 Text(verbatim: problem).font(.caption).foregroundStyle(.orange)
             }
+            HStack(spacing: 4) {
+                Text("For an anime voice, a free character voice such as Tsukuyomi-chan works, by its terms, with credit:")
+                Link("tyc.rei-yumesaki.net", destination: URL(string: "https://tyc.rei-yumesaki.net/")!)
+            }
+            .font(.caption)
             Text("The recording stays on this Mac; HolosTTS turns it into 256 numbers that describe the voice. Make voices only of yourself, or of someone who agreed.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

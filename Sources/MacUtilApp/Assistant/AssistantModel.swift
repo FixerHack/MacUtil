@@ -53,6 +53,7 @@ final class AssistantModel {
         static let engine = "assistantVoiceEngine"
         static let localVoice = "assistantLocalVoice"
         static let shortcut = "assistantShortcut"
+        static let pitch = "assistantPitch"
         static let dictationShortcut = "assistantDictationShortcut"
     }
 
@@ -67,6 +68,8 @@ final class AssistantModel {
     var voiceEngine: VoiceEngine { didSet { defaults.set(voiceEngine.rawValue, forKey: Keys.engine) } }
     /// The downloaded voice chosen, by its catalogue id.
     var localVoice: String { didSet { defaults.set(localVoice, forKey: Keys.localVoice) } }
+    /// Semitones above the voice's own: a few up gives the bright, light voice of anime.
+    var pitch: Double { didSet { defaults.set(pitch, forKey: Keys.pitch); output.pitch = pitch } }
     var rate: Double { didSet { defaults.set(rate, forKey: Keys.rate) } }
     var persona: Persona { didSet { defaults.set(persona.rawValue, forKey: Keys.persona) } }
     var customManner: String { didSet { defaults.set(customManner, forKey: Keys.manner) } }
@@ -138,6 +141,7 @@ final class AssistantModel {
         voiceID = defaults.string(forKey: Keys.voice) ?? ""
         voiceEngine = VoiceEngine(rawValue: defaults.string(forKey: Keys.engine) ?? "") ?? .system
         localVoice = defaults.string(forKey: Keys.localVoice) ?? ""
+        pitch = defaults.double(forKey: Keys.pitch)
         shortcut = defaults.data(forKey: Keys.shortcut).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .assistant
         dictationShortcut = defaults.data(forKey: Keys.dictationShortcut).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .dictation
         rate = defaults.double(forKey: Keys.rate)
@@ -157,6 +161,7 @@ final class AssistantModel {
         }
         notes = (try? Data(contentsOf: Self.memoryFile)).flatMap { try? JSONDecoder().decode([AssistantContext.Note].self, from: $0) } ?? []
         for note in notes where note.due.map({ $0 > Date() }) == true { scheduleSpoken(note) }
+        output.pitch = pitch
         input.onText = { [weak self] text, final in self?.heard(text, final: final) }
         input.onFailure = { [weak self] problem in
             self?.say(String(localized: "Listening stopped: \(problem)"), kind: .problem)
