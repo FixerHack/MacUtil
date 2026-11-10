@@ -148,8 +148,9 @@ final class SpeechInput {
             stop()
             if let problem, said.isEmpty {
                 Self.note("ended: \(problem)")
-                // On this Mac it failed straight away: Apple's servers, if allowed, try instead.
-                if !usedServer, allowServer, Date().timeIntervalSince(startedAt) < 3 {
+                // On this Mac it failed straight away: Apple's servers, if allowed, try instead;
+                // not when Dictation is off, which stops both.
+                if !usedServer, allowServer, Date().timeIntervalSince(startedAt) < 3, !problem.contains("kLSRErrorDomain 201") {
                     Self.note("trying Apple's servers")
                     if (try? start(language: language, allowServer: true, server: true)) != nil { return }
                 }

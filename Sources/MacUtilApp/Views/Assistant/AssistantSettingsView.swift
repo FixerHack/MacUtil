@@ -648,7 +648,7 @@ private struct VoiceCloneSheet: View {
             }
             HStack(spacing: 4) {
                 Text("For an anime voice, a free character voice such as Tsukuyomi-chan works, by its terms, with credit:")
-                Link("tyc.rei-yumesaki.net", destination: URL(string: "https://tyc.rei-yumesaki.net/")!)
+                Link(destination: URL(string: "https://tyc.rei-yumesaki.net/")!) { Text(verbatim: "tyc.rei-yumesaki.net") }
             }
             .font(.caption)
             Text("The recording stays on this Mac; HolosTTS turns it into 256 numbers that describe the voice. Make voices only of yourself, or of someone who agreed.")

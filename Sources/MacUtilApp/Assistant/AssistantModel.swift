@@ -164,7 +164,14 @@ final class AssistantModel {
         output.pitch = pitch
         input.onText = { [weak self] text, final in self?.heard(text, final: final) }
         input.onFailure = { [weak self] problem in
-            self?.say(String(localized: "Listening stopped: \(problem)"), kind: .problem)
+            guard let self else { return }
+            if problem.contains("kLSRErrorDomain 201") || problem.localizedCaseInsensitiveContains("Dictation are disabled") {
+                // macOS lets an app hear speech only with Dictation on: say so, and open the place.
+                self.say(String(localized: "macOS lets apps hear speech only with Dictation on. Turn on Dictation in the window that opened (Keyboard → Dictation), then press the shortcut again."), kind: .problem)
+                if let pane = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") { NSWorkspace.shared.open(pane) }
+            } else {
+                self.say(String(localized: "Listening stopped: \(problem)"), kind: .problem)
+            }
         }
         input.onLevel = { [weak self] level in
             guard let self else { return }
