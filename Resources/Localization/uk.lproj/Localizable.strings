@@ -1908,3 +1908,14 @@
 "macOS lets apps hear speech only with Dictation on. Turn on Dictation in the window that opened (Keyboard → Dictation), then press the shortcut again." = "macOS дає програмам чути мовлення лише з увімкненим Диктуванням. Увімкніть Диктування у вікні, що відкрилося (Клавіатура → Диктування), і натисніть клавіші ще раз.";
 "Keep the conversation going: after answering, it listens again" = "Вести розмову: після відповіді знову слухати";
 "Press %@ and talk, or type. For example:" = "Натисніть %@ і говоріть або пишіть. Наприклад:";
+"Allow the microphone and speech recognition first: press the shortcut once." = "Спершу дозвольте мікрофон і розпізнавання мовлення: натисніть клавіші один раз.";
+"Keep the island and the assistant running when UniMacHub is closed" = "Лишати острівець і асистента працювати, коли UniMacHub закрито";
+"This Mac cannot recognise this language by itself, and the wake word never goes to Apple's servers." = "Цей Mac сам не розпізнає цієї мови, а слово-пробудження ніколи не йде на сервери Apple.";
+"Wake it with a word, without pressing anything" = "Будити словом, нічого не натискаючи";
+"Wake word" = "Слово-пробудження";
+"While on, the microphone listens for this word only, on this Mac: nothing leaves it, and macOS shows its orange microphone dot. Say the word and the request in one go (“%@, open YouTube”), or the word, then the request. A short, unusual word works best." = "Поки це ввімкнено, мікрофон слухає лише це слово, на цьому Mac: нічого нікуди не йде, а macOS показує помаранчеву крапку мікрофона. Скажіть слово й прохання разом («%@, відкрий ютуб») або спершу слово, потім прохання. Найкраще працює коротке незвичне слово.";
+"Check everything and move all the safe junk to the Trash?" = "Перевірити все й перемістити все безпечне сміття в Кошик?";
+"The brightness is back as it was." = "Яскравість повернуто, як була.";
+"The event is removed." = "Подію видалено.";
+"The screenshot is in the Trash." = "Знімок екрана в Кошику.";
+"The windows are back." = "Вікна повернулися.";

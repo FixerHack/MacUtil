@@ -121,6 +121,7 @@ final class DockModel {
         static let minimized = "dockMinimizedWindows"
         static let folders = "dockFolders"
         static let displays = "dockDisplays"
+        static let widgetOrder = "dockWidgetOrder"
         static let previews = "dockWindowPreviews"
         static let profiles = "dockProfiles"
         static let activeProfile = "dockActiveProfile"
@@ -161,6 +162,8 @@ final class DockModel {
     var folderStyle: FolderStyle { didSet { save(folderStyle.rawValue, Keys.folderStyle) } }
     /// The displays the Dock is on, by their lasting identifiers; none chosen means the main one.
     var displays: Set<String> { didSet { save(displays.sorted(), Keys.displays) } }
+    /// The widgets' order, those at the start, then "|", then those at the end.
+    private(set) var widgetOrder: [String] { didSet { save(widgetOrder, Keys.widgetOrder) } }
     /// Pictures of an app's windows while the pointer rests on its icon.
     var showsPreviews: Bool { didSet { save(showsPreviews, Keys.previews) } }
     private(set) var screenRecordingGranted: Bool { didSet { save(screenRecordingGranted, Keys.screenRecording) } }
@@ -219,6 +222,7 @@ final class DockModel {
         folders = []
         folderStyle = .grid
         displays = []
+        widgetOrder = []
         profiles = []
         showsPreviews = true
         screenRecordingGranted = false
@@ -287,6 +291,8 @@ final class DockModel {
         let active = UUID(uuidString: read.string(forKey: Keys.activeProfile) ?? "")
         if activeProfile != active { activeProfile = active }
         manualProfile = UUID(uuidString: read.string(forKey: Keys.manualProfile) ?? "")
+        let order = read.stringArray(forKey: Keys.widgetOrder) ?? []
+        if widgetOrder != order { widgetOrder = order }
         let chosenDisplays = Set(read.stringArray(forKey: Keys.displays) ?? [])
         if displays != chosenDisplays { displays = chosenDisplays }
         let style = FolderStyle(rawValue: read.string(forKey: Keys.folderStyle) ?? "") ?? .grid
@@ -395,8 +401,7 @@ final class DockModel {
     /// are in the menu of its own icon.
     var entries: [Entry] {
         var result: [Entry] = []
-        let leading = Widget.allCases.filter { widgets.contains($0) && $0.leading }
-        let trailing = Widget.allCases.filter { widgets.contains($0) && !$0.leading }
+        let (leading, trailing) = widgetSides
         result += leading.map(Entry.widget)
         if !leading.isEmpty { result.append(.divider(0)) }
         let kept = apps.filter(\.isPinned)
@@ -516,6 +521,36 @@ final class DockModel {
         current.formUnion(displays)
         if shows { current.insert(id) } else { current.remove(id) }
         displays = current
+    }
+
+    // MARK: - Widgets in order
+
+    /// The widgets on show at each end, in the order the person dragged them into.
+    var widgetSides: (leading: [Widget], trailing: [Widget]) {
+        var leading: [Widget] = []
+        var trailing: [Widget] = []
+        if let split = widgetOrder.firstIndex(of: "|") {
+            leading = widgetOrder[..<split].compactMap(Widget.init).filter(widgets.contains)
+            trailing = widgetOrder[(split + 1)...].compactMap(Widget.init).filter(widgets.contains)
+        }
+        for widget in Widget.allCases where widgets.contains(widget) && !leading.contains(widget) && !trailing.contains(widget) {
+            if widget.leading { leading.append(widget) } else { trailing.append(widget) }
+        }
+        return (leading, trailing)
+    }
+
+    /// A widget dragged onto another goes in front of it, at that one's end of the Dock.
+    func moveWidget(_ widget: Widget, before target: Widget) {
+        guard widget != target else { return }
+        var (leading, trailing) = widgetSides
+        leading.removeAll { $0 == widget }
+        trailing.removeAll { $0 == widget }
+        if let index = leading.firstIndex(of: target) {
+            leading.insert(widget, at: index)
+        } else if let index = trailing.firstIndex(of: target) {
+            trailing.insert(widget, at: index)
+        }
+        widgetOrder = leading.map(\.rawValue) + ["|"] + trailing.map(\.rawValue)
     }
 
     /// Where everything goes, given the room along the edge.

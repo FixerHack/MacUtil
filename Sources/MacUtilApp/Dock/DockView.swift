@@ -131,6 +131,15 @@ struct DockView: View {
             let length = item.length - gap
             let across = geometry.icon - gap
             DockWidgetView(widget: widget, model: model, sources: sources, state: state, icon: geometry.icon, compact: geometry.vertical)
+                // Dragged onto another widget, it moves in front of it.
+                .draggable("unimachub-widget:" + widget.rawValue)
+                .dropDestination(for: String.self) { items, _ in
+                    guard let item = items.first, item.hasPrefix("unimachub-widget:"),
+                          let dragged = DockModel.Widget(rawValue: String(item.dropFirst("unimachub-widget:".count)))
+                    else { return false }
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { model.moveWidget(dragged, before: widget) }
+                    return true
+                }
                 .frame(width: geometry.vertical ? across : length, height: geometry.vertical ? length : across)
                 .position(geometry.point(along: along, depth: DockGeometry.margin + geometry.edgeInset + geometry.icon / 2, in: size))
         }

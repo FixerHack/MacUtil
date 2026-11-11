@@ -92,7 +92,7 @@ struct MenuBarView: View {
                 }
                 .prominentButton()
             }
-            Button("Quit UniMacHub") { NSApp.terminate(nil) }
+            Button("Quit UniMacHub") { AppLifecycle.quitCompletely() }
                 .buttonStyle(.link)
                 .font(.caption)
         }

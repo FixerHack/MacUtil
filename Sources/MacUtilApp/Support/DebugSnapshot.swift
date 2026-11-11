@@ -132,7 +132,7 @@
                     view.cacheDisplay(in: view.bounds, to: bitmap)
                     try? bitmap.representation(using: .png, properties: [:])?.write(to: URL(filePath: path))
                     if environment["MACUTIL_SNAPSHOT_QUIT"] != nil {
-                        NSApp.terminate(nil)
+                        AppLifecycle.quitCompletely()
                     }
                 }
             }

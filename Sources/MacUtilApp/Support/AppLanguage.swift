@@ -28,7 +28,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
         NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
-            Task { @MainActor in NSApp.terminate(nil) }
+            Task { @MainActor in AppLifecycle.quitCompletely() }
         }
     }
 }

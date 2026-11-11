@@ -1,6 +1,8 @@
 import AppKit
 import ApplicationServices
 import CleanerCore
+import CoreWLAN
+import EventKit
 import Foundation
 @preconcurrency import ScreenCaptureKit
 
@@ -114,7 +116,7 @@ enum AssistantActions {
         let profiles = state.dock.profiles.map(\.name)
         var list: [AssistantAction] = []
         list.append(AssistantAction(
-                "open_tool", "Opens one of UniMacHub's tools on screen. Tools: " + tools.map { "\($0.key) (\($0.titleText))" }.joined(separator: ", "),
+                "open_tool", "Opens one of UniMacHub's own screens, inside UniMacHub (not macOS apps: use open_app for those). Screens: " + tools.map { "\($0.key) (\($0.titleText))" }.joined(separator: ", "),
                 category: .uniMacHub, level: .reversible, parameters: ["tool": choice(tools.map(\.key))], required: ["tool"]
             ) { arguments, state in
                 guard let module = arguments["tool"]?.string.flatMap(Module.named) else { return ActionOutcome(text: "No such tool.", failed: true) }
@@ -308,6 +310,128 @@ enum AssistantActions {
                 return String(localized: "The notes are back.")
             }
         })
+        list.append(AssistantAction(
+            "music", "Controls what is playing: play_pause, next or previous; or says what plays.",
+            category: .uniMacHub, level: .reversible, parameters: ["do": choice(["play_pause", "next", "previous", "what"])], required: ["do"]
+        ) { arguments, state in
+            guard let session = state.island.featured else { return ActionOutcome(text: "Nothing is playing.") }
+            switch arguments["do"]?.string {
+            case "play_pause": state.island.playPause(session)
+            case "next": state.island.nextTrack(session)
+            case "previous": state.island.previousTrack(session)
+            default: break
+            }
+            return ActionOutcome(text: "\(session.title) by \(session.artist), \(session.isPlaying ? "playing" : "paused").")
+        })
+        list.append(AssistantAction(
+            "brightness", "Sets the display's brightness from 0 to 100.",
+            category: .systemSettings, level: .reversible, parameters: ["level": integer], required: ["level"]
+        ) { arguments, _ in
+            let before = DisplayBrightness.brightness()
+            guard DisplayBrightness.setBrightness(Float(max(0, min(100, arguments["level"]?.number ?? 50)) / 100)) else {
+                return ActionOutcome(text: "This display's brightness cannot be set from here.", failed: true)
+            }
+            return ActionOutcome(text: "Brightness set.") {
+                if let before { _ = DisplayBrightness.setBrightness(before) }
+                return String(localized: "The brightness is back as it was.")
+            }
+        })
+        list.append(AssistantAction(
+            "wifi", "Turns Wi-Fi on or off, or says whether it is on and which network.",
+            category: .systemSettings, level: .reversible, parameters: ["do": choice(["on", "off", "status"])], required: ["do"]
+        ) { arguments, _ in
+            guard let interface = CWWiFiClient.shared().interface() else { return ActionOutcome(text: "This Mac has no Wi-Fi.", failed: true) }
+            switch arguments["do"]?.string {
+            case "on": try? interface.setPower(true)
+            case "off": try? interface.setPower(false)
+            default: break
+            }
+            return ActionOutcome(text: interface.powerOn() ? "Wi-Fi is on\(interface.ssid().map { ", network \($0)" } ?? "")." : "Wi-Fi is off.")
+        })
+        list.append(AssistantAction(
+            "sleep", "Puts the display or the whole Mac to sleep.",
+            category: .systemSettings, level: .reversible, parameters: ["what": choice(["display", "mac"])], required: ["what"]
+        ) { arguments, _ in
+            let display = arguments["what"]?.string == "display"
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                _ = await Command.run("/usr/bin/pmset", [display ? "displaysleepnow" : "sleepnow"])
+            }
+            return ActionOutcome(text: display ? "The display goes to sleep." : "The Mac goes to sleep.")
+        })
+        list.append(AssistantAction(
+            "screenshot_to_file", "Saves a screenshot of the whole screen to the Desktop.",
+            category: .uniMacHub, level: .reversible
+        ) { _, _ in
+            let name = "Screenshot \(Date().formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false))).png".replacingOccurrences(of: ":", with: ".")
+            let file = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Desktop/\(name)")
+            let output = await Command.run("/usr/sbin/screencapture", ["-x", file.path])
+            guard output?.status == 0, FileManager.default.fileExists(atPath: file.path) else {
+                return ActionOutcome(text: "The screenshot was not taken (Screen Recording may be off).", failed: true)
+            }
+            return ActionOutcome(text: "Saved \(name) on the Desktop.") {
+                try? FileManager.default.trashItem(at: file, resultingItemURL: nil)
+                return String(localized: "The screenshot is in the Trash.")
+            }
+        })
+        list.append(AssistantAction(
+            "hide_all_windows", "Hides every app's windows, to show the desktop.",
+            category: .apps, level: .reversible
+        ) { _, _ in
+            let hidden = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && !$0.isHidden && $0.bundleIdentifier != Bundle.main.bundleIdentifier }
+            hidden.forEach { $0.hide() }
+            return ActionOutcome(text: "Hid \(hidden.count) apps.") {
+                hidden.forEach { $0.unhide() }
+                return String(localized: "The windows are back.")
+            }
+        })
+        list.append(AssistantAction(
+            "calendar", "Lists the events of a day: today, tomorrow, or a date as yyyy-MM-dd.",
+            category: .uniMacHub, level: .read, parameters: ["day": string("today, tomorrow or yyyy-MM-dd")]
+        ) { arguments, _ in
+            await CalendarActions.events(on: arguments["day"]?.string ?? "today")
+        })
+        list.append(AssistantAction(
+            "add_event", "Adds an event to the calendar: a title, when it starts (yyyy-MM-dd HH:mm or HH:mm today) and how long, in minutes.",
+            category: .uniMacHub, level: .reversible,
+            parameters: ["title": string(), "start": string(), "minutes": integer], required: ["title", "start"]
+        ) { arguments, _ in
+            await CalendarActions.add(
+                title: arguments["title"]?.string ?? "", start: arguments["start"]?.string ?? "",
+                minutes: Int(arguments["minutes"]?.number ?? 60)
+            )
+        })
+        list.append(AssistantAction(
+            "weather", "The weather now in a town, from Open-Meteo.",
+            category: .uniMacHub, level: .read, parameters: ["town": string()], required: ["town"]
+        ) { arguments, _ in
+            let town = arguments["town"]?.string ?? ""
+            guard let search = Weather.searchURL(for: town, language: "uk"),
+                  let found = try? await URLSession.shared.data(from: search).0, let place = Weather.place(fromSearch: found),
+                  let forecast = Weather.forecastURL(for: place),
+                  let data = try? await URLSession.shared.data(from: forecast).0, let now = Weather.now(fromForecast: data)
+            else { return ActionOutcome(text: "No weather for \(town).", failed: true) }
+            var text = "\(place.name): \(Int(now.temperature.rounded())) °C now"
+            if let low = now.low, let high = now.high { text += ", \(Int(low.rounded()))…\(Int(high.rounded())) °C today" }
+            return ActionOutcome(text: text + ", weather code \(now.code) (WMO).")
+        })
+        list.append(AssistantAction(
+            "clean_all_safe_junk", "Runs the full check, then moves all the junk UniMacHub marks as safe to the Trash, where it can be put back.",
+            category: .deleteFiles, level: .important,
+            question: { _ in String(localized: "Check everything and move all the safe junk to the Trash?") }
+        ) { _, state in
+            await state.smartScan.run(state)
+            let size = state.smartScan.safeJunk(state).reduce(Int64(0)) { $0 + $1.size }
+            await state.smartScan.cleanSafeJunk(state)
+            return ActionOutcome(text: "Moved about \(AssistantActions.size(size)) of safe junk to the Trash.")
+        })
+        list.append(AssistantAction(
+            "end_conversation", "Ends the spoken conversation: after this answer it stops listening. For goodbyes, 'rest', 'that's all'.",
+            category: .uniMacHub, level: .read
+        ) { _, state in
+            state.assistant.endConversation()
+            return ActionOutcome(text: "The conversation will end after this answer.")
+        })
         list.append(AssistantAction("clipboard_history", "The last things copied, from UniMacHub's clipboard history, newest first.", category: .uniMacHub, level: .read) { _, _ in
                 let entries = ClipboardHistory.load().prefix(10).map(\.preview)
                 return ActionOutcome(text: entries.isEmpty ? "The history is empty or switched off." : entries.joined(separator: "\n"))
@@ -342,10 +466,15 @@ enum AssistantActions {
 
     // MARK: - Apps
 
+    /// An open app by its name in any language: "System Settings" finds «Системні параметри».
     static func runningApp(named name: String) -> NSRunningApplication? {
         let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
-        return apps.first { $0.localizedName?.localizedCaseInsensitiveCompare(name) == .orderedSame }
-            ?? apps.first { $0.localizedName?.localizedCaseInsensitiveContains(name) == true }
+        func names(_ app: NSRunningApplication) -> [String] {
+            [app.localizedName, app.bundleURL?.deletingPathExtension().lastPathComponent, app.bundleIdentifier,
+             app.bundleURL.flatMap { Bundle(url: $0)?.object(forInfoDictionaryKey: "CFBundleName") as? String }].compactMap { $0 }
+        }
+        return apps.first { names($0).contains { $0.localizedCaseInsensitiveCompare(name) == .orderedSame } }
+            ?? apps.first { names($0).contains { $0.localizedCaseInsensitiveContains(name) } }
     }
 
     static var apps: [AssistantAction] { [
@@ -753,3 +882,62 @@ private extension String {
         return result
     }
 }
+
+/// The calendar, for the assistant: what is on a day, and adding an event.
+@MainActor
+enum CalendarActions {
+    private static let store = EKEventStore()
+
+    private static func access() async -> Bool {
+        if EKEventStore.authorizationStatus(for: .event) == .fullAccess { return true }
+        return (try? await store.requestFullAccessToEvents()) ?? false
+    }
+
+    static func day(_ text: String) -> Date? {
+        let calendar = Calendar.current
+        switch text.lowercased() {
+        case "today", "сьогодні": return calendar.startOfDay(for: Date())
+        case "tomorrow", "завтра": return calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))
+        default:
+            let format = DateFormatter()
+            format.dateFormat = "yyyy-MM-dd"
+            return format.date(from: text)
+        }
+    }
+
+    static func events(on text: String) async -> ActionOutcome {
+        guard await access() else { return ActionOutcome(text: "No access to the calendar: allow it in System Settings → Privacy & Security → Calendars.", failed: true) }
+        guard let start = day(text), let end = Calendar.current.date(byAdding: .day, value: 1, to: start) else {
+            return ActionOutcome(text: "That day could not be read.", failed: true)
+        }
+        let events = store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil))
+            .sorted { $0.startDate < $1.startDate }
+        guard !events.isEmpty else { return ActionOutcome(text: "Nothing in the calendar that day.") }
+        return ActionOutcome(text: events.prefix(15).map { event in
+            event.isAllDay ? "all day: \(event.title ?? "")" : "\(event.startDate.formatted(date: .omitted, time: .shortened)) \(event.title ?? "")"
+        }.joined(separator: "; "))
+    }
+
+    static func add(title: String, start: String, minutes: Int) async -> ActionOutcome {
+        guard await access() else { return ActionOutcome(text: "No access to the calendar.", failed: true) }
+        guard let begins = AssistantContext.due(minutes: nil, at: start) else {
+            return ActionOutcome(text: "The start could not be read: use yyyy-MM-dd HH:mm or HH:mm.", failed: true)
+        }
+        let event = EKEvent(eventStore: store)
+        event.title = title
+        event.startDate = begins
+        event.endDate = begins.addingTimeInterval(TimeInterval(max(5, minutes) * 60))
+        event.calendar = store.defaultCalendarForNewEvents
+        do {
+            try store.save(event, span: .thisEvent)
+        } catch {
+            return ActionOutcome(text: error.localizedDescription, failed: true)
+        }
+        let id = event.eventIdentifier
+        return ActionOutcome(text: "Added “\(title)” on \(begins.formatted(date: .abbreviated, time: .shortened)).") {
+            if let id, let saved = store.event(withIdentifier: id) { try? store.remove(saved, span: .thisEvent) }
+            return String(localized: "The event is removed.")
+        }
+    }
+}
+

@@ -83,7 +83,7 @@ import SwiftUI
     func restart() {
         guard case let .installed(path) = phase else { return }
         SelfUpdate.relaunch(at: URL(filePath: path))
-        NSApp.terminate(nil)
+        AppLifecycle.quitCompletely()
     }
 
     func dismiss() {

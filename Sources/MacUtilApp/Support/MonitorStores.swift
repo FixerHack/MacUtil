@@ -119,6 +119,8 @@ enum Preferences {
     static let lastScheduledCleanup = "lastScheduledCleanup"
     static let lastUpdateCheck = "lastUpdateCheck"
     static let collectsStats = "collectsStats"
+    /// Closing UniMacHub leaves the island and the assistant running in the background.
+    static let keepsRunning = "keepsRunningWhenClosed"
 }
 
 enum Notifications {

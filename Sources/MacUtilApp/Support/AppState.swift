@@ -29,6 +29,8 @@ final class AppState {
     /// Brings UniMacHub forward with a tool on screen, opening the window again if it was closed.
     func showMain(_ module: Module? = nil) {
         if let module { open(module) }
+        // Back from the background, with its Dock icon.
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         if let window = NSApp.windows.first(where: { $0.identifier?.rawValue.contains("main") == true }) {
             window.makeKeyAndOrderFront(nil)

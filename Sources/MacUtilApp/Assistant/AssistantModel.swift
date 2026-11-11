@@ -55,6 +55,8 @@ final class AssistantModel {
         static let shortcut = "assistantShortcut"
         static let pitch = "assistantPitch"
         static let conversation = "assistantKeepsListening"
+        static let wake = "assistantWakeWordOn"
+        static let wakeWord = "assistantWakeWord"
         static let dictationShortcut = "assistantDictationShortcut"
     }
 
@@ -75,6 +77,16 @@ final class AssistantModel {
     var keepsListening: Bool { didSet { defaults.set(keepsListening, forKey: Keys.conversation) } }
     /// In a spoken conversation now: it will listen again after it answers.
     private(set) var conversing = false
+    /// Listens all the time for a word that wakes it, on this Mac only.
+    var usesWakeWord: Bool { didSet { defaults.set(usesWakeWord, forKey: Keys.wake); if !usesWakeWord { stopWaking() } } }
+    var wakeWord: String { didSet { defaults.set(wakeWord, forKey: Keys.wakeWord) } }
+    /// Listening for the wake word now.
+    private(set) var isWaking = false
+    /// Why the wake word cannot be listened for.
+    private(set) var wakeProblem: String?
+    @ObservationIgnored private var wakeLoop: Task<Void, Never>?
+    /// The wake word was heard: what follows it in the same breath is the request.
+    @ObservationIgnored private var woken = false
     var rate: Double { didSet { defaults.set(rate, forKey: Keys.rate) } }
     var persona: Persona { didSet { defaults.set(persona.rawValue, forKey: Keys.persona) } }
     var customManner: String { didSet { defaults.set(customManner, forKey: Keys.manner) } }
@@ -122,6 +134,29 @@ final class AssistantModel {
     @ObservationIgnored private var hotKeys: [EventHotKeyRef] = []
     @ObservationIgnored private var hotKeyHandler: EventHandlerRef?
     @ObservationIgnored private var lastInserted = ""
+    /// Lines waiting to be spoken, so one answer never cuts off another.
+    @ObservationIgnored private var speechQueue: [String] = []
+    /// Set while a question waits to be heard until it has been said.
+    @ObservationIgnored private var listenAfterSpeaking = false
+
+    static let traceFile = AppPaths.file("assistant-trace.log")
+
+    /// Everything the assistant does, step by step, to find out later what went wrong.
+    func trace(_ text: String) {
+        let line = "\(Date().formatted(.iso8601.time(includingFractionalSeconds: true))) \(text.replacingOccurrences(of: "\n", with: " ⏎ "))\n"
+        let file = Self.traceFile
+        if let size = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int, size > 2_000_000 {
+            try? FileManager.default.removeItem(at: file.deletingPathExtension().appendingPathExtension("old.log"))
+            try? FileManager.default.moveItem(at: file, to: file.deletingPathExtension().appendingPathExtension("old.log"))
+        }
+        if let handle = try? FileHandle(forWritingTo: file) {
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: Data(line.utf8))
+            try? handle.close()
+        } else {
+            try? Data(line.utf8).write(to: file)
+        }
+    }
 
     static let logFile = AppPaths.file("assistant-log.json")
     static let chatFile = AppPaths.file("assistant-chat.json")
@@ -148,6 +183,8 @@ final class AssistantModel {
         localVoice = defaults.string(forKey: Keys.localVoice) ?? ""
         pitch = defaults.double(forKey: Keys.pitch)
         keepsListening = defaults.object(forKey: Keys.conversation) as? Bool ?? true
+        usesWakeWord = defaults.bool(forKey: Keys.wake)
+        wakeWord = defaults.string(forKey: Keys.wakeWord) ?? (Locale.current.language.languageCode?.identifier == "uk" ? "Хабе" : "Hey Hub")
         shortcut = defaults.data(forKey: Keys.shortcut).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .assistant
         dictationShortcut = defaults.data(forKey: Keys.dictationShortcut).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .dictation
         rate = defaults.double(forKey: Keys.rate)
@@ -185,7 +222,21 @@ final class AssistantModel {
             self.level = level > self.level ? level : self.level * 0.75 + level * 0.25
         }
         output.onFinished = { [weak self] in
-            guard let self, self.phase == .speaking else { return }
+            guard let self else { return }
+            if !self.speechQueue.isEmpty {
+                self.speakNow(self.speechQueue.removeFirst())
+                return
+            }
+            self.trace("spoken")
+            if self.listenAfterSpeaking, case .confirming = self.phase {
+                self.listenAfterSpeaking = false
+                Task {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    if case .confirming = self.phase { _ = await self.startHearing() }
+                }
+                return
+            }
+            guard self.phase == .speaking else { return }
             self.phase = .idle
             self.followUp()
         }
@@ -194,6 +245,54 @@ final class AssistantModel {
     func attach(_ state: AppState) {
         self.state = state
         updateHotKeys()
+        // Every couple of seconds: back to listening for the wake word whenever it is idle.
+        wakeLoop = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self else { return }
+                if self.usesWakeWord, self.isEnabled, self.phase == .idle, !self.isWaking, !self.isDictating,
+                   !self.conversing, !self.output.isSpeaking {
+                    self.startWaking()
+                }
+            }
+        }
+    }
+
+    // MARK: - The wake word
+
+    private func startWaking() {
+        guard SpeechInput.isAuthorised else {
+            wakeProblem = String(localized: "Allow the microphone and speech recognition first: press the shortcut once.")
+            return
+        }
+        // Listening all the time is only done on this Mac, never through Apple's servers.
+        guard SpeechInput.worksOnDevice(language) else {
+            wakeProblem = String(localized: "This Mac cannot recognise this language by itself, and the wake word never goes to Apple's servers.")
+            return
+        }
+        do {
+            try input.start(language: language, allowServer: false, hints: [wakeWord] + recognitionHints)
+            wakeProblem = nil
+            isWaking = true
+            woken = false
+        } catch {
+            wakeProblem = error.localizedDescription
+        }
+    }
+
+    private func stopWaking() {
+        guard isWaking else { return }
+        isWaking = false
+        woken = false
+        input.stop()
+    }
+
+    /// The words after the wake word, if it was said.
+    private func afterWakeWord(_ text: String) -> String? {
+        let word = wakeWord.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        guard !word.isEmpty, let range = text.lowercased().range(of: word) else { return nil }
+        let rest = text[text.index(text.startIndex, offsetBy: text.lowercased().distance(from: text.lowercased().startIndex, to: range.upperBound))...]
+        return rest.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
     }
 
     // MARK: - Asking
@@ -223,6 +322,7 @@ final class AssistantModel {
     }
 
     func listen(conversation: Bool = true) {
+        stopWaking()
         output.stop()
         if conversation { conversing = true }
         Task {
@@ -230,6 +330,22 @@ final class AssistantModel {
             hearing = ""
             phase = .listening
         }
+    }
+
+    /// Names macOS's recogniser would not guess in Ukrainian speech: the apps on this Mac and
+    /// a few well-known words, so "Телеграм" comes out as Telegram.
+    private var recognitionHints: [String] {
+        let running = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap(\.localizedName)
+        let installed = ((try? FileManager.default.contentsOfDirectory(atPath: "/Applications")) ?? [])
+            .filter { $0.hasSuffix(".app") }.map { String($0.dropLast(4)) }
+        let words = ["Telegram", "YouTube", "UniMacHub", "Safari", "Chrome", "Brave", "Discord", "Spotify", "Finder", "Dock",
+                     "Wi-Fi", "Bluetooth", "Claude", "GitHub", "Google", "Terminal", "Xcode", "Steam", "WhatsApp", "Instagram"]
+        let profiles: [String] = state?.dock.profiles.map(\.name) ?? []
+        var all: [String] = running
+        all += installed
+        all += words
+        all += profiles
+        return Array(Array(Set(all)).prefix(100))
     }
 
     /// Starts the microphone, or says why it cannot.
@@ -240,7 +356,7 @@ final class AssistantModel {
             return false
         }
         do {
-            try input.start(language: language, allowServer: allowsServerRecognition)
+            try input.start(language: language, allowServer: allowsServerRecognition, hints: recognitionHints)
             return true
         } catch SpeechInput.Problem.needsServer {
             say(String(localized: "This Mac cannot recognise this language by itself. Allow Apple's speech servers in the Assistant's settings, or type instead."), kind: .problem)
@@ -253,6 +369,10 @@ final class AssistantModel {
     }
 
     private func heard(_ text: String, final: Bool) {
+        if isWaking {
+            heardWhileWaking(text, final: final)
+            return
+        }
         hearing = text
         guard final else { return }
         hearing = ""
@@ -272,14 +392,47 @@ final class AssistantModel {
             conversing = false
             return
         }
-        // "Thanks", "that's all": it ends without asking the model.
+        trace("heard: \(said)")
+        // "Thanks", "rest", "bye": a short goodbye ends it without asking the model.
         let plain = said.lowercased().trimmingCharacters(in: .punctuationCharacters.union(.whitespaces))
-        if ["дякую", "все", "усе", "стоп", "досить", "бувай", "thanks", "thank you", "stop", "that's all", "bye"].contains(plain) {
-            conversing = false
-            say(language == "uk" ? "Добре." : "Okay.", kind: .assistant)
+        let goodbyes = ["дякую", "все", "усе", "стоп", "досить", "бувай", "па-па", "папа", "пока", "відпочивай", "відпочинь",
+                        "відбій", "на сьогодні все", "можеш іти", "вільний", "thanks", "thank you", "stop", "that's all", "bye", "rest"]
+        if plain.split(separator: " ").count <= 4, goodbyes.contains(where: { plain == $0 || plain.hasSuffix(" " + $0) || plain.hasPrefix($0 + " ") }) {
+            endConversation()
+            say(language == "uk" ? "Добре, відпочиваю." : "Okay, I'll rest.", kind: .assistant)
             return
         }
         ask(said)
+    }
+
+    /// Listening for the wake word: nothing is shown until it is heard; then what follows is
+    /// the request, as if the shortcut had been pressed.
+    private func heardWhileWaking(_ text: String, final: Bool) {
+        if !woken, afterWakeWord(text) != nil {
+            woken = true
+            trace("wake word heard")
+            conversing = true
+            phase = .listening
+            NSSound(named: "Tink")?.play()
+        }
+        if woken {
+            hearing = afterWakeWord(text) ?? ""
+        }
+        guard final else { return }
+        isWaking = false
+        let request = woken ? (afterWakeWord(text) ?? "") : ""
+        let wasWoken = woken
+        woken = false
+        hearing = ""
+        phase = .idle
+        guard wasWoken else { return }
+        // Only the word: now it listens for the request.
+        if request.isEmpty { listen(conversation: true) } else { heardRequest(request) }
+    }
+
+    /// A request heard after the wake word, handled as one heard after the shortcut.
+    private func heardRequest(_ text: String) {
+        heard(text, final: true)
     }
 
     func sendDraft() {
@@ -295,6 +448,12 @@ final class AssistantModel {
         var text = AssistantPrompt.system(language: language, persona: persona, customManner: customManner)
         let memory = AssistantContext.memory(notes)
         if !memory.isEmpty { text += "\n" + memory }
+        text += "\nUniMacHub's own screens open with open_tool; macOS apps such as Terminal open with open_app."
+        text += "\nWhen you have run actions, end with one short sentence saying what you did and whether it worked."
+        text += "\nWhen the person says goodbye, tells you to rest or that they need nothing more, call end_conversation and say a short goodbye."
+        if mode == .basic {
+            text += "\nYou are in the basic mode: the terminal, the internet and the screen are off. If asked for them, say they can be allowed in the assistant's settings (Custom or Fully free mode)."
+        }
         if mode == .custom, !table.rules.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             text += "\nThe person's own rules, which you follow:\n" + table.rules
         }
@@ -313,6 +472,7 @@ final class AssistantModel {
         }
         lines.append(Line(kind: .person, text: text))
         turns.append(.user(text))
+        trace("asked: \(text) | mode \(mode.rawValue), provider \(provider.kind.rawValue) \(provider.model), turns \(turns.count)")
         saveChat()
         phase = .thinking
         let client = AssistantClient(settings: provider, secret: AssistantSecrets.load(provider.kind))
@@ -326,8 +486,9 @@ final class AssistantModel {
                     reply = try await client.reply(system: system, turns: self.turns, actions: actions.map(\.spec))
                 } catch {
                     guard !Task.isCancelled else { return }
+                    self.trace("model error: \(error.localizedDescription)")
                     self.say(error.localizedDescription, kind: .problem)
-                    self.phase = .idle
+                    if self.phase == .thinking { self.phase = .idle }
                     return
                 }
                 guard !Task.isCancelled else { return }
@@ -337,10 +498,13 @@ final class AssistantModel {
                     return
                 }
                 self.turns.append(.assistant(text: reply.text, calls: reply.calls, raw: reply.raw))
-                if !reply.text.isEmpty { self.say(reply.text, kind: .assistant) }
+                self.trace("model: \(reply.text) | calls: \(reply.calls.map { "\($0.name) \($0.arguments.text)" }.joined(separator: "; "))")
+                // On the way, words are shown; only the last answer, the summary, is spoken.
+                if !reply.text.isEmpty { self.say(reply.text, kind: .assistant, aloud: reply.calls.isEmpty) }
                 guard !reply.calls.isEmpty else { break }
                 for call in reply.calls {
                     let outcome = await self.perform(call, actions: actions, state: state)
+                    self.trace("action \(call.name): \(outcome.failed ? "FAILED " : "")\(outcome.text.prefix(300))")
                     guard !Task.isCancelled else { return }
                     self.turns.append(.result(callID: call.id, name: call.name, text: outcome.text, failed: outcome.failed, image: outcome.image))
                 }
@@ -490,16 +654,19 @@ final class AssistantModel {
     // MARK: - Asking first
 
     private func confirm(_ question: String) async -> Bool {
+        trace("asks first: \(question)")
         say(question, kind: .assistant)
         phase = .confirming(question)
         present?()
         return await withCheckedContinuation { continuation in
             answer = continuation
-            // Said aloud, the answer can be said aloud too.
+            // Said aloud, the answer can be said aloud too, once the question has been said:
+            // listening sooner would hear the question itself.
             if speaksAnswers {
-                Task {
-                    try? await Task.sleep(for: .seconds(2.5))
-                    if case .confirming = self.phase, await self.startHearing() {}
+                if output.isSpeaking {
+                    listenAfterSpeaking = true
+                } else {
+                    Task { if case .confirming = self.phase { _ = await self.startHearing() } }
                 }
             }
         }
@@ -515,6 +682,7 @@ final class AssistantModel {
     }
 
     private func answerByVoice(_ text: String) {
+        trace("answered by voice: \(text)")
         let words = text.lowercased()
         let yes = ["так", "да", "yes", "yeah", "звісно", "давай", "ok", "окей", "роби"].contains { words.contains($0) }
         let no = ["ні", "no", "не треба", "скасуй", "cancel", "стоп"].contains { words.contains($0) }
@@ -530,6 +698,7 @@ final class AssistantModel {
     /// The stop button and Esc: whatever is happening ends.
     func stop() {
         conversing = false
+        stopWaking()
         halt()
     }
 
@@ -537,7 +706,11 @@ final class AssistantModel {
     private func halt() {
         work?.cancel()
         work = nil
+        isWaking = false
+        woken = false
         input.stop()
+        speechQueue = []
+        listenAfterSpeaking = false
         output.stop()
         isDictating = false
         if let answer {
@@ -555,12 +728,27 @@ final class AssistantModel {
         saveChat()
     }
 
-    private func say(_ text: String, kind: Line.Kind) {
+    private func say(_ text: String, kind: Line.Kind, aloud: Bool = true) {
         lines.append(Line(kind: kind, text: text))
         if lines.count > 60 { lines.removeFirst(lines.count - 60) }
-        guard speaksAnswers, kind != .action else { return }
-        phase = .speaking
+        guard aloud, speaksAnswers, kind != .action else { return }
+        if output.isSpeaking {
+            speechQueue.append(text)
+        } else {
+            speakNow(text)
+        }
+    }
+
+    private func speakNow(_ text: String) {
+        trace("speaking: \(text.prefix(200))")
+        if case .confirming = phase {} else { phase = .speaking }
         output.speak(text, language: language, engine: voiceEngine, voiceID: currentVoice, rate: Float(rate))
+    }
+
+    /// The model, or the person, has said goodbye: no more listening after this answer.
+    func endConversation() {
+        trace("conversation ended")
+        conversing = false
     }
 
     private var currentVoice: String? {
@@ -725,8 +913,10 @@ final class AssistantModel {
     private func hotKeyDown() {
         pressedAt = Date()
         guard isEnabled else { return }
+        stopWaking()
         if isDictating { input.finish(); return }
-        present?()
+        // No chat: the island's light shows it listens; the chat is a tab away.
+        trace("shortcut pressed in \(phase)")
         switch phase {
         case .listening: input.finish()
         case .thinking: break

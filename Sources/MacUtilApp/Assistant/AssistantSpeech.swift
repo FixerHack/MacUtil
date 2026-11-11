@@ -32,6 +32,9 @@ final class SpeechInput {
     }
 
     private var language = "uk"
+    /// What was heard before macOS started its transcript over after a pause.
+    private var committed = ""
+    private var hints: [String] = []
     private var allowServer = false
     private var startedAt = Date()
     private var usedServer = false
@@ -65,7 +68,8 @@ final class SpeechInput {
         Locale(identifier: language == "uk" ? "uk-UA" : "en-US")
     }
 
-    func start(language: String, allowServer: Bool, server: Bool = false) throws {
+    func start(language: String, allowServer: Bool, server: Bool = false, hints: [String] = []) throws {
+        self.hints = hints
         self.language = language
         self.allowServer = allowServer
         usedServer = server
@@ -85,8 +89,11 @@ final class SpeechInput {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         request.requiresOnDeviceRecognition = onDevice
+        request.contextualStrings = hints
+        request.addsPunctuation = true
         self.request = request
         latest = ""
+        committed = ""
 
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
@@ -142,9 +149,19 @@ final class SpeechInput {
     }
 
     private func heard(_ text: String?, final: Bool, problem: String? = nil) {
-        if let text { latest = text }
+        if let text {
+            // After a pause macOS may begin its transcript afresh, dropping what came before:
+            // a new text that does not carry on the old one is kept after it, not in its place.
+            let current = latest.dropFirst(committed.count).trimmingCharacters(in: .whitespaces)
+            if !current.isEmpty, text.count < current.count / 2 || !text.lowercased().hasPrefix(String(current.lowercased().prefix(min(8, current.count)))) {
+                if !text.lowercased().hasPrefix(String(current.lowercased().prefix(3))) {
+                    committed = latest + " "
+                }
+            }
+            latest = committed + text
+        }
         if final {
-            let said = latest
+            let said = latest.trimmingCharacters(in: .whitespaces)
             stop()
             if let problem, said.isEmpty {
                 Self.note("ended: \(problem)")
@@ -152,7 +169,7 @@ final class SpeechInput {
                 // not when Dictation is off, which stops both.
                 if !usedServer, allowServer, Date().timeIntervalSince(startedAt) < 3, !problem.contains("kLSRErrorDomain 201") {
                     Self.note("trying Apple's servers")
-                    if (try? start(language: language, allowServer: true, server: true)) != nil { return }
+                    if (try? start(language: language, allowServer: true, server: true, hints: hints)) != nil { return }
                 }
                 // Cancelled by us, or nothing said: not worth a message.
                 if !problem.contains(" 216:"), !problem.contains(" 301:"), !problem.contains(" 1110:") {
@@ -172,7 +189,8 @@ final class SpeechInput {
         silence = Task { [weak self] in
             // Six seconds for a first word; then a pause of over two seconds ends the turn,
             // so a breath in the middle of a sentence does not.
-            try? await Task.sleep(for: .seconds(self?.latest.isEmpty == true ? 6 : 2.3))
+            let heard = self?.latest.count ?? 0
+            try? await Task.sleep(for: .seconds(heard == 0 ? 6 : heard > 60 ? 3 : 2.3))
             guard !Task.isCancelled else { return }
             self?.finish()
         }

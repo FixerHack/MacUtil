@@ -658,6 +658,8 @@ struct IslandGlow: View {
                 shape.stroke(gradient, lineWidth: 2 + 6 * level).blur(radius: 6 + 10 * level).opacity(0.9)
                 shape.stroke(gradient, lineWidth: 1.5)
             }
+            // The top edge meets the screen's: lit, it showed as hard corners at the shoulders.
+            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .clear, location: 0.08), .init(color: .black, location: 0.4)], startPoint: .top, endPoint: .bottom))
         }
         .allowsHitTesting(false)
         .animation(.easeOut(duration: 0.12), value: level)

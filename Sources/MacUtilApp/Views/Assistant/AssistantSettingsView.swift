@@ -6,6 +6,7 @@ import SwiftUI
 struct AssistantSettingsView: View {
     @Bindable var model: AssistantModel
     @Environment(AppState.self) private var state
+    @AppStorage(Preferences.keepsRunning) private var keepsRunning = true
     @State private var heard = ""
     @State private var written = ""
 
@@ -22,6 +23,14 @@ struct AssistantSettingsView: View {
                 Toggle("A shortcut that listens at once, from anywhere", isOn: $model.usesHotKey)
                     .disabled(!model.isEnabled)
                 Toggle("Keep the conversation going: after answering, it listens again", isOn: $model.keepsListening)
+                Toggle("Keep the island and the assistant running when UniMacHub is closed", isOn: $keepsRunning)
+                Toggle("Wake it with a word, without pressing anything", isOn: $model.usesWakeWord)
+                if model.usesWakeWord {
+                    TextField("Wake word", text: $model.wakeWord)
+                    Text(model.wakeProblem ?? String(localized: "While on, the microphone listens for this word only, on this Mac: nothing leaves it, and macOS shows its orange microphone dot. Say the word and the request in one go (“\(model.wakeWord), open YouTube”), or the word, then the request. A short, unusual word works best."))
+                        .font(.caption)
+                        .foregroundStyle(model.wakeProblem == nil ? Color.secondary : .orange)
+                }
                 if model.usesHotKey {
                     LabeledContent("Shortcut") {
                         ShortcutRecorder(shortcut: $model.shortcut, fallback: .assistant, model: model)
