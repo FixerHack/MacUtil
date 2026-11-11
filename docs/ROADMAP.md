@@ -364,6 +364,10 @@
 | [bgscan](https://github.com/MohsenBg/bgscan) | Хто в мережі, відкриті порти | 🌐 | 0.11.2 | Тунелі, Xray, CDN |
 | [Advanced IP Scanner](https://www.advanced-ip-scanner.com/), [Angry IP Scanner](https://angryip.org) | Сканування мережі, виробник за MAC, підключення SSH / RDP / VNC / FTP / SMB / Telnet / HTTP, спільні теки, Wake-on-LAN, CSV | 🌐 | 0.11.2 | Radmin і віддалене вимкнення (потребують агента на тій стороні) |
 | [TCPViewer](https://github.com/ProxymanApp/TCPViewer) | Куди з'єднуються програми | 🌐 | 0.11.2 | Захоплення пакетів |
+| [macUSB](https://github.com/Kruszoneq/macUSB) (MIT) | Завантажувальна флешка з образу macOS, Windows чи Linux в «Дисках» | 💾 | 0.10.10 | — |
+| [purge-app](https://github.com/jithin-sabu/purge-app) (MIT) | Звірити категорії сміття з нашими й додати відсутні; усе в Кошик, як у нас | 🧹 | 0.10.10 | — |
+| [misterdownloadmanager](https://github.com/anefzaoui/misterdownloadmanager) (GPL-3.0, Rust) | Менеджер завантажень: кілька потоків, пауза й продовження, черга, перехоплення з браузера; асистент кладе туди свої завантаження | 📁 | 0.11.1 | Окремий рушій на Rust: беремо підхід, не код |
+| [border-beam-ios](https://github.com/ismnoiet/border-beam-ios) (MIT) | Світло, що біжить по краю острівця й Dock, на Metal-шейдері замість розмиття | 🏝 | 0.10.9 | — |
 | [mooziac](https://github.com/shirkeharsh/mooziac) | — | — | — | YouTube-плеєр (окрема програма); гучність краєм трекпада (приватний API) |
 
 Раніше проаналізовані й частково взяті: [Mole](https://github.com/tw93/Mole), [MyFoldy](https://github.com/Piyushingle007/MyFoldy), [Peel](https://github.com/TuguiDragos/Peel), [net-merge](https://github.com/rohit267/net-merge).
