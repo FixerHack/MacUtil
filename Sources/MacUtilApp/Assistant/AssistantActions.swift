@@ -349,6 +349,38 @@ enum AssistantActions {
     }
 
     static var apps: [AssistantAction] { [
+        AssistantAction(
+            "open_link", "Opens a web address in the person's browser, or a mail address in Mail.",
+            category: .apps, level: .reversible, parameters: ["url": string()], required: ["url"]
+        ) { arguments, _ in
+            var text = (arguments["url"]?.string ?? "").trimmingCharacters(in: .whitespaces)
+            if !text.contains("://"), !text.hasPrefix("mailto:") { text = "https://" + text }
+            guard let url = URL(string: text), ["http", "https", "mailto"].contains(url.scheme ?? "") else {
+                return ActionOutcome(text: "Not a web or mail address.", failed: true)
+            }
+            NSWorkspace.shared.open(url)
+            return ActionOutcome(text: "Opened \(url.host() ?? text).")
+        },
+        AssistantAction(
+            "search_in_browser", "Opens a web search for something in the person's browser, for them to look at.",
+            category: .apps, level: .reversible, parameters: ["query": string()], required: ["query"]
+        ) { arguments, _ in
+            var parts = URLComponents(string: "https://www.google.com/search")
+            parts?.queryItems = [URLQueryItem(name: "q", value: arguments["query"]?.string ?? "")]
+            guard let url = parts?.url else { return ActionOutcome(text: "No query.", failed: true) }
+            NSWorkspace.shared.open(url)
+            return ActionOutcome(text: "Opened the search.")
+        },
+        AssistantAction(
+            "open_file", "Opens a file in its usual app, or a folder in Finder.",
+            category: .apps, level: .reversible, parameters: ["path": string()], required: ["path"],
+            paths: { [path($0["path"])] }
+        ) { arguments, _ in
+            let file = path(arguments["path"])
+            guard FileManager.default.fileExists(atPath: file) else { return ActionOutcome(text: "\(file) is not there.", failed: true) }
+            NSWorkspace.shared.open(URL(filePath: file))
+            return ActionOutcome(text: "Opened \(file).")
+        },
         AssistantAction("running_apps", "The apps open right now.", category: .apps, level: .read) { _, _ in
             let names = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap(\.localizedName)
             return ActionOutcome(text: names.joined(separator: ", "))

@@ -21,6 +21,7 @@ struct AssistantSettingsView: View {
                 Toggle("Assistant", isOn: $model.isEnabled)
                 Toggle("A shortcut that listens at once, from anywhere", isOn: $model.usesHotKey)
                     .disabled(!model.isEnabled)
+                Toggle("Keep the conversation going: after answering, it listens again", isOn: $model.keepsListening)
                 if model.usesHotKey {
                     LabeledContent("Shortcut") {
                         ShortcutRecorder(shortcut: $model.shortcut, fallback: .assistant, model: model)

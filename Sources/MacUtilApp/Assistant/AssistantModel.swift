@@ -54,6 +54,7 @@ final class AssistantModel {
         static let localVoice = "assistantLocalVoice"
         static let shortcut = "assistantShortcut"
         static let pitch = "assistantPitch"
+        static let conversation = "assistantKeepsListening"
         static let dictationShortcut = "assistantDictationShortcut"
     }
 
@@ -70,6 +71,10 @@ final class AssistantModel {
     var localVoice: String { didSet { defaults.set(localVoice, forKey: Keys.localVoice) } }
     /// Semitones above the voice's own: a few up gives the bright, light voice of anime.
     var pitch: Double { didSet { defaults.set(pitch, forKey: Keys.pitch); output.pitch = pitch } }
+    /// Spoken to, it listens again after answering, so it goes on like a conversation.
+    var keepsListening: Bool { didSet { defaults.set(keepsListening, forKey: Keys.conversation) } }
+    /// In a spoken conversation now: it will listen again after it answers.
+    private(set) var conversing = false
     var rate: Double { didSet { defaults.set(rate, forKey: Keys.rate) } }
     var persona: Persona { didSet { defaults.set(persona.rawValue, forKey: Keys.persona) } }
     var customManner: String { didSet { defaults.set(customManner, forKey: Keys.manner) } }
@@ -142,6 +147,7 @@ final class AssistantModel {
         voiceEngine = VoiceEngine(rawValue: defaults.string(forKey: Keys.engine) ?? "") ?? .system
         localVoice = defaults.string(forKey: Keys.localVoice) ?? ""
         pitch = defaults.double(forKey: Keys.pitch)
+        keepsListening = defaults.object(forKey: Keys.conversation) as? Bool ?? true
         shortcut = defaults.data(forKey: Keys.shortcut).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .assistant
         dictationShortcut = defaults.data(forKey: Keys.dictationShortcut).flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .dictation
         rate = defaults.double(forKey: Keys.rate)
@@ -181,6 +187,7 @@ final class AssistantModel {
         output.onFinished = { [weak self] in
             guard let self, self.phase == .speaking else { return }
             self.phase = .idle
+            self.followUp()
         }
     }
 
@@ -204,8 +211,20 @@ final class AssistantModel {
         }
     }
 
-    func listen() {
+    /// After an answer, in a spoken conversation: listens again, a moment later so it does
+    /// not hear the end of its own voice.
+    private func followUp() {
+        guard conversing, keepsListening, phase == .idle, work == nil || work?.isCancelled == true else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            guard self.conversing, self.phase == .idle else { return }
+            self.listen(conversation: true)
+        }
+    }
+
+    func listen(conversation: Bool = true) {
         output.stop()
+        if conversation { conversing = true }
         Task {
             guard await startHearing() else { return }
             hearing = ""
@@ -248,7 +267,19 @@ final class AssistantModel {
         }
         phase = .idle
         let said = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !said.isEmpty { ask(said) }
+        // Nothing said: the conversation has ended on its own.
+        guard !said.isEmpty else {
+            conversing = false
+            return
+        }
+        // "Thanks", "that's all": it ends without asking the model.
+        let plain = said.lowercased().trimmingCharacters(in: .punctuationCharacters.union(.whitespaces))
+        if ["дякую", "все", "усе", "стоп", "досить", "бувай", "thanks", "thank you", "stop", "that's all", "bye"].contains(plain) {
+            conversing = false
+            say(language == "uk" ? "Добре." : "Okay.", kind: .assistant)
+            return
+        }
+        ask(said)
     }
 
     func sendDraft() {
@@ -273,7 +304,7 @@ final class AssistantModel {
     /// The person's words, to the model, and round the loop until it has nothing more to run.
     func ask(_ text: String) {
         guard let state else { return }
-        stop()
+        halt()
         // One conversation throughout; when it would fill the model's context, it starts over.
         // What should outlive that belongs in the notes, which are always sent.
         if AssistantContext.size(of: turns) + text.count > AssistantContext.limit(for: provider.kind) {
@@ -318,6 +349,8 @@ final class AssistantModel {
             guard let self else { return }
             if self.phase == .thinking { self.phase = self.output.isSpeaking ? .speaking : .idle }
             self.saveChat()
+            self.work = nil
+            self.followUp()
         }
     }
 
@@ -496,6 +529,12 @@ final class AssistantModel {
 
     /// The stop button and Esc: whatever is happening ends.
     func stop() {
+        conversing = false
+        halt()
+    }
+
+    /// Ends whatever is happening without ending the conversation, before the next request.
+    private func halt() {
         work?.cancel()
         work = nil
         input.stop()

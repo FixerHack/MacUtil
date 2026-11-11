@@ -42,6 +42,14 @@ struct AssistantPage: View {
         .onChange(of: assistant.focusRequest) { focus() }
     }
 
+    private var examples: [String] {
+        assistant.language == "uk"
+            ? ["Що ти вмієш?", "Скільки вільного місця на диску?", "Відкрий ютуб", "Увімкни ігровий профіль доку",
+               "Нагадай через 20 хвилин випити води", "Запам'ятай, що машина на третьому рівні", "Зроби гучність на 30"]
+            : ["What can you do?", "How much disk space is free?", "Open YouTube", "Switch the Dock to Games",
+               "Remind me in 20 minutes to drink water", "Remember the car is on level 3", "Set the volume to 30"]
+    }
+
     private var statusText: LocalizedStringKey {
         switch assistant.phase {
         case .listening: "Listening…"
@@ -55,9 +63,14 @@ struct AssistantPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
                     if assistant.lines.isEmpty, assistant.hearing.isEmpty {
-                        Text("Ask by voice or by typing. \(assistant.hotKeyLabel) opens this from anywhere.")
-                            .font(.callout)
-                            .foregroundStyle(.white.opacity(0.55))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Press \(assistant.hotKeyLabel) and talk, or type. For example:")
+                            ForEach(examples, id: \.self) { example in
+                                Text(verbatim: "· " + example)
+                            }
+                        }
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.55))
                     }
                     ForEach(assistant.lines.suffix(12)) { line in
                         LineView(line: line)

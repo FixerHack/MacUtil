@@ -1733,7 +1733,6 @@
 "Any service that speaks OpenAI's chat API with tools. The key stays in your Keychain." = "Будь-який сервіс, що розуміє чат-API OpenAI з інструментами. Ключ лишається у вашому Keychain.";
 "Anywhere" = "Будь-де";
 "Ask UniMacHub…" = "Запитайте UniMacHub…";
-"Ask by voice or by typing. %@ opens this from anywhere." = "Питайте голосом або текстом. %@ відкриває це звідусіль.";
 "Asks first" = "Питає спершу";
 "Asks first, then macOS asks for the password" = "Питає спершу, потім macOS просить пароль";
 "At once" = "Одразу";
@@ -1907,3 +1906,5 @@
 "Pitch" = "Висота";
 "For an anime voice, a free character voice such as Tsukuyomi-chan works, by its terms, with credit:" = "Для аніме-голосу підійде вільний голос персонажа, як-от Tsukuyomi-chan, — за його умовами, із зазначенням авторства:";
 "macOS lets apps hear speech only with Dictation on. Turn on Dictation in the window that opened (Keyboard → Dictation), then press the shortcut again." = "macOS дає програмам чути мовлення лише з увімкненим Диктуванням. Увімкніть Диктування у вікні, що відкрилося (Клавіатура → Диктування), і натисніть клавіші ще раз.";
+"Keep the conversation going: after answering, it listens again" = "Вести розмову: після відповіді знову слухати";
+"Press %@ and talk, or type. For example:" = "Натисніть %@ і говоріть або пишіть. Наприклад:";

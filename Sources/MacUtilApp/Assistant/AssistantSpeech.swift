@@ -170,7 +170,9 @@ final class SpeechInput {
     private func waitForSilence() {
         silence?.cancel()
         silence = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(self?.latest.isEmpty == true ? 6 : 1.5))
+            // Six seconds for a first word; then a pause of over two seconds ends the turn,
+            // so a breath in the middle of a sentence does not.
+            try? await Task.sleep(for: .seconds(self?.latest.isEmpty == true ? 6 : 2.3))
             guard !Task.isCancelled else { return }
             self?.finish()
         }
