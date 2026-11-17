@@ -12,5 +12,8 @@
 	<!-- The assistant's microphone: under the hardened runtime macOS refuses it without this. -->
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
+	<!-- The Wi-Fi network's name: macOS gives it only to apps allowed Location. -->
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
 </dict>
 </plist>

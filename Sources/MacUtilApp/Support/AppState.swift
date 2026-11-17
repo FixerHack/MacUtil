@@ -145,6 +145,8 @@ final class AppState {
             self.islandController = IslandController(model: self.island, state: self)
             self.assistant.attach(self)
             DockService.launched(self.dock)
+            // The history records from launch, not only once its screen has been opened.
+            self.clipboard.start()
         }
     }
 

@@ -2,6 +2,11 @@ import AVFoundation
 import CleanerCore
 import Speech
 
+/// A copy of the microphone's sound, handed once from the audio thread to the main one.
+private struct SoundChunk: @unchecked Sendable {
+    let buffer: AVAudioPCMBuffer
+}
+
 /// Hears the person: the microphone through macOS's speech recognition, on this Mac when it
 /// can do the language itself, through Apple's servers only when that is allowed.
 @MainActor
@@ -21,7 +26,7 @@ final class SpeechInput {
 
     /// What happened, for finding out later why listening stopped.
     static func note(_ text: String) {
-        let line = "\(Date().formatted(date: .numeric, time: .standard)) \(text)\n"
+        let line = "\(Date().formatted(date: .numeric, time: .standard)) \(text.replacingOccurrences(of: "\n", with: " "))\n"
         if let handle = try? FileHandle(forWritingTo: log) {
             _ = try? handle.seekToEnd()
             try? handle.write(contentsOf: Data(line.utf8))
@@ -45,6 +50,14 @@ final class SpeechInput {
     private var task: SFSpeechRecognitionTask?
     private var silence: Task<Void, Never>?
     private var latest = ""
+    /// Counts each listening, so a late answer from an earlier one is ignored.
+    private var generation = 0
+    /// The sound heard so far, to give Apple's servers when this Mac made out nothing.
+    private var recorded: [AVAudioPCMBuffer] = []
+    private var recordedFrames: AVAudioFramePosition = 0
+    /// The loudest the microphone got, 0…1: above about 0.45 someone spoke.
+    private var peak: Double = 0
+    private var format: AVAudioFormat?
 
     static func authorise() async -> Bool {
         let speech = await withCheckedContinuation { continuation in
@@ -95,22 +108,30 @@ final class SpeechInput {
         latest = ""
         committed = ""
 
+        recorded = []
+        recordedFrames = 0
+        peak = 0
+        generation += 1
+        let current = generation
+
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.channelCount > 0 else { throw Problem.noMicrophone }
+        self.format = format
         nonisolated(unsafe) let feed = request
-        let report: @Sendable (Double) -> Void = { [weak self] level in
-            Task { @MainActor in self?.onLevel?(level) }
+        let report: @Sendable (Double, SoundChunk?) -> Void = { [weak self] level, chunk in
+            Task { @MainActor in self?.measured(level, chunk?.buffer, generation: current) }
         }
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             feed.append(buffer)
+            let copy = Self.copy(buffer).map(SoundChunk.init)
             // Loudness for the animation: the buffer's RMS, on a scale that suits speech.
             guard let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
             var sum: Float = 0
             for index in 0 ..< Int(buffer.frameLength) { sum += samples[index] * samples[index] }
             let rms = sqrt(sum / Float(buffer.frameLength))
             let decibels = 20 * log10(max(rms, 0.000_01))
-            report(Double(max(0, min(1, (decibels + 55) / 45))))
+            report(Double(max(0, min(1, (decibels + 55) / 45))), copy)
         }
         engine.prepare()
         try engine.start()
@@ -120,7 +141,10 @@ final class SpeechInput {
             let text = result?.bestTranscription.formattedString
             let final = result?.isFinal ?? (error != nil)
             let problem = error.map { ($0 as NSError).domain + " \(($0 as NSError).code): " + $0.localizedDescription }
-            Task { @MainActor in self?.heard(text, final: final, problem: problem) }
+            Task { @MainActor in
+                guard self?.generation == current else { return }
+                self?.heard(text, final: final, problem: problem)
+            }
         }
         waitForSilence()
     }
@@ -137,6 +161,7 @@ final class SpeechInput {
 
     /// Stops without waiting for what was said.
     func stop() {
+        generation += 1
         silence?.cancel()
         task?.cancel()
         task = nil
@@ -148,21 +173,75 @@ final class SpeechInput {
         isListening = false
     }
 
+    /// The level for the animation, and the sound kept for a second try.
+    private func measured(_ level: Double, _ buffer: AVAudioPCMBuffer?, generation current: Int) {
+        guard current == generation, isListening else { return }
+        peak = max(peak, level)
+        onLevel?(level)
+        // Up to half a minute of sound.
+        if let buffer, recordedFrames < AVAudioFramePosition((format?.sampleRate ?? 48000) * 30) {
+            recorded.append(buffer)
+            recordedFrames += AVAudioFramePosition(buffer.frameLength)
+        }
+    }
+
+    nonisolated static func copy(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard let copy = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameLength) else { return nil }
+        copy.frameLength = buffer.frameLength
+        let channels = Int(buffer.format.channelCount)
+        if let from = buffer.floatChannelData, let to = copy.floatChannelData {
+            for channel in 0 ..< channels {
+                to[channel].update(from: from[channel], count: Int(buffer.frameLength))
+            }
+            return copy
+        }
+        return nil
+    }
+
+    /// This Mac heard someone speak but made out no words, as with a name it does not know
+    /// ("Телеграм"): the same sound goes to Apple's servers once, when that is allowed.
+    private func retryOnServer() -> Bool {
+        guard allowServer, !usedServer, !recorded.isEmpty, peak > 0.45,
+              let recogniser = SFSpeechRecognizer(locale: Self.locale(language)), recogniser.isAvailable
+        else { return false }
+        Self.note("heard sound (peak \(String(format: "%.2f", peak))) but no words on this Mac: Apple's servers try the same sound")
+        usedServer = true
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.requiresOnDeviceRecognition = false
+        request.contextualStrings = hints
+        request.addsPunctuation = true
+        request.shouldReportPartialResults = false
+        for buffer in recorded { request.append(buffer) }
+        request.endAudio()
+        recorded = []
+        generation += 1
+        let current = generation
+        let started = Date()
+        task = recogniser.recognitionTask(with: request) { [weak self] result, error in
+            let text = result?.bestTranscription.formattedString ?? ""
+            let final = result?.isFinal ?? (error != nil)
+            guard final else { return }
+            Task { @MainActor in
+                guard let self, self.generation == current else { return }
+                Self.note("servers heard: \"\(text)\" in \(String(format: "%.1f", Date().timeIntervalSince(started))) s")
+                self.task = nil
+                self.onText?(text.trimmingCharacters(in: .whitespaces), true)
+            }
+        }
+        return true
+    }
+
     private func heard(_ text: String?, final: Bool, problem: String? = nil) {
         if let text {
-            // After a pause macOS may begin its transcript afresh, dropping what came before:
-            // a new text that does not carry on the old one is kept after it, not in its place.
-            let current = latest.dropFirst(committed.count).trimmingCharacters(in: .whitespaces)
-            if !current.isEmpty, text.count < current.count / 2 || !text.lowercased().hasPrefix(String(current.lowercased().prefix(min(8, current.count)))) {
-                if !text.lowercased().hasPrefix(String(current.lowercased().prefix(3))) {
-                    committed = latest + " "
-                }
-            }
-            latest = committed + text
+            // macOS revises its transcript as it goes and, after a pause, may start it afresh
+            // with only the new words: a revision replaces, a fresh start is kept after.
+            (committed, latest) = Transcript.merge(committed: committed, latest: latest, incoming: text)
         }
         if final {
-            let said = latest.trimmingCharacters(in: .whitespaces)
+            let said = Transcript.collapseRepeats(latest.trimmingCharacters(in: .whitespaces))
             stop()
+            Self.note("heard \(usedServer ? "via Apple's servers" : "on this Mac"): \"\(said)\"\(problem.map { " (\($0))" } ?? "")")
+            if said.isEmpty, retryOnServer() { return }
             if let problem, said.isEmpty {
                 Self.note("ended: \(problem)")
                 // On this Mac it failed straight away: Apple's servers, if allowed, try instead;

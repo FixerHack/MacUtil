@@ -80,6 +80,17 @@ final class SlimmingStore {
         }
         current = nil
         selection = []
+        // In the History, like every other change UniMacHub makes to the disk.
+        var removed: [RemovedItem] = []
+        var failures: [CleanupFailure] = []
+        for (app, outcome) in zip(chosen, outcomes) {
+            if outcome.problem == nil {
+                removed.append(RemovedItem(path: app.path, size: outcome.freed, trashPath: nil))
+            } else {
+                failures.append(CleanupFailure(path: app.path, reason: String(localized: outcome.problem!)))
+            }
+        }
+        ActionLog.standard.record(.init(action: "slim", source: "slim", removed: removed, failures: failures))
         // The rescan shows what is left; what happened to each app stays on screen above it.
         let results = outcomes
         await scan()

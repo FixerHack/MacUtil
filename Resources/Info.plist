@@ -41,6 +41,10 @@
 	<string>UniMacHub's assistant listens when you press its key or the microphone in the island, and only then.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>UniMacHub's assistant turns what you say into text. On this Mac when it can; through Apple only if you allow that in the assistant's settings.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>macOS tells apps the name of your Wi-Fi network only with Location allowed. The assistant uses it to answer which network you are on, and nothing more.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>macOS tells apps the name of your Wi-Fi network only with Location allowed. The assistant uses it to answer which network you are on, and nothing more.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

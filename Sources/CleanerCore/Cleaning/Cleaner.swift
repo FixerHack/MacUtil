@@ -22,11 +22,22 @@ public struct RemovedItem: Codable, Sendable, Hashable {
     public let size: Int64
     /// Where the item ended up in the Trash, for undo.
     public let trashPath: String?
+
+    public init(path: String, size: Int64, trashPath: String?) {
+        self.path = path
+        self.size = size
+        self.trashPath = trashPath
+    }
 }
 
 public struct CleanupFailure: Codable, Sendable, Hashable {
     public let path: String
     public let reason: String
+
+    public init(path: String, reason: String) {
+        self.path = path
+        self.reason = reason
+    }
 }
 
 public struct CleanupResult: Sendable {

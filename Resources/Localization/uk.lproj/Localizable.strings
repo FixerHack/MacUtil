@@ -1721,7 +1721,6 @@
 "Stop Timer" = "Зупинити таймер";
 "Time's up" = "Час вийшов";
 "Timer" = "Таймер";
-"In use" = "Діє";
 "Dock profile" = "Профіль Dock";
 "%@ is back as it was." = "%@ повернуто, як було.";
 "%@ types what you say into any app" = "%@ друкує сказане в будь-яку програму";
@@ -1752,7 +1751,6 @@
 "Done talking" = "Я закінчив";
 "Empty the Trash for good? This cannot be undone." = "Остаточно очистити Кошик? Це не скасувати.";
 "English" = "English";
-"Every action it runs, with what came of it. Undo works while UniMacHub stays open." = "Кожна дія, яку він виконав, і її результат. Скасування працює, поки UniMacHub відкритий.";
 "Folders it may touch" = "Теки, які можна чіпати";
 "Forbidden" = "Заборонено";
 "Force %@ to quit? Unsaved work is lost." = "Примусово закрити %@? Незбережене пропаде.";
@@ -1823,7 +1821,7 @@
 "What it may do" = "Що йому можна";
 "Whatever you ask: terminal, files, apps, the screen and the internet. Only important actions ask first." = "Усе, що попросите: термінал, файли, програми, екран та інтернет. Питає лише перед важливими діями.";
 "Who answers" = "Хто відповідає";
-"Written" = "Пишеться";
+"Written" = "Як писати";
 "Your own rules are only passed to the model as an instruction: UniMacHub cannot guarantee it keeps them. Everything above it does guarantee." = "Ваші правила лише передаються моделі як інструкція: UniMacHub не може гарантувати, що вона їх дотримається. Усе, що вище, він гарантує.";
 "Your own rules, in words" = "Ваші правила словами";
 "Your spellings" = "Ваше написання";
@@ -1919,3 +1917,9 @@
 "The event is removed." = "Подію видалено.";
 "The screenshot is in the Trash." = "Знімок екрана в Кошику.";
 "The windows are back." = "Вікна повернулися.";
+"Every action it runs, with what came of it. Undo works while UniMacHub stays open. The detailed logs record every step with its time: what was heard, what the model answered and how long it took, each action and its result. They stay on this Mac; send them yourself when something goes wrong." = "Кожна дія, яку він виконує, і чим вона скінчилась. «Скасувати» працює, поки UniMacHub відкритий. Докладні журнали записують кожен крок із часом: що почуто, що відповіла модель і за скільки, кожну дію та її результат. Вони лишаються на цьому Mac; надсилайте їх самі, коли щось пішло не так.";
+"For dictation and the assistant alike: when it hears the word on the left, it writes the one on the right, such as телеграм → Telegram." = "І для диктування, і для асистента: коли чує слово зліва, пише те, що справа, наприклад телеграм → Telegram.";
+"For example: calm and brief, calls me boss, jokes now and then" = "Наприклад: спокійно й коротко, звертається «шеф», часом жартує";
+"Made smaller" = "Зменшено";
+"Show the Detailed Logs" = "Показати докладні журнали";
+"The model did not answer in two minutes. Try again, or pick another model in the settings." = "Модель не відповіла за дві хвилини. Спробуйте ще раз або виберіть іншу модель у налаштуваннях.";

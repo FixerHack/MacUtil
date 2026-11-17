@@ -141,9 +141,16 @@ final class AssistantModel {
 
     static let traceFile = AppPaths.file("assistant-trace.log")
 
+    /// The Mac's own time, with the date, so a line can be matched with what the person remembers.
+    private static let stamp: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        return formatter
+    }()
+
     /// Everything the assistant does, step by step, to find out later what went wrong.
     func trace(_ text: String) {
-        let line = "\(Date().formatted(.iso8601.time(includingFractionalSeconds: true))) \(text.replacingOccurrences(of: "\n", with: " ⏎ "))\n"
+        let line = "\(Self.stamp.string(from: Date())) \(text.replacingOccurrences(of: "\n", with: " ⏎ "))\n"
         let file = Self.traceFile
         if let size = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int, size > 2_000_000 {
             try? FileManager.default.removeItem(at: file.deletingPathExtension().appendingPathExtension("old.log"))
@@ -289,10 +296,7 @@ final class AssistantModel {
 
     /// The words after the wake word, if it was said.
     private func afterWakeWord(_ text: String) -> String? {
-        let word = wakeWord.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-        guard !word.isEmpty, let range = text.lowercased().range(of: word) else { return nil }
-        let rest = text[text.index(text.startIndex, offsetBy: text.lowercased().distance(from: text.lowercased().startIndex, to: range.upperBound))...]
-        return rest.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        WakeWord.request(in: text, word: wakeWord)
     }
 
     // MARK: - Asking
@@ -392,17 +396,16 @@ final class AssistantModel {
             conversing = false
             return
         }
-        trace("heard: \(said)")
+        // The person's own spellings: "телеграм" heard, Telegram written.
+        let request = dictionary.isEmpty ? said : Dictation.clean(said, language: language, dictionary: dictionary)
+        trace("heard: \(said)\(request == said ? "" : " → \(request)")")
         // "Thanks", "rest", "bye": a short goodbye ends it without asking the model.
-        let plain = said.lowercased().trimmingCharacters(in: .punctuationCharacters.union(.whitespaces))
-        let goodbyes = ["дякую", "все", "усе", "стоп", "досить", "бувай", "па-па", "папа", "пока", "відпочивай", "відпочинь",
-                        "відбій", "на сьогодні все", "можеш іти", "вільний", "thanks", "thank you", "stop", "that's all", "bye", "rest"]
-        if plain.split(separator: " ").count <= 4, goodbyes.contains(where: { plain == $0 || plain.hasSuffix(" " + $0) || plain.hasPrefix($0 + " ") }) {
+        if Goodbye.isGoodbye(said) {
             endConversation()
             say(language == "uk" ? "Добре, відпочиваю." : "Okay, I'll rest.", kind: .assistant)
             return
         }
-        ask(said)
+        ask(request)
     }
 
     /// Listening for the wake word: nothing is shown until it is heard; then what follows is
@@ -419,6 +422,7 @@ final class AssistantModel {
             hearing = afterWakeWord(text) ?? ""
         }
         guard final else { return }
+        if woken { trace("wake phrase: \(text)") }
         isWaking = false
         let request = woken ? (afterWakeWord(text) ?? "") : ""
         let wasWoken = woken
@@ -451,6 +455,9 @@ final class AssistantModel {
         text += "\nUniMacHub's own screens open with open_tool; macOS apps such as Terminal open with open_app."
         text += "\nWhen you have run actions, end with one short sentence saying what you did and whether it worked."
         text += "\nWhen the person says goodbye, tells you to rest or that they need nothing more, call end_conversation and say a short goodbye."
+        text += "\n«Системні параметри», «системні налаштування» or the settings of the Mac or MacBook mean macOS System Settings: open_app \"System Settings\". UniMacHub's own settings only when the person names UniMacHub."
+        text += "\nWhen the person asks for several things that do not depend on each other, call all the actions in one reply instead of one per reply: each reply costs seconds."
+        text += "\nThe request comes from speech recognition and may be garbled: a phrase said twice is one request, and a word may be misheard (\"Face\" may be FACEIT). When a guess is risky, ask briefly."
         if mode == .basic {
             text += "\nYou are in the basic mode: the terminal, the internet and the screen are off. If asked for them, say they can be allowed in the assistant's settings (Custom or Fully free mode)."
         }
@@ -482,11 +489,18 @@ final class AssistantModel {
                 guard let self, !Task.isCancelled else { return }
                 let actions = AssistantActions.available(state, mode: self.mode, table: self.table, seesImages: self.provider.kind.seesImages)
                 let reply: ModelReply
+                let asked = Date()
                 do {
-                    reply = try await client.reply(system: system, turns: self.turns, actions: actions.map(\.spec))
+                    let turns = self.turns, specs = actions.map(\.spec)
+                    reply = try await Self.withTimeout(seconds: 120) {
+                        try await client.reply(system: system, turns: turns, actions: specs)
+                    }
                 } catch {
-                    guard !Task.isCancelled else { return }
-                    self.trace("model error: \(error.localizedDescription)")
+                    guard !Task.isCancelled else {
+                        self.trace("model call cancelled after \(Self.seconds(since: asked))")
+                        return
+                    }
+                    self.trace("model error after \(Self.seconds(since: asked)): \(String(describing: error))")
                     self.say(error.localizedDescription, kind: .problem)
                     if self.phase == .thinking { self.phase = .idle }
                     return
@@ -498,15 +512,27 @@ final class AssistantModel {
                     return
                 }
                 self.turns.append(.assistant(text: reply.text, calls: reply.calls, raw: reply.raw))
-                self.trace("model: \(reply.text) | calls: \(reply.calls.map { "\($0.name) \($0.arguments.text)" }.joined(separator: "; "))")
-                // On the way, words are shown; only the last answer, the summary, is spoken.
-                if !reply.text.isEmpty { self.say(reply.text, kind: .assistant, aloud: reply.calls.isEmpty) }
+                self.trace("model (\(Self.seconds(since: asked))): \(reply.text) | calls: \(reply.calls.map { "\($0.name) \($0.arguments.text)" }.joined(separator: "; "))")
+                // On the way, words are shown; only the last answer, the summary, is spoken. A
+                // goodbye with end_conversation is the last answer too: no further round for it.
+                let ending = reply.calls.contains { $0.name == "end_conversation" }
+                if !reply.text.isEmpty { self.say(reply.text, kind: .assistant, aloud: reply.calls.isEmpty || ending) }
                 guard !reply.calls.isEmpty else { break }
                 for call in reply.calls {
+                    let started = Date()
+                    self.trace("action \(call.name) starts: \(call.arguments.text.prefix(300))")
                     let outcome = await self.perform(call, actions: actions, state: state)
-                    self.trace("action \(call.name): \(outcome.failed ? "FAILED " : "")\(outcome.text.prefix(300))")
-                    guard !Task.isCancelled else { return }
+                    self.trace("action \(call.name) (\(Self.seconds(since: started))): \(outcome.failed ? "FAILED " : "")\(outcome.text.prefix(400))")
+                    guard !Task.isCancelled else {
+                        self.trace("cancelled after \(call.name)")
+                        return
+                    }
                     self.turns.append(.result(callID: call.id, name: call.name, text: outcome.text, failed: outcome.failed, image: outcome.image))
+                }
+                if ending {
+                    // The turns close on the assistant's words, as every provider expects.
+                    self.turns.append(.assistant(text: reply.text.isEmpty ? "Goodbye." : reply.text, calls: [], raw: nil))
+                    break
                 }
                 self.phase = .thinking
             }
@@ -703,7 +729,30 @@ final class AssistantModel {
     }
 
     /// Ends whatever is happening without ending the conversation, before the next request.
+    static func seconds(since date: Date) -> String {
+        String(format: "%.1f s", Date().timeIntervalSince(date))
+    }
+
+    struct ModelTimeout: LocalizedError {
+        var errorDescription: String? { String(localized: "The model did not answer in two minutes. Try again, or pick another model in the settings.") }
+    }
+
+    /// Runs the model's call, giving up after a while so a stuck answer does not hang the assistant.
+    static func withTimeout<T: Sendable>(seconds: Double, _ body: @escaping @Sendable () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await body() }
+            group.addTask {
+                try await Task.sleep(for: .seconds(seconds))
+                throw ModelTimeout()
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else { throw ModelTimeout() }
+            return first
+        }
+    }
+
     private func halt() {
+        if work != nil { trace("stopped what was running (phase \(phase))") }
         work?.cancel()
         work = nil
         isWaking = false

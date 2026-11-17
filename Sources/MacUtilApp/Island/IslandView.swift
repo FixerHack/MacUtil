@@ -651,18 +651,54 @@ struct IslandGlow: View {
     ]
 
     var body: some View {
+        let edge = IslandEdge(shoulder: shape.shoulder, bottom: shape.bottom)
         TimelineView(.animation) { context in
             let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 4) / 4 * 360
             let gradient = AngularGradient(colors: Self.colours, center: .center, angle: .degrees(turn))
             ZStack {
-                shape.stroke(gradient, lineWidth: 2 + 6 * level).blur(radius: 6 + 10 * level).opacity(0.9)
-                shape.stroke(gradient, lineWidth: 1.5)
+                // The light glows inward from the island's edge, so nothing of it is cut off
+                // by the window around the island, which made hard corners.
+                edge.stroke(gradient, style: StrokeStyle(lineWidth: 8 + 14 * level, lineCap: .round))
+                    .blur(radius: 5 + 7 * level)
+                    .opacity(0.95)
+                    .clipShape(shape)
+                edge.stroke(gradient, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
             }
-            // The top edge meets the screen's: lit, it showed as hard corners at the shoulders.
-            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .clear, location: 0.08), .init(color: .black, location: 0.4)], startPoint: .top, endPoint: .bottom))
+            // Fading in below the shoulders: the top meets the screen's edge and stays dark.
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: shape.shoulder + 14)
+                    Color.black
+                }
+            }
         }
         .allowsHitTesting(false)
         .animation(.easeOut(duration: 0.12), value: level)
+    }
+}
+
+/// The island's sides and bottom, without the shoulders or the top: the line the light runs along.
+struct IslandEdge: Shape {
+    var shoulder: CGFloat
+    var bottom: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let bottom = min(bottom, (rect.width - 2 * shoulder) / 2, rect.height - shoulder)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + shoulder, y: rect.minY + shoulder))
+        path.addLine(to: CGPoint(x: rect.minX + shoulder, y: rect.maxY - bottom))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + shoulder + bottom, y: rect.maxY),
+            control: CGPoint(x: rect.minX + shoulder, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - shoulder - bottom, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - shoulder, y: rect.maxY - bottom),
+            control: CGPoint(x: rect.maxX - shoulder, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - shoulder, y: rect.minY + shoulder))
+        return path
     }
 }
 

@@ -903,53 +903,81 @@ private struct ClipboardWidget: View {
 private struct ClipboardList: View {
     let close: () -> Void
     @State private var entries: [ClipboardEntry] = []
+    @State private var search = ""
 
     /// The history is switched on in UniMacHub, whose setting this is.
     private var isOn: Bool {
         UserDefaults(suiteName: MacUtilInfo.bundleIdentifier)?.bool(forKey: ClipboardHistory.enabledKey) ?? false
     }
 
+    private var shown: [ClipboardEntry] {
+        let all = search.isEmpty ? entries : entries.filter { $0.text.localizedCaseInsensitiveContains(search) }
+        return Array(all.prefix(40))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
             if !isOn {
                 Text("Clipboard history is off. Turn it on in UniMacHub under Overview → Clipboard History.")
                     .foregroundStyle(.secondary)
-                    .frame(width: 260)
+                    .frame(width: 300)
                     .padding(8)
             } else if entries.isEmpty {
                 Text("Nothing copied yet")
                     .foregroundStyle(.secondary)
                     .padding(8)
             } else {
+                TextField("Search", text: $search, prompt: Text("Search"))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(entries.prefix(20)) { entry in
-                            HStack(spacing: 8) {
-                                Image(systemName: entry.kind == .url ? "link" : entry.kind == .file ? "doc" : "text.alignleft")
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 16)
-                                Text(verbatim: entry.preview).lineLimit(1)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .contentShape(.rect)
-                            .onTapGesture {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(shown) { entry in
+                            ClipboardRow(entry: entry) {
                                 ClipboardHistory.copy(entry)
                                 close()
                             }
                         }
                     }
                 }
-                .frame(width: 320, height: min(400, CGFloat(min(entries.count, 20)) * 26 + 6))
+                .frame(width: 440, height: 420)
                 Text("Click one to copy it again")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
             }
         }
-        .padding(8)
+        .padding(12)
         .onAppear { entries = ClipboardHistory.load() }
+    }
+}
+
+private struct ClipboardRow: View {
+    let entry: ClipboardEntry
+    let copy: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: entry.kind == .url ? "link" : entry.kind == .file ? "doc" : "text.alignleft")
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: entry.preview)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: [entry.source, entry.copiedAt.formatted(.relative(presentation: .named))]
+                    .compactMap { $0 }.joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .background(isHovered ? Color.primary.opacity(0.08) : .clear, in: .rect(cornerRadius: 8))
+        .contentShape(.rect)
+        .onHover { isHovered = $0 }
+        .onTapGesture(perform: copy)
     }
 }
 

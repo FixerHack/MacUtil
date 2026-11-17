@@ -178,8 +178,14 @@ struct AssistantSettingsView: View {
                     Text("My own").tag(Persona.custom)
                 }
                 if model.persona == .custom {
-                    TextField("How it should talk", text: $model.customManner, axis: .vertical)
-                        .lineLimit(2 ... 4)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("How it should talk")
+                        TextField("How it should talk", text: $model.customManner,
+                                  prompt: Text("For example: calm and brief, calls me boss, jokes now and then"), axis: .vertical)
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(3 ... 6)
+                    }
                 }
                 Toggle("Let Apple's servers hear me when this Mac cannot recognise the language itself", isOn: $model.allowsServerRecognition)
                 Text(SpeechInput.worksOnDevice(model.language)
@@ -287,29 +293,39 @@ struct AssistantSettingsView: View {
                 Text("Press it, speak, pause or press it again: the text goes where the cursor is, without “um” and “ну”. Say “скасуй останнє речення” or “delete the last sentence” to take the last one back. The clipboard is put back as it was.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                LabeledContent("Your spellings") {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        ForEach(model.dictionary.keys.sorted(), id: \.self) { heard in
-                            HStack {
-                                Text(verbatim: "\(heard) → \(model.dictionary[heard] ?? "")")
-                                Button {
-                                    model.dictionary[heard] = nil
-                                } label: {
-                                    Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your spellings")
+                    Text("For dictation and the assistant alike: when it hears the word on the left, it writes the one on the right, such as телеграм → Telegram.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ForEach(model.dictionary.keys.sorted(), id: \.self) { heard in
                         HStack {
-                            TextField("Heard", text: $heard).frame(width: 120)
-                            TextField("Written", text: $written).frame(width: 120)
-                            Button("Add") {
-                                model.dictionary[heard.trimmingCharacters(in: .whitespaces)] = written.trimmingCharacters(in: .whitespaces)
-                                heard = ""
-                                written = ""
+                            Text(verbatim: heard)
+                            Image(systemName: "arrow.right").foregroundStyle(.secondary).font(.caption)
+                            Text(verbatim: model.dictionary[heard] ?? "").fontWeight(.medium)
+                            Spacer()
+                            Button {
+                                model.dictionary[heard] = nil
+                            } label: {
+                                Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
                             }
-                            .disabled(heard.trimmingCharacters(in: .whitespaces).isEmpty || written.isEmpty)
+                            .buttonStyle(.plain)
                         }
+                    }
+                    HStack(spacing: 8) {
+                        TextField("Heard", text: $heard, prompt: Text("Heard"))
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                        Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                        TextField("Written", text: $written, prompt: Text("Written"))
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                        Button("Add") {
+                            model.dictionary[heard.trimmingCharacters(in: .whitespaces)] = written.trimmingCharacters(in: .whitespaces)
+                            heard = ""
+                            written = ""
+                        }
+                        .disabled(heard.trimmingCharacters(in: .whitespaces).isEmpty || written.isEmpty)
                     }
                 }
                 if !model.dictated.isEmpty {
@@ -380,13 +396,19 @@ struct AssistantSettingsView: View {
                         }
                     }
                 }
-                if !model.log.isEmpty {
-                    Button("Clear the Log", role: .destructive) { model.clearLog() }
+                HStack {
+                    Button("Show the Detailed Logs") {
+                        let files = [AssistantModel.traceFile, SpeechInput.log].filter { FileManager.default.fileExists(atPath: $0.path) }
+                        NSWorkspace.shared.activateFileViewerSelecting(files)
+                    }
+                    if !model.log.isEmpty {
+                        Button("Clear the Log", role: .destructive) { model.clearLog() }
+                    }
                 }
             } header: {
                 Text("Log")
             } footer: {
-                Text("Every action it runs, with what came of it. Undo works while UniMacHub stays open.")
+                Text("Every action it runs, with what came of it. Undo works while UniMacHub stays open. The detailed logs record every step with its time: what was heard, what the model answered and how long it took, each action and its result. They stay on this Mac; send them yourself when something goes wrong.")
             }
         }
         .formStyle(.grouped)

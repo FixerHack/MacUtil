@@ -141,8 +141,9 @@ final class IslandModel {
 
     /// Something that is playing: the chosen one if it is, else any.
     var playing: NowPlaying? {
-        if let selected, selected.isPlaying { return selected }
-        return sessions.first(where: \.isPlaying)
+        let now = Date()
+        if let selected, selected.isPlaying, !selected.isStale(at: now) { return selected }
+        return sessions.first { $0.isPlaying && !$0.isStale(at: now) }
     }
 
     /// What the closed island shows beside the notch.
@@ -328,6 +329,14 @@ final class IslandModel {
     private func received(_ line: MediaRemoteLine) {
         let previous = currentFeedBundleID
         if currentFeedBundleID != line.bundleID { currentFeedBundleID = line.bundleID }
+        // Only music: a voice message in Telegram or a video stays out of the island and the Dock.
+        if let update = line.nowPlaying {
+            let name = NSRunningApplication.runningApplications(withBundleIdentifier: update.bundleID).first?.localizedName
+            guard NowPlaying.isMusic(bundleID: update.bundleID, appName: name, album: update.album) else {
+                remove(update.id)
+                return
+            }
+        }
         guard let update = line.nowPlaying else {
             // Nothing current any more, such as a closed tab. Music and Spotify say for themselves.
             if let previous, NowPlaying.Player(bundleID: previous) == nil { remove(previous) }

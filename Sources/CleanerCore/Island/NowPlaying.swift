@@ -91,6 +91,33 @@ public struct NowPlaying: Equatable, Sendable, Identifiable {
         return min(1, max(0, position / duration))
     }
 
+    /// Still marked as playing long after its end: a player that never said it stopped.
+    public func isStale(at date: Date) -> Bool {
+        guard isPlaying, let duration, let elapsed else { return false }
+        return elapsed + date.timeIntervalSince(timestamp) > duration + 30
+    }
+
+    /// Browsers, whose tabs report what they play through macOS.
+    public static let browsers: Set<String> = [
+        "com.apple.Safari", "com.google.Chrome", "com.brave.Browser", "company.thebrowser.Browser",
+        "org.mozilla.firefox", "com.microsoft.edgemac", "com.operasoftware.Opera", "com.vivaldi.Vivaldi",
+        "com.apple.SafariTechnologyPreview", "com.google.Chrome.canary",
+    ]
+
+    /// Whether it is music the island and the Dock show: Apple Music, Spotify or YouTube Music,
+    /// as an app or a browser tab. A voice message in a messenger, a video or a game is not.
+    ///
+    /// A browser tab gives no address, so YouTube Music is told from a video by the album,
+    /// which YouTube Music reports and an ordinary video does not.
+    public static func isMusic(bundleID: String, appName: String?, album: String) -> Bool {
+        if Player(bundleID: bundleID) != nil { return true }
+        let id = bundleID.lowercased()
+        let name = (appName ?? "").lowercased()
+        if id.contains("youtube-music") || id.contains("youtubemusic") || name.contains("youtube music") { return true }
+        if browsers.contains(bundleID) { return !album.trimmingCharacters(in: .whitespaces).isEmpty }
+        return false
+    }
+
     /// Whether two reports are of the same track, so the artwork can stay.
     public func isSameTrack(as other: NowPlaying?) -> Bool {
         guard let other else { return false }

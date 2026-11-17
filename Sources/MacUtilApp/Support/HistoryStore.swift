@@ -89,6 +89,7 @@ extension ActionLog.Entry {
         case "projects": "Project Build Files"
         case "search": "Deep Search"
         case "undo": "Undo"
+        case "slim": "Slim Down Apps"
         default: source.hasPrefix("uninstall.") ? "Uninstaller" : "Cleanup"
         }
     }
@@ -98,6 +99,7 @@ extension ActionLog.Entry {
         switch action {
         case "trash": "Moved to the Trash"
         case "delete": "Deleted"
+        case "slim": "Made smaller"
         default: "Put back"
         }
     }
@@ -106,6 +108,7 @@ extension ActionLog.Entry {
         switch action {
         case "trash": "trash"
         case "delete": "xmark.bin"
+        case "slim": "arrow.down.right.and.arrow.up.left"
         default: "arrow.uturn.backward"
         }
     }

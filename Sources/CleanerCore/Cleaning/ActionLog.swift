@@ -13,6 +13,17 @@ public final class ActionLog: Sendable {
         public let removed: [RemovedItem]
         public let failures: [CleanupFailure]
 
+        /// Something done in place rather than removed, such as an app made smaller: each item
+        /// is an app and the space it gave back.
+        public init(action: String, source: String, removed: [RemovedItem], failures: [CleanupFailure], date: Date = Date()) {
+            self.date = date
+            self.action = action
+            self.source = source
+            freedBytes = removed.reduce(0) { $0 + $1.size }
+            self.removed = removed
+            self.failures = failures
+        }
+
         public init(action: String, source: String, result: CleanupResult, date: Date = Date()) {
             self.date = date
             self.action = action

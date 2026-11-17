@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import CleanerCore
+import CoreLocation
 import CoreWLAN
 import EventKit
 import Foundation
@@ -311,17 +312,34 @@ enum AssistantActions {
             }
         })
         list.append(AssistantAction(
-            "music", "Controls what is playing: play_pause, next or previous; or says what plays.",
-            category: .uniMacHub, level: .reversible, parameters: ["do": choice(["play_pause", "next", "previous", "what"])], required: ["do"]
+            "music", "Controls the music: play or pause (never toggles blindly), next, previous, what plays; find plays a song, album or artist by name in Apple Music (the library first, else Apple Music's search opens).",
+            category: .uniMacHub, level: .reversible,
+            parameters: ["do": choice(["play", "pause", "next", "previous", "what", "find"]), "song": string()],
+            required: ["do"]
         ) { arguments, state in
-            guard let session = state.island.featured else { return ActionOutcome(text: "Nothing is playing.") }
-            switch arguments["do"]?.string {
-            case "play_pause": state.island.playPause(session)
-            case "next": state.island.nextTrack(session)
-            case "previous": state.island.previousTrack(session)
-            default: break
+            let what = arguments["do"]?.string ?? "what"
+            if what == "find" {
+                return await MusicSearch.play(arguments["song"]?.string ?? "")
             }
-            return ActionOutcome(text: "\(session.title) by \(session.artist), \(session.isPlaying ? "playing" : "paused").")
+            guard let session = state.island.featured else {
+                return ActionOutcome(text: what == "play" ? "Nothing to resume; to start a song, use find with its name." : "Nothing is playing.")
+            }
+            switch what {
+            case "play":
+                if !session.isPlaying { state.island.playPause(session) }
+                return ActionOutcome(text: "Playing \(session.title) by \(session.artist).")
+            case "pause":
+                if session.isPlaying { state.island.playPause(session) }
+                return ActionOutcome(text: "Paused \(session.title) by \(session.artist).")
+            case "next":
+                state.island.nextTrack(session)
+                return ActionOutcome(text: "Skipped to the next track.")
+            case "previous":
+                state.island.previousTrack(session)
+                return ActionOutcome(text: "Went back a track.")
+            default:
+                return ActionOutcome(text: "\(session.title) by \(session.artist), \(session.isPlaying ? "playing" : "paused").")
+            }
         })
         list.append(AssistantAction(
             "brightness", "Sets the display's brightness from 0 to 100.",
@@ -346,7 +364,12 @@ enum AssistantActions {
             case "off": try? interface.setPower(false)
             default: break
             }
-            return ActionOutcome(text: interface.powerOn() ? "Wi-Fi is on\(interface.ssid().map { ", network \($0)" } ?? "")." : "Wi-Fi is off.")
+            guard interface.powerOn() else { return ActionOutcome(text: "Wi-Fi is off.") }
+            if let name = interface.ssid() { return ActionOutcome(text: "Wi-Fi is on, network \(name).") }
+            // macOS hides the network's name from apps without Location.
+            return ActionOutcome(text: WiFiName.shared.askIfNeeded()
+                ? "Wi-Fi is on. macOS has just asked the person to allow Location for UniMacHub, which it needs to tell the network's name; ask again once they have."
+                : "Wi-Fi is on, but macOS hides the network's name: allow UniMacHub in System Settings → Privacy & Security → Location Services.")
         })
         list.append(AssistantAction(
             "sleep", "Puts the display or the whole Mac to sleep.",
@@ -941,3 +964,48 @@ enum CalendarActions {
     }
 }
 
+
+/// macOS tells apps the Wi-Fi network's name only when they may use Location.
+@MainActor
+final class WiFiName: NSObject, CLLocationManagerDelegate {
+    static let shared = WiFiName()
+    private let manager = CLLocationManager()
+
+    /// Asks for Location the first time; true when the question was just put to the person.
+    func askIfNeeded() -> Bool {
+        guard manager.authorizationStatus == .notDetermined else { return false }
+        manager.delegate = self
+        manager.requestWhenInUseAuthorization()
+        return true
+    }
+}
+
+/// Plays a song, album or artist by name in Apple Music.
+enum MusicSearch {
+    static func play(_ name: String) async -> ActionOutcome {
+        let query = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return ActionOutcome(text: "Say which song to play.", failed: true) }
+        let quoted = query.replacingOccurrences(of: "\\", with: "").replacingOccurrences(of: "\"", with: "")
+        let script = """
+        tell application "Music"
+            set found to (every track of library playlist 1 whose name contains "\(quoted)")
+            if found is {} then set found to (every track of library playlist 1 whose artist contains "\(quoted)")
+            if found is {} then set found to (every track of library playlist 1 whose album contains "\(quoted)")
+            if found is {} then return ""
+            play item 1 of found
+            return (name of item 1 of found) & " — " & (artist of item 1 of found)
+        end tell
+        """
+        if let output = await Command.run("/usr/bin/osascript", ["-e", script]), output.status == 0 {
+            let playing = output.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !playing.isEmpty { return ActionOutcome(text: "Playing \(playing) from the library.") }
+        }
+        // Not in the library: Apple Music's own search, where one click plays it.
+        var parts = URLComponents(string: "music://music.apple.com/search")!
+        parts.queryItems = [URLQueryItem(name: "term", value: query)]
+        if let url = parts.url, NSWorkspace.shared.open(url) {
+            return ActionOutcome(text: "Not in the library; Apple Music's search for \"\(query)\" is open. The person picks the result to play.")
+        }
+        return ActionOutcome(text: "Apple Music did not open.", failed: true)
+    }
+}
