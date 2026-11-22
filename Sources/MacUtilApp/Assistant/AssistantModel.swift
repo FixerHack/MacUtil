@@ -409,7 +409,10 @@ final class AssistantModel {
         // In near silence Whisper makes up a video's sign-off; that is not the person speaking.
         let madeUp = ["дякую за перегляд", "субтитр", "продовження далі", "thanks for watching", "thank you for watching"]
         if heard.isEmpty, madeUp.contains(where: { better.lowercased().contains($0) }) { return heard }
-        return better
+        // macOS's words, with what only Whisper heard put in.
+        let combined = Transcript.combine(apple: heard, whisper: better)
+        if combined != heard { trace("combined: \"\(combined)\"") }
+        return combined
     }
 
     /// Names macOS's recogniser would not guess in Ukrainian speech: the apps on this Mac and

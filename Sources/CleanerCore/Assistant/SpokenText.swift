@@ -47,10 +47,55 @@ public enum Transcript {
         return stemA.hasPrefix(stemB) || stemB.hasPrefix(stemA)
     }
 
+    /// macOS's words with what only Whisper heard put in where it heard it.
+    ///
+    /// macOS knows Ukrainian words better; Whisper hears the names macOS leaves out ("відкрий"
+    /// alone, where "відкрий Телеграм" was said). So macOS's text stays, and a word of Whisper's
+    /// that is like none of macOS's goes in after the last word the two share.
+    public static func combine(apple: String, whisper: String) -> String {
+        let heard = collapseRepeats(whisper).split(separator: " ").map(String.init)
+        let base = apple.split(separator: " ").map(String.init)
+        guard !base.isEmpty else { return heard.joined(separator: " ") }
+        let plainBase = base.map { words($0).joined() }
+        var after: [Int: [String]] = [:]
+        var lastMatched = -1
+        for token in heard {
+            let plain = words(token).joined()
+            guard !plain.isEmpty else { continue }
+            if let index = plainBase.indices.first(where: { $0 > lastMatched && alike(plainBase[$0], plain) }) {
+                lastMatched = index
+            } else {
+                let word = token.trimmingCharacters(in: .punctuationCharacters)
+                // The same word twice in a row is Whisper repeating itself.
+                if after[lastMatched]?.last.map({ words($0).joined() == plain }) != true {
+                    after[lastMatched, default: []].append(word)
+                }
+            }
+        }
+        var result = after[-1] ?? []
+        for (index, token) in base.enumerated() {
+            result.append(token)
+            result += after[index] ?? []
+        }
+        return result.joined(separator: " ")
+    }
+
+    /// The same word heard twice, perhaps a little differently ("можеш", "можуть").
+    static func alike(_ a: String, _ b: String) -> Bool {
+        if a == b || similar(a, b) { return true }
+        guard min(a.count, b.count) >= 3 else { return false }
+        return Double(WakeWord.distance(Array(a), Array(b))) <= 0.6 * Double(max(a.count, b.count))
+    }
+
     /// Takes out a phrase said, or stitched, twice in a row: "які файли в кошику які файли в
     /// кошику" becomes "які файли в кошику".
     public static func collapseRepeats(_ text: String) -> String {
         var tokens = text.split(separator: " ").map(String.init)
+        // One long word said twice in a row ("фейсіт. Фейсіт.") is one.
+        tokens = tokens.enumerated().filter { index, token in
+            let plain = words(token).joined()
+            return index == 0 || plain.count < 4 || plain != words(tokens[index - 1]).joined()
+        }.map(\.element)
         var changed = true
         while changed {
             changed = false
