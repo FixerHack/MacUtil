@@ -138,6 +138,10 @@ final class AssistantModel {
     @ObservationIgnored private var speechQueue: [String] = []
     /// Set while a question waits to be heard until it has been said.
     @ObservationIgnored private var listenAfterSpeaking = false
+    /// For the log: what it is saying and since when, and since when it has been listening.
+    @ObservationIgnored private var nowSpeaking = ""
+    @ObservationIgnored private var speakingSince = Date()
+    @ObservationIgnored private var listeningSince = Date()
 
     static let traceFile = AppPaths.file("assistant-trace.log")
 
@@ -223,6 +227,7 @@ final class AssistantModel {
                 self.say(String(localized: "Listening stopped: \(problem)"), kind: .problem)
             }
         }
+        input.onEvent = { [weak self] event in self?.trace(event) }
         input.onLevel = { [weak self] level in
             guard let self else { return }
             // Quick to rise, slower to fall, so the wave breathes rather than flickers.
@@ -307,8 +312,13 @@ final class AssistantModel {
         if isDictating { input.finish(); return }
         present?()
         switch phase {
-        case .listening: input.finish()
-        case .speaking: output.stop(); phase = .idle
+        case .listening:
+            trace("the person ended listening with the microphone button after \(Self.seconds(since: listeningSince))")
+            input.finish()
+        case .speaking:
+            traceInterruption("with the microphone button")
+            output.stop()
+            phase = .idle
         case .idle: listen()
         default: break
         }
@@ -333,6 +343,8 @@ final class AssistantModel {
             guard await startHearing() else { return }
             hearing = ""
             phase = .listening
+            listeningSince = Date()
+            trace(conversation && conversing ? "listening (conversation)" : "listening")
         }
     }
 
@@ -723,6 +735,12 @@ final class AssistantModel {
 
     /// The stop button and Esc: whatever is happening ends.
     func stop() {
+        switch phase {
+        case .speaking: traceInterruption("with Stop or Esc")
+        case .thinking: trace("the person stopped it with Stop or Esc while it was thinking")
+        case .listening: trace("the person stopped listening with Stop or Esc after \(Self.seconds(since: listeningSince))")
+        default: break
+        }
         conversing = false
         stopWaking()
         halt()
@@ -790,6 +808,8 @@ final class AssistantModel {
 
     private func speakNow(_ text: String) {
         trace("speaking: \(text.prefix(200))")
+        nowSpeaking = text
+        speakingSince = Date()
         if case .confirming = phase {} else { phase = .speaking }
         output.speak(text, language: language, engine: voiceEngine, voiceID: currentVoice, rate: Float(rate))
     }
@@ -967,11 +987,22 @@ final class AssistantModel {
         // No chat: the island's light shows it listens; the chat is a tab away.
         trace("shortcut pressed in \(phase)")
         switch phase {
-        case .listening: input.finish()
-        case .thinking: break
+        case .listening:
+            trace("the person ended listening with the shortcut after \(Self.seconds(since: listeningSince))")
+            input.finish()
+        case .thinking:
+            trace("the person pressed the shortcut while it was thinking: ignored, the answer is on its way")
         case .confirming: listen()
-        case .speaking, .idle: listen()
+        case .speaking, .idle:
+            if phase == .speaking { traceInterruption("with the shortcut") }
+            listen()
         }
+    }
+
+    /// The person cut the answer short: how far it had got, for finding out what it said too long.
+    private func traceInterruption(_ how: String) {
+        let spoken = Self.seconds(since: speakingSince)
+        trace("the person interrupted \(how) after \(spoken) of speaking: \"\(nowSpeaking.prefix(120))\"\(speechQueue.isEmpty ? "" : ", \(speechQueue.count) more waiting")")
     }
 
     private func hotKeyUp() {

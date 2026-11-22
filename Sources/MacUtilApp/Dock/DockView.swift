@@ -361,6 +361,7 @@ private struct FolderTile: View {
             .onTapGesture { isOpen.wrappedValue.toggle() }
             .popover(isPresented: isOpen, arrowEdge: arrowEdge) {
                 FolderStack(folder: folder, model: model) { isOpen.wrappedValue = false }
+                    .acceptsFirstClick()
             }
             .contextMenu {
                 Button("Open in Finder") { NSWorkspace.shared.open(folder) }
@@ -886,6 +887,7 @@ private struct ClipboardWidget: View {
                 set: { if !$0, state.openWidget == .clipboard { state.openWidget = nil } }
             ), arrowEdge: edge) {
                 ClipboardList { state.openWidget = nil }
+                    .acceptsFirstClick()
             }
     }
 
@@ -1042,6 +1044,7 @@ private struct CalculatorWidget: View {
                 set: { if !$0, state.openWidget == .calculator { state.openWidget = nil } }
             ), arrowEdge: edge) {
                 CalculatorPanel()
+                    .acceptsFirstClick()
             }
     }
 }
@@ -1089,6 +1092,18 @@ extension DockModel.Position {
         case .bottom: .bottom
         case .left: .leading
         case .right: .trailing
+        }
+    }
+}
+
+extension View {
+    /// The first click in a popover over the Dock does what it says, instead of only making the
+    /// popover's window active and needing a second.
+    @ViewBuilder func acceptsFirstClick() -> some View {
+        if #available(macOS 15.0, *) {
+            allowsWindowActivationEvents(true)
+        } else {
+            self
         }
     }
 }

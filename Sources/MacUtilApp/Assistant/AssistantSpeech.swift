@@ -21,6 +21,9 @@ final class SpeechInput {
     var onLevel: ((Double) -> Void)?
     /// Listening ended on an error before anything was heard: what macOS said.
     var onFailure: ((String) -> Void)?
+    /// What happened while listening, for the assistant's step-by-step log: pauses in the
+    /// person's speech, how listening ended, macOS starting its transcript afresh.
+    var onEvent: ((String) -> Void)?
 
     static let log = AppPaths.file("assistant-speech.log")
 
@@ -57,6 +60,13 @@ final class SpeechInput {
     private var recordedFrames: AVAudioFramePosition = 0
     /// The loudest the microphone got, 0…1: above about 0.45 someone spoke.
     private var peak: Double = 0
+    /// Above this the microphone hears a voice rather than the room.
+    private static let voiceLevel = 0.45
+    /// When the voice was last heard, and since when it has been quiet.
+    private var lastVoice: Date?
+    private var quietSince: Date?
+    private var pauses: [Double] = []
+    private var listenStarted = Date()
     private var format: AVAudioFormat?
 
     static func authorise() async -> Bool {
@@ -111,6 +121,10 @@ final class SpeechInput {
         recorded = []
         recordedFrames = 0
         peak = 0
+        lastVoice = nil
+        quietSince = nil
+        pauses = []
+        listenStarted = Date()
         generation += 1
         let current = generation
 
@@ -177,6 +191,22 @@ final class SpeechInput {
     private func measured(_ level: Double, _ buffer: AVAudioPCMBuffer?, generation current: Int) {
         guard current == generation, isListening else { return }
         peak = max(peak, level)
+        // Pauses within what the person says, a second or longer: logged with where they fell,
+        // to see which pauses end a request too soon.
+        let now = Date()
+        if level > Self.voiceLevel {
+            if let quietSince, lastVoice != nil {
+                let gap = now.timeIntervalSince(quietSince)
+                if gap >= 1 {
+                    pauses.append(gap)
+                    onEvent?(String(format: "pause %.1f s, then went on; heard so far: \"%@\"", gap, String(latest.suffix(80))))
+                }
+            }
+            lastVoice = now
+            quietSince = nil
+        } else if lastVoice != nil, quietSince == nil {
+            quietSince = now
+        }
         onLevel?(level)
         // Up to half a minute of sound.
         if let buffer, recordedFrames < AVAudioFramePosition((format?.sampleRate ?? 48000) * 30) {
@@ -235,7 +265,11 @@ final class SpeechInput {
         if let text {
             // macOS revises its transcript as it goes and, after a pause, may start it afresh
             // with only the new words: a revision replaces, a fresh start is kept after.
+            let before = committed
             (committed, latest) = Transcript.merge(committed: committed, latest: latest, incoming: text)
+            if committed != before {
+                onEvent?("macOS started its transcript afresh; kept before it: \"\(committed.suffix(80))\"")
+            }
         }
         if final {
             let said = Transcript.collapseRepeats(latest.trimmingCharacters(in: .whitespaces))
@@ -269,9 +303,15 @@ final class SpeechInput {
             // Six seconds for a first word; then a pause of over two seconds ends the turn,
             // so a breath in the middle of a sentence does not.
             let heard = self?.latest.count ?? 0
-            try? await Task.sleep(for: .seconds(heard == 0 ? 6 : heard > 60 ? 3 : 2.3))
-            guard !Task.isCancelled else { return }
-            self?.finish()
+            let wait = heard == 0 ? 6 : heard > 60 ? 3 : 2.3
+            try? await Task.sleep(for: .seconds(wait))
+            guard !Task.isCancelled, let self else { return }
+            let quiet = self.lastVoice.map { Date().timeIntervalSince($0) }
+            self.onEvent?(String(format: "listening ended by silence: no new words for %.1f s%@; spoke for %.1f s with %d pauses over a second%@",
+                                 wait, quiet.map { String(format: ", voice last heard %.1f s ago", $0) } ?? ", no voice heard",
+                                 Date().timeIntervalSince(self.listenStarted), self.pauses.count,
+                                 self.pauses.isEmpty ? "" : " (" + self.pauses.map { String(format: "%.1f", $0) }.joined(separator: ", ") + " s)"))
+            self.finish()
         }
     }
 }
