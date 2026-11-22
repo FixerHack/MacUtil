@@ -937,9 +937,10 @@ private struct ClipboardList: View {
                     }
                 }
                 .frame(width: 440, height: 420)
-                Text("Click one to copy it again")
+                Text("Click one to copy it again. What looks like a password or a key stays hidden until clicked.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(12)
@@ -951,15 +952,19 @@ private struct ClipboardRow: View {
     let entry: ClipboardEntry
     let copy: () -> Void
     @State private var isHovered = false
+    /// A secret shows as dots until it is clicked; the next click copies it.
+    @State private var revealed = false
+
+    private var hidden: Bool { entry.looksSecret && !revealed }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: entry.kind == .url ? "link" : entry.kind == .file ? "doc" : "text.alignleft")
+            Image(systemName: entry.looksSecret ? "lock" : entry.kind == .url ? "link" : entry.kind == .file ? "doc" : "text.alignleft")
                 .foregroundStyle(.secondary)
                 .frame(width: 18)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
-                Text(verbatim: entry.preview)
+                Text(verbatim: hidden ? entry.masked : entry.preview)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text(verbatim: [entry.source, entry.copiedAt.formatted(.relative(presentation: .named))]
@@ -967,13 +972,25 @@ private struct ClipboardRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            if entry.looksSecret, revealed {
+                Button {
+                    revealed = false
+                } label: {
+                    Image(systemName: "eye.slash").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Hide")
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 7)
         .background(isHovered ? Color.primary.opacity(0.08) : .clear, in: .rect(cornerRadius: 8))
         .contentShape(.rect)
         .onHover { isHovered = $0 }
-        .onTapGesture(perform: copy)
+        .onTapGesture {
+            if hidden { revealed = true } else { copy() }
+        }
+        .help(hidden ? Text("Looks like a password or a key: click to show it") : Text("Copy this again"))
     }
 }
 

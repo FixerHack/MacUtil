@@ -3,6 +3,8 @@ import SwiftUI
 
 /// What has been copied, so the thing copied three things ago is not lost.
 struct ClipboardView: View {
+    /// Secrets shown on request; they hide again when the screen is left.
+    @State private var revealed: Set<UUID> = []
     @Bindable var store: ClipboardStore
     @State private var confirmingForget = false
 
@@ -85,15 +87,17 @@ struct ClipboardView: View {
     }
 
     private func row(_ entry: ClipboardEntry) -> some View {
-        Button {
-            store.copy(entry)
+        let hidden = entry.looksSecret && !revealed.contains(entry.id)
+        return Button {
+            // A secret shows as dots until clicked; the next click copies it.
+            if hidden { revealed.insert(entry.id) } else { store.copy(entry) }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: symbol(for: entry.kind))
+                Image(systemName: entry.looksSecret ? "lock" : symbol(for: entry.kind))
                     .foregroundStyle(.secondary)
                     .frame(width: 18)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: entry.preview)
+                    Text(verbatim: hidden ? entry.masked : entry.preview)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     HStack(spacing: 6) {
@@ -106,11 +110,17 @@ struct ClipboardView: View {
                     .foregroundStyle(.secondary)
                 }
                 Spacer()
+                if entry.looksSecret, !hidden {
+                    Button("Hide", systemImage: "eye.slash") { revealed.remove(entry.id) }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                }
             }
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .help("Copy this again")
+        .help(hidden ? Text("Looks like a password or a key: click to show it") : Text("Copy this again"))
         .contextMenu {
             Button("Copy", systemImage: "doc.on.doc") { store.copy(entry) }
             Button("Forget This", systemImage: "xmark", role: .destructive) { store.remove(entry) }

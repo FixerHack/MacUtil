@@ -128,3 +128,63 @@ public enum ClipboardHistory {
         pasteboard.setString(entry.text, forType: .string)
     }
 }
+
+// MARK: - What looks like a secret
+
+extension ClipboardEntry {
+    /// A password, a key or a code: kept, but shown as dots until it is clicked.
+    public var looksSecret: Bool { kind == .text && ClipboardHistory.looksSecret(text) }
+
+    /// Dots in place of the text, about as long as it, so the list does not give it away.
+    public var masked: String { String(repeating: "•", count: min(16, max(8, preview.count))) }
+}
+
+extension ClipboardHistory {
+    /// Whether a copied text looks like a password, an access key, a one-time code or a line
+    /// that sets one ("API_KEY=…"). Ordinary words, sentences, links, addresses and dates do not.
+    public static func looksSecret(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        if trimmed.contains("-----BEGIN") && trimmed.contains("PRIVATE KEY") { return true }
+        // A line that sets something named like a secret, with a value.
+        let assignment = #"(?im)^\s*(export\s+)?[A-Z0-9_.-]*(KEY|TOKEN|SECRET|PASS|PASSWORD|PWD|AUTH|CREDENTIAL|PRIVATE)[A-Z0-9_.-]*\s*[=:]\s*\S+"#
+        if trimmed.range(of: assignment, options: .regularExpression) != nil { return true }
+        // A Google app password: four groups of four letters.
+        if trimmed.range(of: #"^[a-z]{4} [a-z]{4} [a-z]{4} [a-z]{4}$"#, options: .regularExpression) != nil { return true }
+        let tokens = trimmed.split(whereSeparator: \.isWhitespace).map(String.init)
+        // Long texts are notes or code, not a password.
+        guard tokens.count <= 4 else { return false }
+        return tokens.contains(where: tokenLooksSecret)
+    }
+
+    static func tokenLooksSecret(_ token: String) -> Bool {
+        let known = [#"^sk-[A-Za-z0-9_-]{16,}"#, #"^(ghp|gho|ghu|ghs|github_pat)_[A-Za-z0-9_]{16,}"#, #"^xox[abprs]-"#,
+                     #"^AKIA[0-9A-Z]{16}$"#, #"^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\."#, #"^AIza[0-9A-Za-z_-]{30,}"#]
+        if known.contains(where: { token.range(of: $0, options: .regularExpression) != nil }) { return true }
+        // Links, addresses, paths and numbers stay visible.
+        if token.contains("://") || token.hasPrefix("www.") || token.contains("@") || token.hasPrefix("/") || token.hasPrefix("~") {
+            return false
+        }
+        // File names and dotted names from code: AssistantModel.swift, NSWorkspace.shared.
+        if token.range(of: #"^[A-Za-z_][A-Za-z0-9_-]*(\.[A-Za-z_][A-Za-z0-9_]*)+[,;:]?$"#, options: .regularExpression) != nil {
+            return false
+        }
+        let letters = token.filter(\.isLetter)
+        let digits = token.filter(\.isNumber)
+        // A code such as P8DRNRBEKCKN: capitals and digits only, both present.
+        if (6 ... 24).contains(token.count), token.allSatisfy({ ($0.isASCII && $0.isUppercase) || $0.isNumber }),
+           !letters.isEmpty, !digits.isEmpty {
+            return true
+        }
+        // A password: eight or more characters mixing at least three of lower case, upper case,
+        // digits and symbols.
+        guard (8 ... 128).contains(token.count) else { return false }
+        let classes = [
+            token.contains { $0.isLowercase },
+            token.contains { $0.isUppercase },
+            !digits.isEmpty,
+            token.contains { !$0.isLetter && !$0.isNumber },
+        ].filter { $0 }.count
+        return classes >= 3 && !letters.isEmpty
+    }
+}

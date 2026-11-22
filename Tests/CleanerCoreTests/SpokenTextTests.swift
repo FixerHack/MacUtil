@@ -82,3 +82,19 @@ struct MusicSourceTests {
         #expect(note.isStale(at: start.addingTimeInterval(3600)))
     }
 }
+
+struct ClipboardSecretTests {
+    @Test func hidesWhatLooksLikeASecret() {
+        for text in ["P8DRNRBEKCKN", "name@example.com P.:ie399hf4/", "abcd efgh ijkl mnop", "API_KEY=abc123",
+                     "export OPENAI_API_KEY=sk-xyz", "ghp_ABCDEFGHIJKLMNOPQRSTUV", "Tr0ub4dor&3", "IMAP_PASSWORD: hunter2"] {
+            #expect(ClipboardHistory.looksSecret(text), "\(text)")
+        }
+    }
+
+    @Test func leavesOrdinaryTextVisible() {
+        for text in ["name@example.com", "21.11.2027.", "Sign-up for Alerts", "https://example.com/a?b=C1d", "Привіт, як справи?",
+                     "README", "IMAP_USER=", "AssistantModel.swift", "NSWorkspace.shared", "12345678", "/Users/me/Desktop", "Hello World 2026"] {
+            #expect(!ClipboardHistory.looksSecret(text), "\(text)")
+        }
+    }
+}

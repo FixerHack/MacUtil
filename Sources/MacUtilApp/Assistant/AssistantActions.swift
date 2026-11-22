@@ -456,7 +456,8 @@ enum AssistantActions {
             return ActionOutcome(text: "The conversation will end after this answer.")
         })
         list.append(AssistantAction("clipboard_history", "The last things copied, from UniMacHub's clipboard history, newest first.", category: .uniMacHub, level: .read) { _, _ in
-                let entries = ClipboardHistory.load().prefix(10).map(\.preview)
+                // What looks like a password or a key never goes to the model.
+                let entries = ClipboardHistory.load().prefix(10).map { $0.looksSecret ? "(hidden: looks like a password or a key)" : $0.preview }
                 return ActionOutcome(text: entries.isEmpty ? "The history is empty or switched off." : entries.joined(separator: "\n"))
             })
         return list

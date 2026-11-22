@@ -1709,7 +1709,6 @@
 "12 × (3 + 4) ÷ 2" = "12 × (3 + 4) ÷ 2";
 "Break" = "Перерва";
 "Calculator" = "Калькулятор";
-"Click one to copy it again" = "Клікніть, щоб скопіювати знову";
 "Clipboard history" = "Історія буфера обміну";
 "Clipboard history is off. Turn it on in UniMacHub under Overview → Clipboard History." = "Історію буфера обміну вимкнено. Увімкніть її в UniMacHub: Огляд → Історія буфера обміну.";
 "Colour picker" = "Піпетка";
@@ -1923,3 +1922,5 @@
 "Made smaller" = "Зменшено";
 "Show the Detailed Logs" = "Показати докладні журнали";
 "The model did not answer in two minutes. Try again, or pick another model in the settings." = "Модель не відповіла за дві хвилини. Спробуйте ще раз або виберіть іншу модель у налаштуваннях.";
+"Click one to copy it again. What looks like a password or a key stays hidden until clicked." = "Клікніть, щоб скопіювати знову. Те, що схоже на пароль чи ключ, сховане, доки не клікнете.";
+"Looks like a password or a key: click to show it" = "Схоже на пароль чи ключ: клікніть, щоб показати";
