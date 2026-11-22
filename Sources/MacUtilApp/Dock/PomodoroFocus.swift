@@ -103,6 +103,46 @@ final class PomodoroFocus {
         Task { _ = await Command.run("/usr/bin/shortcuts", ["run", name]) }
     }
 
+    /// Makes the two shortcuts and hands them to Shortcuts, which asks once for each whether to
+    /// add it: two clicks instead of building them by hand. Shortcuts runs a file only once it
+    /// is signed, which its own command-line tool does.
+    nonisolated static func makeShortcuts() async -> Bool {
+        let folder = FileManager.default.temporaryDirectory.appending(path: "UniMacHub-shortcuts-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        var made: [URL] = []
+        for (name, enabled) in [(focusOnShortcut, 1), (focusOffShortcut, 0)] {
+            let workflow: [String: Any] = [
+                "WFWorkflowActions": [[
+                    "WFWorkflowActionIdentifier": "is.workflow.actions.dnd.set",
+                    "WFWorkflowActionParameters": ["Enabled": enabled],
+                ]],
+                "WFWorkflowClientVersion": "2607.0.2",
+                "WFWorkflowMinimumClientVersion": 900,
+                "WFWorkflowMinimumClientVersionString": "900",
+                "WFWorkflowIcon": ["WFWorkflowIconGlyphNumber": 59511, "WFWorkflowIconStartColor": enabled == 1 ? 463_140_863 : 2_071_128_575],
+                "WFWorkflowImportQuestions": [Any](),
+                "WFWorkflowInputContentItemClasses": [Any](),
+                "WFWorkflowTypes": [Any](),
+                "WFWorkflowHasShortcutInputVariables": false,
+            ]
+            let unsigned = folder.appending(path: "\(name)-unsigned.shortcut")
+            // The file's name is the shortcut's name once added.
+            let signed = folder.appending(path: "\(name).shortcut")
+            guard let data = try? PropertyListSerialization.data(fromPropertyList: workflow, format: .binary, options: 0),
+                  (try? data.write(to: unsigned)) != nil
+            else { return false }
+            let output = await Command.run("/usr/bin/shortcuts", ["sign", "--mode", "anyone", "--input", unsigned.path, "--output", signed.path])
+            guard output?.status == 0, FileManager.default.fileExists(atPath: signed.path) else { return false }
+            made.append(signed)
+        }
+        for file in made {
+            await MainActor.run { _ = NSWorkspace.shared.open(file) }
+            // One import window at a time.
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        return true
+    }
+
     /// Whether both shortcuts exist, for the settings to say what is missing.
     nonisolated static func shortcutsReady() async -> Bool {
         guard let output = await Command.run("/usr/bin/shortcuts", ["list"]) else { return false }

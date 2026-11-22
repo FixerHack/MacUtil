@@ -24,6 +24,9 @@ final class SpeechInput {
     /// What happened while listening, for the assistant's step-by-step log: pauses in the
     /// person's speech, how listening ended, macOS starting its transcript afresh.
     var onEvent: ((String) -> Void)?
+    /// A second listen to the whole recording once macOS has finished, such as Whisper on this
+    /// Mac: given the sound and what macOS heard, it gives the text to use. Nil when there is none.
+    var refine: ((_ sound: [AVAudioPCMBuffer], _ heard: String) async -> String)?
 
     static let log = AppPaths.file("assistant-speech.log")
 
@@ -292,6 +295,16 @@ final class SpeechInput {
             let said = Transcript.collapseRepeats(latest.trimmingCharacters(in: .whitespaces))
             stop()
             Self.note("heard \(usedServer ? "via Apple's servers" : "on this Mac"): \"\(said)\" (loudest \(String(format: "%.2f", peak)))\(problem.map { " (\($0))" } ?? "")")
+            // A voice was heard: the second listen, when there is one, has the last word.
+            if let refine, !recorded.isEmpty, peak > 0.35 {
+                nonisolated(unsafe) let sound = recorded
+                recorded = []
+                Task {
+                    let better = await refine(sound, said)
+                    self.onText?(better, true)
+                }
+                return
+            }
             if said.isEmpty, retryOnServer() { return }
             if let problem, said.isEmpty {
                 Self.note("ended: \(problem)")

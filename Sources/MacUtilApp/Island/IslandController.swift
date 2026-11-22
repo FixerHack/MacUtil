@@ -15,6 +15,10 @@ final class IslandController {
     private let model: IslandModel
     private let state: AppState
     private var panel: NSPanel?
+    /// The light along the top edge that stands in for a hidden island while the assistant works.
+    private var glowPanel: NSPanel?
+    /// While the island hides at rest: watches for the pointer at the top of the screen.
+    private var edgeWatch: Task<Void, Never>?
     private var keyTap: MediaKeyTap?
     private var observers: [NSObjectProtocol] = []
 
@@ -43,7 +47,10 @@ final class IslandController {
     private func follow() {
         withObservationTracking {
             _ = model.isEnabled
-            _ = model.onPlainScreens
+            _ = model.look
+            _ = model.indicator
+            _ = model.assistant?.phase
+            _ = model.assistant?.isDictating
             _ = model.replacesIndicators
             _ = model.showsNowPlaying
             _ = model.presentation
@@ -103,8 +110,13 @@ final class IslandController {
             screen: screen.frame, topInset: screen.safeAreaInsets.top,
             leftArea: screen.auxiliaryTopLeftArea, rightArea: screen.auxiliaryTopRightArea
         )
-        guard geometry.hasNotch || model.onPlainScreens else { return hide() }
         if model.geometry != geometry { model.geometry = geometry }
+        // A hidden island: out of sight until the pointer reaches the top, or something opens it.
+        let hides = model.hidesAtRest(hasNotch: geometry.hasNotch)
+        watchEdge(hides ? geometry : nil)
+        updateGlow(hides ? geometry : nil)
+        // The volume and brightness it took from macOS still show, or nothing would.
+        if hides, model.presentation != .expanded, model.indicator == nil { return hide() }
 
         let panel = self.panel ?? makePanel()
         let target = geometry.panelFrame(for: model.presentation)
@@ -131,6 +143,75 @@ final class IslandController {
 
     private func hide() {
         panel?.orderOut(nil)
+        if !model.isEnabled { updateGlow(nil) }
+    }
+
+    /// The assistant at work, or UniMacHub busy, while the island hides: a light along the top
+    /// edge instead.
+    private var wantsGlow: Bool {
+        if model.work != nil { return true }
+        guard let assistant = model.assistant else { return false }
+        return assistant.phase != .idle || assistant.isDictating
+    }
+
+    private func updateGlow(_ geometry: IslandGeometry?) {
+        guard let geometry, wantsGlow, model.presentation != .expanded else {
+            glowPanel?.orderOut(nil)
+            return
+        }
+        let panel = glowPanel ?? makeGlowPanel()
+        let width: CGFloat = 520, height: CGFloat = 46
+        let frame = CGRect(x: geometry.resting.midX - width / 2, y: geometry.screen.maxY - height, width: width, height: height)
+        if panel.frame != frame { panel.setFrame(frame, display: true) }
+        panel.orderFrontRegardless()
+    }
+
+    private func makeGlowPanel() -> NSPanel {
+        let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.level = .statusBar
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
+        panel.contentView = NSHostingView(rootView: TopEdgeGlow(model: model))
+        glowPanel = panel
+        return panel
+    }
+
+    /// Ten times a second while the island hides: the pointer at the very top, over where the
+    /// island would be, brings it out; once it has left the opened island, the island goes.
+    private func watchEdge(_ geometry: IslandGeometry?) {
+        guard let geometry else {
+            edgeWatch?.cancel()
+            edgeWatch = nil
+            return
+        }
+        guard edgeWatch == nil else { return }
+        edgeWatch = Task { [weak self] in
+            var outsideSince: Date?
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard let self, let geometry = self.model.geometry else { continue }
+                let pointer = NSEvent.mouseLocation
+                let zone = geometry.resting.insetBy(dx: -90, dy: 0)
+                let atTop = pointer.y >= geometry.screen.maxY - 2 && pointer.x >= zone.minX && pointer.x <= zone.maxX
+                if atTop, !self.model.isHovering {
+                    self.model.revealFromEdge()
+                    outsideSince = nil
+                } else if self.model.isHovering, let panel = self.panel, panel.isVisible {
+                    // The pointer may never have "entered" a window that appeared under it.
+                    if panel.frame.contains(pointer) {
+                        outsideSince = nil
+                    } else if let since = outsideSince {
+                        if Date().timeIntervalSince(since) > 0.4 { self.model.isHovering = false }
+                    } else {
+                        outsideSince = Date()
+                    }
+                }
+            }
+        }
+        _ = geometry
     }
 
     private func makePanel() -> NSPanel {
@@ -148,7 +229,8 @@ final class IslandController {
         panel.hidesOnDeactivate = false
         // Every desktop, and hidden while Mission Control is open: it sits right over the row
         // of desktops there and would be in the way of picking one.
-        panel.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle]
+        // Over full-screen apps too: the island is the same there, by the same look.
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
         let host = IslandHostingView(rootView: IslandView(model: model, state: state), model: model)
         // The window follows the island's state, never the other way round.
         host.sizingOptions = []
@@ -256,4 +338,32 @@ final class MediaKeyTap {
 /// assistant's field asks, and without bringing UniMacHub to the front.
 final class KeyableIslandPanel: NSPanel {
     override var canBecomeKey: Bool { true }
+}
+
+/// The hidden island's stand-in while the assistant listens or works: light pooling down from
+/// the top edge, turning slowly, brighter with the voice.
+struct TopEdgeGlow: View {
+    let model: IslandModel
+
+    private static let colours: [Color] = [
+        Color(red: 0.55, green: 0.35, blue: 1), Color(red: 0.2, green: 0.6, blue: 1),
+        Color(red: 0.25, green: 0.95, blue: 0.85), Color(red: 1, green: 0.45, blue: 0.7),
+        Color(red: 0.55, green: 0.35, blue: 1),
+    ]
+
+    var body: some View {
+        let level = model.assistant.map { $0.phase == .listening || $0.isDictating ? $0.level : 0.35 } ?? 0.35
+        TimelineView(.animation) { context in
+            let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 4) / 4 * 360
+            Capsule()
+                .fill(AngularGradient(colors: Self.colours, center: .center, angle: .degrees(turn)))
+                .frame(height: 10 + 18 * level)
+                .offset(y: -8)
+                .blur(radius: 10 + 6 * level)
+                .opacity(0.9)
+                .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .animation(.easeOut(duration: 0.12), value: level)
+        .allowsHitTesting(false)
+    }
 }

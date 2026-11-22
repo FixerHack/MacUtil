@@ -173,7 +173,8 @@ public enum ProviderKind: String, Codable, CaseIterable, Sendable, Identifiable 
     }
 
     /// Whether the model can be shown a screenshot. claude-gateway takes text only so far.
-    public var seesImages: Bool { self != .gateway && self != .claudeCode }
+    /// Claude Code sees pictures too: they are saved where it runs, and it reads them itself.
+    public var seesImages: Bool { self != .gateway }
 
     /// Whether it needs a key or token at all.
     public var needsSecret: Bool { self != .local && self != .claudeCode }
@@ -237,6 +238,18 @@ public enum ProviderWire {
                     ]),
                     "required": .array([.string("name"), .string("arguments")]),
                 ]),
+                "more_actions": .object([
+                    "type": .string("array"),
+                    "description": .string("Further actions run together with the first, only those that do not need its result."),
+                    "items": .object([
+                        "type": .string("object"),
+                        "properties": .object([
+                            "name": .object(["type": .string("string"), "enum": .array(actions.map { .string($0.name) })]),
+                            "arguments": .object(["type": .string("object")]),
+                        ]),
+                        "required": .array([.string("name"), .string("arguments")]),
+                    ]),
+                ]),
             ]),
             "required": .array([.string("say"), .string("action")]),
         ])
@@ -244,27 +257,48 @@ public enum ProviderWire {
 
     // MARK: claude-gateway
 
-    public static func gatewayBody(system: String, turns: [ConversationTurn], actions: [ActionSpec], model: String) -> JSONValue {
+    /// The pictures in the conversation that go along as files, by the turn they belong to: the
+    /// last two, which are all the model needs to see where things are now.
+    public static func pictureFiles(_ turns: [ConversationTurn]) -> [Int: (name: String, data: Data)] {
+        var files: [Int: (name: String, data: Data)] = [:]
+        let withPictures = turns.indices.filter { if case let .result(_, _, _, _, image) = turns[$0] { image != nil } else { false } }
+        for index in withPictures.suffix(2) {
+            if case let .result(_, _, _, _, image?) = turns[index] { files[index] = ("screen-\(index).jpg", image) }
+        }
+        return files
+    }
+
+    /// The conversation as one prompt. With `pictures`, a screenshot is a file beside it that the
+    /// model opens with its Read tool (Claude Code); without, the model is told it cannot see it.
+    public static func gatewayBody(system: String, turns: [ConversationTurn], actions: [ActionSpec], model: String, pictures: Bool = false) -> JSONValue {
         var lines: [String] = []
-        for turn in turns {
+        let files = pictures ? pictureFiles(turns) : [:]
+        for (index, turn) in turns.enumerated() {
             switch turn {
             case let .user(text): lines.append("Person: \(text)")
             case let .assistant(text, calls, _):
                 if !text.isEmpty { lines.append("Assistant: \(text)") }
                 for call in calls { lines.append("Assistant ran \(call.name) \(call.arguments.text)") }
             case let .result(_, name, text, failed, image):
-                lines.append("Result of \(name)\(failed ? " (failed)" : ""): \(text)\(image == nil ? "" : " [a picture this service cannot see]")")
+                let picture: String = if image == nil {
+                    ""
+                } else if let file = files[index] {
+                    " [screenshot saved as ./\(file.name): open it with the Read tool to see the screen]"
+                } else {
+                    pictures ? " [an earlier screenshot, no longer kept]" : " [a picture this service cannot see]"
+                }
+                lines.append("Result of \(name)\(failed ? " (failed)" : ""): \(text)\(picture)")
             }
         }
         let catalogue = actions.map { "- \($0.name): \($0.summary) Parameters: \($0.parameters.text)" }.joined(separator: "\n")
         let prompt = """
-        Actions you can run, one per answer:
+        Actions you can run:
         \(catalogue)
 
         Conversation so far:
         \(lines.joined(separator: "\n"))
 
-        Answer the person's last message. If an action is needed, name it in "action"; its result will come back to you. When nothing more needs doing, set "action" to null.
+        Answer the person's last message. If an action is needed, name it in "action"; its result will come back to you. When the person asked for several things that do not depend on each other, put the others in "more_actions" so they all run at once. When nothing more needs doing, set "action" to null.
         """
         return .object([
             "prompt": .string(prompt),
@@ -284,6 +318,11 @@ public enum ProviderWire {
         var calls: [ActionCall] = []
         if let action = structured["action"], let name = action["name"]?.string {
             calls.append(ActionCall(id: UUID().uuidString, name: name, arguments: action["arguments"] ?? .object([:])))
+        }
+        for action in structured["more_actions"]?.array ?? [] {
+            if let name = action["name"]?.string {
+                calls.append(ActionCall(id: UUID().uuidString, name: name, arguments: action["arguments"] ?? .object([:])))
+            }
         }
         return ModelReply(text: say, calls: calls)
     }
@@ -453,10 +492,11 @@ public struct AssistantClient: Sendable {
     public func reply(system: String, turns: [ConversationTurn], actions: [ActionSpec]) async throws -> ModelReply {
         if settings.kind.needsSecret, (secret ?? "").isEmpty { throw AssistantError.noSecret }
         if settings.kind == .claudeCode {
-            let body = ProviderWire.gatewayBody(system: system, turns: turns, actions: actions, model: settings.model)
+            let body = ProviderWire.gatewayBody(system: system, turns: turns, actions: actions, model: settings.model, pictures: true)
+            let files = Dictionary(uniqueKeysWithValues: ProviderWire.pictureFiles(turns).values.map { ($0.name, $0.data) })
             return try await ClaudeCodeRunner.run(
                 binary: settings.url, prompt: body["prompt"]?.string ?? "", system: system,
-                model: settings.model, schema: body["json_schema"] ?? .null
+                model: settings.model, schema: body["json_schema"] ?? .null, files: files
             )
         }
         let base = settings.url.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
@@ -640,12 +680,14 @@ public enum ClaudeCodeRunner {
         return places.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
-    public static func arguments(system: String, model: String, schema: JSONValue) -> [String] {
+    /// With `reads`, Claude Code may use its Read tool, and only that, to look at the screenshots
+    /// saved in the empty folder it runs in.
+    public static func arguments(system: String, model: String, schema: JSONValue, reads: Bool = false) -> [String] {
         var arguments = [
             // The person's hooks stay out: UniMacHub's own would list every question as an agent.
             "-p", "--output-format", "json", "--settings", #"{"disableAllHooks":true}"#,
             "--system-prompt", system, "--model", model,
-            "--tools", "", "--disallowedTools", "mcp__*", "--no-session-persistence",
+            "--tools", reads ? "Read" : "", "--disallowedTools", "mcp__*", "--no-session-persistence",
         ]
         if schema != .null { arguments += ["--json-schema", schema.text] }
         return arguments
@@ -666,14 +708,15 @@ public enum ClaudeCodeRunner {
         return try ProviderWire.gatewayReply(.object(response))
     }
 
-    public static func run(binary: String, prompt: String, system: String, model: String, schema: JSONValue) async throws -> ModelReply {
+    public static func run(binary: String, prompt: String, system: String, model: String, schema: JSONValue, files: [String: Data] = [:]) async throws -> ModelReply {
         let path = binary.isEmpty ? (find() ?? "") : binary
         guard FileManager.default.isExecutableFile(atPath: path) else { throw AssistantError.noClaudeCode }
         let folder = FileManager.default.temporaryDirectory.appending(path: "unimachub-claude-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
+        for (name, data) in files { try? data.write(to: folder.appending(path: name)) }
         let output = await Command.run(
-            path, arguments(system: system, model: model, schema: schema),
+            path, arguments(system: system, model: model, schema: schema, reads: !files.isEmpty),
             timeout: .seconds(180),
             // A spoken answer to a plain request does not need long thought.
             environment: ["MAX_THINKING_TOKENS": "0"],

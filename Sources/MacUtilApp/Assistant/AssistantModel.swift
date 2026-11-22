@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Carbon.HIToolbox
 import CleanerCore
 import Observation
@@ -58,6 +59,8 @@ final class AssistantModel {
         static let wake = "assistantWakeWordOn"
         static let wakeWord = "assistantWakeWord"
         static let dictationShortcut = "assistantDictationShortcut"
+        static let whisper = "assistantWhisper"
+        static let recordings = "assistantKeepsRecordings"
     }
 
     // MARK: - Settings
@@ -92,6 +95,10 @@ final class AssistantModel {
     var customManner: String { didSet { defaults.set(customManner, forKey: Keys.manner) } }
     /// Apple's servers may hear the person when this Mac cannot do the language itself.
     var allowsServerRecognition: Bool { didSet { defaults.set(allowsServerRecognition, forKey: Keys.server) } }
+    /// Whisper, once downloaded, listens to each request again on this Mac.
+    var usesWhisper: Bool { didSet { defaults.set(usesWhisper, forKey: Keys.whisper) } }
+    /// Recordings of each request, with what was heard, kept on this Mac to find out why a word was missed.
+    var keepsRecordings: Bool { didSet { defaults.set(keepsRecordings, forKey: Keys.recordings) } }
     var usesHotKey: Bool { didSet { defaults.set(usesHotKey, forKey: Keys.hotKey); updateHotKeys() } }
     var mode: AssistantMode { didSet { defaults.set(mode.rawValue, forKey: Keys.mode) } }
     var table: PermissionTable { didSet { defaults.set(try? JSONEncoder().encode(table), forKey: Keys.table) } }
@@ -204,6 +211,8 @@ final class AssistantModel {
         persona = Persona(rawValue: defaults.string(forKey: Keys.persona) ?? "") ?? .plain
         customManner = defaults.string(forKey: Keys.manner) ?? ""
         allowsServerRecognition = defaults.bool(forKey: Keys.server)
+        usesWhisper = defaults.object(forKey: Keys.whisper) as? Bool ?? true
+        keepsRecordings = defaults.bool(forKey: Keys.recordings)
         usesHotKey = defaults.bool(forKey: Keys.hotKey)
         mode = AssistantMode(rawValue: defaults.string(forKey: Keys.mode) ?? "") ?? .basic
         table = defaults.data(forKey: Keys.table).flatMap { try? JSONDecoder().decode(PermissionTable.self, from: $0) } ?? PermissionTable()
@@ -230,6 +239,9 @@ final class AssistantModel {
             }
         }
         input.onEvent = { [weak self] event in self?.trace(event) }
+        input.refine = { [weak self] sound, heard in
+            await self?.listenAgain(sound, heard: heard) ?? heard
+        }
         input.onLevel = { [weak self] level in
             guard let self else { return }
             // Quick to rise, slower to fall, so the wave breathes rather than flickers.
@@ -367,6 +379,37 @@ final class AssistantModel {
             listeningSince = Date()
             trace(conversation && conversing ? "listening (conversation)" : "listening")
         }
+    }
+
+    /// Whisper's turn: the whole request once more, on this Mac, and its words used when it
+    /// heard any. Kept as a recording too, when the person asked for that.
+    private func listenAgain(_ sound: [AVAudioPCMBuffer], heard: String) async -> String {
+        // Listening for the wake word alone: nothing is kept and nothing more runs.
+        if isWaking, !woken { return heard }
+        let whisper = usesWhisper && WhisperEngine.shared.isInstalled
+        guard whisper || keepsRecordings else { return heard }
+        let wave = FileManager.default.temporaryDirectory.appending(path: "unimachub-heard-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: wave) }
+        nonisolated(unsafe) let buffers = sound
+        guard await Task.detached(operation: { WhisperEngine.writeWave(buffers, to: wave) }).value else {
+            trace("the recording could not be written for Whisper")
+            return heard
+        }
+        var better: String?
+        if whisper {
+            if let result = await WhisperEngine.transcribe(wave, language: language) {
+                better = result.text
+                trace(String(format: "macOS heard: \"%@\"; Whisper heard: \"%@\" in %.1f s", heard, result.text, result.seconds))
+            } else {
+                trace("Whisper did not run; macOS's words are used")
+            }
+        }
+        if keepsRecordings { SpeechRecordings.keep(wave, apple: heard, whisper: better) }
+        guard let better, !better.isEmpty else { return heard }
+        // In near silence Whisper makes up a video's sign-off; that is not the person speaking.
+        let madeUp = ["дякую за перегляд", "субтитр", "продовження далі", "thanks for watching", "thank you for watching"]
+        if heard.isEmpty, madeUp.contains(where: { better.lowercased().contains($0) }) { return heard }
+        return better
     }
 
     /// Names macOS's recogniser would not guess in Ukrainian speech: the apps on this Mac and

@@ -55,11 +55,11 @@ struct LocalVoice: Identifiable, Equatable {
 final class LocalVoices {
     static let shared = LocalVoices()
 
-    static let release = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
+    nonisolated static let release = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
     #if arch(arm64)
-        static let engine = (name: "sherpa-onnx-v2.0.1-osx-arm64-shared", digest: "5e874d3c9b3d6b8c71f7c09e3a9fb9ae846c3009129d302b398d1f7aedb69f84", bytes: Int64(20_348_241))
+        nonisolated static let engine = (name: "sherpa-onnx-v2.0.1-osx-arm64-shared", digest: "5e874d3c9b3d6b8c71f7c09e3a9fb9ae846c3009129d302b398d1f7aedb69f84", bytes: Int64(20_348_241))
     #else
-        static let engine = (name: "sherpa-onnx-v2.0.1-osx-x64-shared", digest: "100315fbb174de2d7fec92b67d28c4128499daf3a6f47b4da6350252680d178f", bytes: Int64(22_897_549))
+        nonisolated static let engine = (name: "sherpa-onnx-v2.0.1-osx-x64-shared", digest: "100315fbb174de2d7fec92b67d28c4128499daf3a6f47b4da6350252680d178f", bytes: Int64(22_897_549))
     #endif
 
     // MARK: - The catalogue
@@ -197,8 +197,8 @@ final class LocalVoices {
     @ObservationIgnored private var samplePlayer: AVPlayer?
     @ObservationIgnored private var previewPlayer: AVAudioPlayer?
 
-    static var folder: URL { AppPaths.support.appending(path: "Voices") }
-    static var engineFolder: URL { folder.appending(path: engine.name) }
+    nonisolated static var folder: URL { AppPaths.support.appending(path: "Voices") }
+    nonisolated static var engineFolder: URL { folder.appending(path: engine.name) }
     static var tool: URL { engineFolder.appending(path: "bin/sherpa-onnx-offline-tts") }
 
     init() {
@@ -326,19 +326,32 @@ final class LocalVoices {
 
     /// Downloads, checks and unpacks one archive into the voices folder.
     private func fetch(_ address: String, digest: String, share: Double, for package: String) async throws {
-        guard let url = URL(string: address) else { return }
         let start = progress[package] ?? 0
-        let tracker = DownloadTracker { [weak self] fraction in
+        try await Self.fetchArchive(address, digest: digest, bytes: nil, into: Self.folder) { [weak self] fraction in
             Task { @MainActor in
                 guard self?.progress[package] != nil else { return }
                 self?.progress[package] = start + (share - start) * fraction
             }
         }
-        let (file, _) = try await URLSession.shared.download(from: url, delegate: tracker)
+    }
+
+    /// Downloads an archive, checks it against its published checksum (or, where none is
+    /// published, its size) and unpacks it into a folder.
+    nonisolated static func fetchArchive(
+        _ address: String, digest: String?, bytes: Int64?, into folder: URL, progress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        guard let url = URL(string: address) else { return }
+        let (file, _) = try await URLSession.shared.download(from: url, delegate: DownloadTracker(report: progress))
         defer { try? FileManager.default.removeItem(at: file) }
         try Task.checkCancellation()
-        guard try await Task.detached(operation: { try Self.sha256(of: file) }).value == digest else { throw Failure.checksum }
-        let output = await Command.run("/usr/bin/tar", ["-xjf", file.path, "-C", Self.folder.path], timeout: .seconds(600))
+        if let digest {
+            guard try await Task.detached(operation: { try Self.sha256(of: file) }).value == digest else { throw Failure.checksum }
+        } else if let bytes {
+            let size = (try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? Int64) ?? 0
+            guard size == bytes else { throw Failure.checksum }
+        }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let output = await Command.run("/usr/bin/tar", ["-xjf", file.path, "-C", folder.path], timeout: .seconds(900))
         guard output?.status == 0 else { throw Failure.unpack }
     }
 
@@ -367,8 +380,8 @@ final class LocalVoices {
             try? FileManager.default.removeItem(at: Self.folder.appending(path: package.package))
         }
         refresh()
-        // The tool goes with the last voice.
-        if installed.isEmpty { try? FileManager.default.removeItem(at: Self.engineFolder) }
+        // The tool goes with the last voice, unless Whisper still listens through it.
+        if installed.isEmpty, !WhisperEngine.shared.isInstalled { try? FileManager.default.removeItem(at: Self.engineFolder) }
     }
 
     /// Other voices that come and go with this one's package.

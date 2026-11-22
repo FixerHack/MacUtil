@@ -10,6 +10,7 @@ final class IslandModel {
     enum Keys {
         static let enabled = "islandEnabled"
         static let onPlainScreens = "islandOnPlainScreens"
+        static let look = "islandLook"
         static let replacesIndicators = "islandReplacesIndicators"
         static let playerVolume = "islandPlayerVolume"
         static let nowPlaying = "islandNowPlaying"
@@ -45,7 +46,32 @@ final class IslandModel {
     // MARK: - Settings
 
     var isEnabled: Bool { didSet { save(isEnabled, Keys.enabled) } }
-    var onPlainScreens: Bool { didSet { save(onPlainScreens, Keys.onPlainScreens) } }
+    /// How the island looks while nothing happens.
+    enum Look: String, CaseIterable, Identifiable {
+        /// Always there: in the notch, or as a tab on a screen without one.
+        case always
+        /// Only in a notch; a screen without one shows nothing until the pointer reaches the top.
+        case notch
+        /// Nowhere: a glow while the assistant works, and the island when the pointer reaches the top.
+        case glow
+        var id: String { rawValue }
+    }
+
+    var look: Look { didSet { UserDefaults.standard.set(look.rawValue, forKey: Keys.look) } }
+    /// Whether the island stays out of sight at rest on a screen, with or without a notch.
+    func hidesAtRest(hasNotch: Bool) -> Bool {
+        switch look {
+        case .always: false
+        case .notch: !hasNotch
+        case .glow: true
+        }
+    }
+
+    /// The pointer reached the top of the screen where the hidden island sits: it opens.
+    func revealFromEdge() {
+        guard !isHovering else { return }
+        isHovering = true
+    }
     var replacesIndicators: Bool { didSet { save(replacesIndicators, Keys.replacesIndicators) } }
     var playerVolume: Bool { didSet { save(playerVolume, Keys.playerVolume) } }
     var showsNowPlaying: Bool { didSet { save(showsNowPlaying, Keys.nowPlaying) } }
@@ -110,7 +136,9 @@ final class IslandModel {
             Keys.playerVolume: true, Keys.nowPlaying: true, Keys.shelf: true,
         ])
         isEnabled = defaults.bool(forKey: Keys.enabled)
-        onPlainScreens = defaults.bool(forKey: Keys.onPlainScreens)
+        // The earlier switch, "on screens without a notch", becomes the first two looks.
+        look = Look(rawValue: defaults.string(forKey: Keys.look) ?? "")
+            ?? (defaults.bool(forKey: Keys.onPlainScreens) ? .always : .notch)
         replacesIndicators = defaults.bool(forKey: Keys.replacesIndicators)
         playerVolume = defaults.bool(forKey: Keys.playerVolume)
         showsNowPlaying = defaults.bool(forKey: Keys.nowPlaying)

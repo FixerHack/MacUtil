@@ -13,10 +13,15 @@ struct IslandSettingsView: View {
         Form {
             Section {
                 Toggle("Show the island", isOn: $model.isEnabled)
-                Toggle("On screens without a notch, as a tab at the top", isOn: $model.onPlainScreens)
-                    .disabled(!model.isEnabled)
+                Picker("Look", selection: $model.look) {
+                    Text("Always: in the notch, or a tab where there is none").tag(IslandModel.Look.always)
+                    Text("Only in the notch").tag(IslandModel.Look.notch)
+                    Text("Hidden: only a glow").tag(IslandModel.Look.glow)
+                }
+                .pickerStyle(.radioGroup)
+                .disabled(!model.isEnabled)
             } footer: {
-                Text("It rests in the notch, or as a small tab in the middle of the menu bar, and opens when you point at it or drop a file on it. It never takes the keyboard from the app you are in.")
+                Text("It opens when you point at it or drop a file on it, and never takes the keyboard from the app you are in, full-screen apps included. Where it hides, move the pointer to the very top in the middle of the screen to bring it out; while the assistant works, light runs along the top edge instead.")
             }
 
             Section {

@@ -384,7 +384,7 @@ enum AssistantActions {
                     let asked = WiFiName.shared.askIfNeeded()
                     return ActionOutcome(text: "\(found.count) networks nearby, but macOS hides their names" + (asked
                         ? "; it has just asked the person to allow Location for UniMacHub. Ask again once they have."
-                        : ": allow UniMacHub in System Settings → Privacy & Security → Location Services."))
+                        : ". The Location Services settings are open for the person: they switch UniMacHub on there, then ask again."))
                 }
                 var seen = Set<String>()
                 let list = named.filter { seen.insert($0.0).inserted }.prefix(12).map { "\($0.0) (\($0.1) dBm)" }
@@ -394,7 +394,7 @@ enum AssistantActions {
             // macOS hides the network's name from apps without Location.
             return ActionOutcome(text: WiFiName.shared.askIfNeeded()
                 ? "Wi-Fi is on. macOS has just asked the person to allow Location for UniMacHub, which it needs to tell the network's name; ask again once they have."
-                : "Wi-Fi is on, but macOS hides the network's name: allow UniMacHub in System Settings → Privacy & Security → Location Services.")
+                : "Wi-Fi is on, but macOS hides the network's name. The Location Services settings are open for the person: they switch UniMacHub on there, then ask again.")
         })
         list.append(AssistantAction(
             "sleep", "Puts the display or the whole Mac to sleep.",
@@ -998,11 +998,27 @@ final class WiFiName: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
 
     /// Asks for Location the first time; true when the question was just put to the person.
+    /// macOS shows the question only for an app in front, so UniMacHub comes forward first; when
+    /// it still does not show, or Location was refused before, the settings page opens instead.
     func askIfNeeded() -> Bool {
-        guard manager.authorizationStatus == .notDetermined else { return false }
+        guard manager.authorizationStatus == .notDetermined else {
+            Self.openSettings()
+            return false
+        }
         manager.delegate = self
+        NSApp.activate()
         manager.requestWhenInUseAuthorization()
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            if manager.authorizationStatus == .notDetermined { Self.openSettings() }
+        }
         return true
+    }
+
+    static func openSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 

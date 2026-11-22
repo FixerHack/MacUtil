@@ -187,6 +187,7 @@ struct AssistantSettingsView: View {
                             .lineLimit(3 ... 6)
                     }
                 }
+                WhisperRow(model: model)
                 Toggle("Let Apple's servers hear me when this Mac cannot recognise the language itself", isOn: $model.allowsServerRecognition)
                 Text(SpeechInput.worksOnDevice(model.language)
                      ? "This Mac recognises this language by itself: nothing you say leaves it."
@@ -804,3 +805,48 @@ private struct ShortcutRecorder: View {
     }
 }
 
+
+/// Whisper on this Mac: downloaded on request, then listening to each request a second time.
+private struct WhisperRow: View {
+    @Bindable var model: AssistantModel
+    private var whisper: WhisperEngine { .shared }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Whisper: hears names and mixed languages")
+                Spacer()
+                if let progress = whisper.progress {
+                    ProgressView(value: progress).frame(width: 120)
+                    Button("Stop") { whisper.cancel() }
+                } else if whisper.isInstalled {
+                    Toggle("Listen with Whisper", isOn: $model.usesWhisper).labelsHidden()
+                } else {
+                    Button("Download (\(ByteCountFormatter.string(fromByteCount: WhisperEngine.model.bytes, countStyle: .file)))") { whisper.install() }
+                }
+            }
+            Text("macOS's recogniser leaves out words it does not know, such as Telegram or FACEIT. Whisper, on this Mac and without any account, listens to each request once more and catches them; it adds a second or two.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if whisper.isInstalled, whisper.progress == nil {
+                Button("Delete Whisper (\(ByteCountFormatter.string(fromByteCount: whisper.usedBytes, countStyle: .file)))", role: .destructive) { whisper.remove() }
+                    .controlSize(.small)
+            }
+            if let problem = whisper.problem {
+                Text(verbatim: problem).font(.caption).foregroundStyle(.orange)
+            }
+            Toggle("Keep recordings of what I say", isOn: $model.keepsRecordings)
+            HStack {
+                Text("The last hundred requests, as sound with what each recogniser heard, to find out why a word was missed. They stay on this Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Show Recordings") {
+                    try? FileManager.default.createDirectory(at: SpeechRecordings.folder, withIntermediateDirectories: true)
+                    NSWorkspace.shared.open(SpeechRecordings.folder)
+                }
+                .controlSize(.small)
+            }
+        }
+    }
+}

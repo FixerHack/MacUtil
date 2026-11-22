@@ -438,6 +438,8 @@ private struct PomodoroFocusSection: View {
     @AppStorage(PomodoroFocus.Keys.appsAction, store: PomodoroFocus.defaults) private var appsAction = PomodoroFocus.AppsAction.none.rawValue
     @State private var apps = PomodoroFocus.apps
     @State private var shortcutsReady: Bool?
+    @State private var isMaking = false
+    @State private var makeFailed = false
 
     var body: some View {
         Section {
@@ -449,16 +451,16 @@ private struct PomodoroFocusSection: View {
                         .font(.callout)
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("macOS lets apps switch Do Not Disturb only through Shortcuts. Make two shortcuts once:")
-                        Text("1. In Shortcuts, File → New Shortcut, add the action “Set Focus”, choose Do Not Disturb, Turn On, and name the shortcut “UniMacHub Focus On”.")
-                        Text("2. Make one more the same way with Turn Off, named “UniMacHub Focus Off”.")
+                        Text("macOS switches Do Not Disturb for apps only through Shortcuts. UniMacHub makes the two shortcuts it needs; Shortcuts asks whether to add each: click Add Shortcut twice.")
                         Text("Do Not Disturb silences notifications and calls; who may still reach you is set in System Settings → Focus.")
                             .foregroundStyle(.secondary)
                         HStack {
-                            Button("Open Shortcuts") {
-                                NSWorkspace.shared.open(URL(filePath: "/System/Applications/Shortcuts.app"))
+                            Button(isMaking ? "Making…" : "Make the Shortcuts") { make() }
+                                .disabled(isMaking)
+                            if makeFailed {
+                                Text("Shortcuts did not take them. Try again, or check that Shortcuts opens.")
+                                    .foregroundStyle(.orange)
                             }
-                            Button("Check Again") { Task { shortcutsReady = await PomodoroFocus.shortcutsReady() } }
                         }
                     }
                     .font(.callout)
@@ -498,7 +500,32 @@ private struct PomodoroFocusSection: View {
         }
         .task { if doNotDisturb { shortcutsReady = await PomodoroFocus.shortcutsReady() } }
         .onChange(of: doNotDisturb) { _, on in
-            if on { Task { shortcutsReady = await PomodoroFocus.shortcutsReady() } }
+            guard on else { return }
+            Task {
+                shortcutsReady = await PomodoroFocus.shortcutsReady()
+                if shortcutsReady == false { make() }
+            }
+        }
+    }
+
+    /// Makes the shortcuts, then watches for the person adding them, for up to two minutes.
+    private func make() {
+        isMaking = true
+        makeFailed = false
+        Task {
+            let handed = await PomodoroFocus.makeShortcuts()
+            isMaking = false
+            guard handed else {
+                makeFailed = true
+                return
+            }
+            for _ in 0 ..< 60 {
+                try? await Task.sleep(for: .seconds(2))
+                if await PomodoroFocus.shortcutsReady() {
+                    shortcutsReady = true
+                    return
+                }
+            }
         }
     }
 
