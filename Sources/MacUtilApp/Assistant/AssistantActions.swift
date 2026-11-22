@@ -322,6 +322,17 @@ enum AssistantActions {
                 return await MusicSearch.play(arguments["song"]?.string ?? "")
             }
             guard let session = state.island.featured else {
+                // The island may not have heard yet: ask the players themselves.
+                for player in NowPlaying.Player.allCases where IslandModel.running(player) {
+                    if let now = await IslandModel.query(player) {
+                        if what == "play" || what == "pause" || what == "next" || what == "previous" {
+                            let verb = ["play": "play", "pause": "pause", "next": "next track", "previous": "previous track"][what] ?? "play"
+                            _ = await Command.run("/usr/bin/osascript", ["-e", "tell application \"\(player.scriptName)\" to \(verb)"])
+                            return ActionOutcome(text: "Sent \(verb) to \(player.scriptName) (\(now.title) by \(now.artist)).")
+                        }
+                        return ActionOutcome(text: "\(now.title) by \(now.artist) in \(player.scriptName), \(now.isPlaying ? "playing" : "paused").")
+                    }
+                }
                 return ActionOutcome(text: what == "play" ? "Nothing to resume; to start a song, use find with its name." : "Nothing is playing.")
             }
             switch what {
@@ -355,8 +366,8 @@ enum AssistantActions {
             }
         })
         list.append(AssistantAction(
-            "wifi", "Turns Wi-Fi on or off, or says whether it is on and which network.",
-            category: .systemSettings, level: .reversible, parameters: ["do": choice(["on", "off", "status"])], required: ["do"]
+            "wifi", "Turns Wi-Fi on or off, says whether it is on and which network, or lists the networks nearby.",
+            category: .systemSettings, level: .reversible, parameters: ["do": choice(["on", "off", "status", "nearby"])], required: ["do"]
         ) { arguments, _ in
             guard let interface = CWWiFiClient.shared().interface() else { return ActionOutcome(text: "This Mac has no Wi-Fi.", failed: true) }
             switch arguments["do"]?.string {
@@ -365,6 +376,20 @@ enum AssistantActions {
             default: break
             }
             guard interface.powerOn() else { return ActionOutcome(text: "Wi-Fi is off.") }
+            if arguments["do"]?.string == "nearby" {
+                let found = (try? interface.scanForNetworks(withName: nil)) ?? []
+                let named = found.compactMap { network in network.ssid.map { ($0, network.rssiValue) } }
+                    .sorted { $0.1 > $1.1 }
+                if named.isEmpty {
+                    let asked = WiFiName.shared.askIfNeeded()
+                    return ActionOutcome(text: "\(found.count) networks nearby, but macOS hides their names" + (asked
+                        ? "; it has just asked the person to allow Location for UniMacHub. Ask again once they have."
+                        : ": allow UniMacHub in System Settings → Privacy & Security → Location Services."))
+                }
+                var seen = Set<String>()
+                let list = named.filter { seen.insert($0.0).inserted }.prefix(12).map { "\($0.0) (\($0.1) dBm)" }
+                return ActionOutcome(text: "Networks nearby, strongest first: " + list.joined(separator: ", "))
+            }
             if let name = interface.ssid() { return ActionOutcome(text: "Wi-Fi is on, network \(name).") }
             // macOS hides the network's name from apps without Location.
             return ActionOutcome(text: WiFiName.shared.askIfNeeded()
@@ -987,19 +1012,34 @@ enum MusicSearch {
         let query = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return ActionOutcome(text: "Say which song to play.", failed: true) }
         let quoted = query.replacingOccurrences(of: "\\", with: "").replacingOccurrences(of: "\"", with: "")
+        // Music just launched misses a play sent at once, so it is checked and sent again.
         let script = """
         tell application "Music"
+            if it is not running then
+                launch
+                delay 2
+            end if
             set found to (every track of library playlist 1 whose name contains "\(quoted)")
             if found is {} then set found to (every track of library playlist 1 whose artist contains "\(quoted)")
             if found is {} then set found to (every track of library playlist 1 whose album contains "\(quoted)")
             if found is {} then return ""
             play item 1 of found
-            return (name of item 1 of found) & " — " & (artist of item 1 of found)
+            delay 1
+            if player state is not playing then
+                play item 1 of found
+                delay 1.5
+            end if
+            return (name of item 1 of found) & " — " & (artist of item 1 of found) & linefeed & (player state as text)
         end tell
         """
         if let output = await Command.run("/usr/bin/osascript", ["-e", script]), output.status == 0 {
-            let playing = output.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !playing.isEmpty { return ActionOutcome(text: "Playing \(playing) from the library.") }
+            let lines = output.text.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n")
+            if let track = lines.first, !track.isEmpty {
+                let state = lines.count > 1 ? lines[1] : ""
+                return state == "playing"
+                    ? ActionOutcome(text: "Playing \(track) from the library; Music confirms it plays.")
+                    : ActionOutcome(text: "Found \(track) in the library, but Music reports \(state.isEmpty ? "no playback" : state), not playing.", failed: true)
+            }
         }
         // Not in the library: Apple Music's own search, where one click plays it.
         var parts = URLComponents(string: "music://music.apple.com/search")!

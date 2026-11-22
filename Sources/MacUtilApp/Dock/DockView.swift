@@ -547,7 +547,12 @@ private struct DockWidgetView: View {
     @ViewBuilder private var content: some View {
         switch widget {
         case .clock: ClockWidget(icon: icon, compact: compact)
-        case .system: SystemWidget(sample: sources.sample, icon: icon, compact: compact)
+        case .system:
+            // A click opens the Task Manager, where the numbers come from.
+            SystemWidget(sample: sources.sample, icon: icon, compact: compact)
+                .contentShape(.rect)
+                .onTapGesture { sources.openInHub(.taskManager) }
+                .help(Text("Open the Task Manager"))
         case .music: MusicWidget(island: sources.island, model: model, icon: icon, compact: compact)
         case .calendar: CalendarWidget(calendar: sources.island.calendar, icon: icon, compact: compact)
         case .weather: WeatherWidget(model: model, icon: icon, compact: compact)
@@ -1049,27 +1054,75 @@ private struct CalculatorWidget: View {
     }
 }
 
+/// A small copy of macOS's Calculator: digits, the four signs, per cent and equals, by click or
+/// by keyboard.
 private struct CalculatorPanel: View {
-    @State private var input = ""
+    /// What has been typed, as the expression shown above the number.
+    @State private var expression = ""
+    /// The answer once = is pressed; the next digit starts afresh, the next sign carries on from it.
+    @State private var answer: String?
+    @State private var copied = false
     @FocusState private var focused: Bool
 
+    private static let rows: [[String]] = [
+        ["AC", "⌫", "%", "÷"],
+        ["7", "8", "9", "×"],
+        ["4", "5", "6", "−"],
+        ["1", "2", "3", "+"],
+        ["0", ",", "="],
+    ]
+    private static let signs: Set<String> = ["÷", "×", "−", "+"]
+
     var body: some View {
-        let result = Arithmetic.evaluate(input).map(Arithmetic.format)
-        VStack(alignment: .trailing, spacing: 6) {
-            TextField("12 × (3 + 4) ÷ 2", text: $input)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 15).monospacedDigit())
-                .focused($focused)
-                .onSubmit { copy(result) }
-            Text(verbatim: result.map { "= \($0)" } ?? (input.isEmpty ? " " : "…"))
-                .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
-                .textSelection(.enabled)
-            Text("Return copies the answer")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(spacing: 8) {
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(verbatim: answer == nil ? " " : expression)
+                    .font(.system(size: 13).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                HStack(spacing: 6) {
+                    if let answer {
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(answer, forType: .string)
+                            copied = true
+                        } label: {
+                            Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help(Text("Copy the answer"))
+                    }
+                    Spacer(minLength: 0)
+                    Text(verbatim: answer ?? (expression.isEmpty ? "0" : expression))
+                        .font(.system(size: 34, weight: .light, design: .rounded).monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .truncationMode(.head)
+                        .textSelection(.enabled)
+                }
+            }
+            .padding(.horizontal, 4)
+            Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+                ForEach(Self.rows, id: \.self) { row in
+                    GridRow {
+                        ForEach(row, id: \.self) { key in
+                            keyButton(key)
+                                .gridCellColumns(key == "0" ? 2 : 1)
+                        }
+                    }
+                }
+            }
         }
         .padding(12)
-        .frame(width: 260)
+        .frame(width: 4 * 52 + 3 * 8 + 24)
+        .focusable()
+        .focusEffectDisabled()
+        .focused($focused)
+        .onKeyPress { press in
+            typed(press) ? .handled : .ignored
+        }
         .onAppear {
             // A panel in an app that is never in front gets no typing until it is made key.
             NSApp.activate()
@@ -1077,10 +1130,67 @@ private struct CalculatorPanel: View {
         }
     }
 
-    private func copy(_ result: String?) {
-        guard let result else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(result, forType: .string)
+    private func keyButton(_ key: String) -> some View {
+        let isSign = Self.signs.contains(key) || key == "="
+        let isTool = ["AC", "⌫", "%"].contains(key)
+        return Button {
+            tap(key)
+        } label: {
+            Text(verbatim: key == "AC" && answer == nil && !expression.isEmpty ? "C" : key)
+                .font(.system(size: key == "⌫" ? 18 : 22, weight: isSign ? .medium : .regular, design: .rounded))
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(
+                    isSign ? Color.orange : isTool ? Color.white.opacity(0.28) : Color.white.opacity(0.12),
+                    in: .capsule
+                )
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+    }
+
+    /// The keyboard does the same as the buttons: digits, + - * / % , . = Return, Delete, Esc.
+    private func typed(_ key: KeyPress) -> Bool {
+        switch key.key {
+        case .return: tap("="); return true
+        case .delete: tap("⌫"); return true
+        case .escape: tap("AC"); return true
+        default: break
+        }
+        let map: [Character: String] = ["*": "×", "x": "×", "/": "÷", ":": "÷", "-": "−", "+": "+", "=": "=", "%": "%", ".": ",", ",": ",", "(": "(", ")": ")"]
+        guard let character = key.characters.first else { return false }
+        if character.isNumber, let digit = character.wholeNumberValue { tap(String(digit)); return true }
+        if let mapped = map[character] { tap(mapped); return true }
+        return false
+    }
+
+    private func tap(_ key: String) {
+        copied = false
+        switch key {
+        case "AC":
+            expression = ""
+            answer = nil
+        case "⌫":
+            if answer != nil { answer = nil } else if !expression.isEmpty { expression.removeLast() }
+        case "=":
+            guard !expression.isEmpty else { return }
+            answer = Arithmetic.evaluate(expression.replacingOccurrences(of: ",", with: ".")).map {
+                Arithmetic.format($0).replacingOccurrences(of: ".", with: ",")
+            } ?? String(localized: "Error")
+        default:
+            if let done = answer {
+                // A sign carries on from the answer; anything else starts a new sum.
+                expression = Self.signs.contains(key) || key == "%" ? (done == String(localized: "Error") ? "" : done) : ""
+                answer = nil
+            }
+            // Two signs in a row: the second replaces the first.
+            if Self.signs.contains(key), let last = expression.last, Self.signs.contains(String(last)) {
+                expression.removeLast()
+            }
+            if Self.signs.contains(key), expression.isEmpty, key != "−" { return }
+            expression += key
+        }
     }
 }
 

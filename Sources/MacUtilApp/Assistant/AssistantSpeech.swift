@@ -66,6 +66,8 @@ final class SpeechInput {
     private var lastVoice: Date?
     private var quietSince: Date?
     private var pauses: [Double] = []
+    /// When macOS last sent words, new or revised.
+    private var lastWords = Date()
     private var listenStarted = Date()
     private var format: AVAudioFormat?
 
@@ -207,6 +209,20 @@ final class SpeechInput {
         } else if lastVoice != nil, quietSince == nil {
             quietSince = now
         }
+        // The voice has stopped: the turn ends without waiting for macOS, which keeps revising
+        // its words for seconds after. Pauses inside a sentence run up to about a second and a
+        // half, so two seconds of quiet, more for a long request.
+        if let quietSince, !latest.trimmingCharacters(in: .whitespaces).isEmpty,
+           now.timeIntervalSince(lastWords) > 0.5 {
+            let enough = latest.count > 60 ? 2.5 : 2.0
+            let quiet = now.timeIntervalSince(quietSince)
+            if quiet >= enough {
+                onEvent?(String(format: "listening ended by the voice stopping: quiet for %.1f s; spoke for %.1f s with %d pauses over a second%@",
+                                quiet, now.timeIntervalSince(listenStarted), pauses.count,
+                                pauses.isEmpty ? "" : " (" + pauses.map { String(format: "%.1f", $0) }.joined(separator: ", ") + " s)"))
+                finish()
+            }
+        }
         onLevel?(level)
         // Up to half a minute of sound.
         if let buffer, recordedFrames < AVAudioFramePosition((format?.sampleRate ?? 48000) * 30) {
@@ -231,7 +247,7 @@ final class SpeechInput {
     /// This Mac heard someone speak but made out no words, as with a name it does not know
     /// ("Телеграм"): the same sound goes to Apple's servers once, when that is allowed.
     private func retryOnServer() -> Bool {
-        guard allowServer, !usedServer, !recorded.isEmpty, peak > 0.45,
+        guard allowServer, !usedServer, !recorded.isEmpty, peak > 0.35,
               let recogniser = SFSpeechRecognizer(locale: Self.locale(language)), recogniser.isAvailable
         else { return false }
         Self.note("heard sound (peak \(String(format: "%.2f", peak))) but no words on this Mac: Apple's servers try the same sound")
@@ -263,6 +279,7 @@ final class SpeechInput {
 
     private func heard(_ text: String?, final: Bool, problem: String? = nil) {
         if let text {
+            lastWords = Date()
             // macOS revises its transcript as it goes and, after a pause, may start it afresh
             // with only the new words: a revision replaces, a fresh start is kept after.
             let before = committed
@@ -274,13 +291,14 @@ final class SpeechInput {
         if final {
             let said = Transcript.collapseRepeats(latest.trimmingCharacters(in: .whitespaces))
             stop()
-            Self.note("heard \(usedServer ? "via Apple's servers" : "on this Mac"): \"\(said)\"\(problem.map { " (\($0))" } ?? "")")
+            Self.note("heard \(usedServer ? "via Apple's servers" : "on this Mac"): \"\(said)\" (loudest \(String(format: "%.2f", peak)))\(problem.map { " (\($0))" } ?? "")")
             if said.isEmpty, retryOnServer() { return }
             if let problem, said.isEmpty {
                 Self.note("ended: \(problem)")
                 // On this Mac it failed straight away: Apple's servers, if allowed, try instead;
                 // not when Dictation is off, which stops both.
-                if !usedServer, allowServer, Date().timeIntervalSince(startedAt) < 3, !problem.contains("kLSRErrorDomain 201") {
+                // Only when no voice was heard yet: a voice heard went to the servers above.
+                if !usedServer, allowServer, peak < 0.35, Date().timeIntervalSince(startedAt) < 3, !problem.contains("kLSRErrorDomain 201") {
                     Self.note("trying Apple's servers")
                     if (try? start(language: language, allowServer: true, server: true, hints: hints)) != nil { return }
                 }

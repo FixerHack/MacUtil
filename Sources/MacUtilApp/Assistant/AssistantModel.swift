@@ -140,6 +140,8 @@ final class AssistantModel {
     @ObservationIgnored private var listenAfterSpeaking = false
     /// For the log: what it is saying and since when, and since when it has been listening.
     @ObservationIgnored private var nowSpeaking = ""
+    @ObservationIgnored private var screenIsOff = false
+    @ObservationIgnored private var screenObservers: [NSObjectProtocol] = []
     @ObservationIgnored private var speakingSince = Date()
     @ObservationIgnored private var listeningSince = Date()
 
@@ -257,13 +259,32 @@ final class AssistantModel {
     func attach(_ state: AppState) {
         self.state = state
         updateHotKeys()
+        // With the screen locked or asleep nobody is there to call it: the microphone goes off,
+        // and with it macOS's orange dot.
+        let workspace = NSWorkspace.shared.notificationCenter
+        let distributed = DistributedNotificationCenter.default()
+        for (center, name, off) in [
+            (workspace, NSWorkspace.screensDidSleepNotification, true), (workspace, NSWorkspace.screensDidWakeNotification, false),
+            (distributed, Notification.Name("com.apple.screenIsLocked"), true), (distributed, Notification.Name("com.apple.screenIsUnlocked"), false),
+        ] as [(NotificationCenter, Notification.Name, Bool)] {
+            screenObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.screenIsOff = off
+                    if off, self.isWaking {
+                        self.trace("screen locked or asleep: the wake word stops listening")
+                        self.stopWaking()
+                    }
+                }
+            })
+        }
         // Every couple of seconds: back to listening for the wake word whenever it is idle.
         wakeLoop = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
                 guard let self else { return }
                 if self.usesWakeWord, self.isEnabled, self.phase == .idle, !self.isWaking, !self.isDictating,
-                   !self.conversing, !self.output.isSpeaking {
+                   !self.conversing, !self.output.isSpeaking, !self.screenIsOff {
                     self.startWaking()
                 }
             }
@@ -468,6 +489,7 @@ final class AssistantModel {
         text += "\nWhen you have run actions, end with one short sentence saying what you did and whether it worked."
         text += "\nWhen the person says goodbye, tells you to rest or that they need nothing more, call end_conversation and say a short goodbye."
         text += "\n«Системні параметри», «системні налаштування» or the settings of the Mac or MacBook mean macOS System Settings: open_app \"System Settings\". UniMacHub's own settings only when the person names UniMacHub."
+        text += "\nFor Wi-Fi (on, off, the network's name, the networks around) use the wifi action, never the terminal: macOS hides network names from commands."
         text += "\nWhen the person asks for several things that do not depend on each other, call all the actions in one reply instead of one per reply: each reply costs seconds."
         text += "\nThe request comes from speech recognition and may be garbled: a phrase said twice is one request, and a word may be misheard (\"Face\" may be FACEIT). When a guess is risky, ask briefly."
         if mode == .basic {
@@ -693,7 +715,9 @@ final class AssistantModel {
 
     private func confirm(_ question: String) async -> Bool {
         trace("asks first: \(question)")
-        say(question, kind: .assistant)
+        // Only the question is said; the command or the files under it are on the screen.
+        let firstLine = question.components(separatedBy: "\n").first ?? question
+        say(question, kind: .assistant, spokenAs: firstLine)
         phase = .confirming(question)
         present?()
         return await withCheckedContinuation { continuation in
@@ -795,14 +819,17 @@ final class AssistantModel {
         saveChat()
     }
 
-    private func say(_ text: String, kind: Line.Kind, aloud: Bool = true) {
+    /// Shows a line and, unless told not to, says it: `spokenAs` when the written line is too
+    /// long to listen to, such as a whole command after its question.
+    private func say(_ text: String, kind: Line.Kind, aloud: Bool = true, spokenAs: String? = nil) {
         lines.append(Line(kind: kind, text: text))
         if lines.count > 60 { lines.removeFirst(lines.count - 60) }
         guard aloud, speaksAnswers, kind != .action else { return }
+        let spoken = spokenAs ?? text
         if output.isSpeaking {
-            speechQueue.append(text)
+            speechQueue.append(spoken)
         } else {
-            speakNow(text)
+            speakNow(spoken)
         }
     }
 

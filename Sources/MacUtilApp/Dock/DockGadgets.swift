@@ -48,6 +48,8 @@ final class DockGadgets {
     /// Time left when paused; nil while running or before the first start.
     private(set) var pausedLeft: TimeInterval?
     @ObservationIgnored private var pomodoroTask: Task<Void, Never>?
+    /// What focus shuts out: Do Not Disturb, the sound, distracting apps.
+    @ObservationIgnored private let focus = PomodoroFocus()
 
     var phaseLength: TimeInterval { TimeInterval((phase == .focus ? Self.focusMinutes : Self.restMinutes) * 60) }
     var pomodoroRunning: Bool { phaseEnd != nil }
@@ -58,6 +60,7 @@ final class DockGadgets {
             pausedLeft = phaseEnd.timeIntervalSinceNow
             self.phaseEnd = nil
             pomodoroTask?.cancel()
+            focus.end()
         } else {
             run(for: pausedLeft ?? phaseLength)
             pausedLeft = nil
@@ -66,6 +69,7 @@ final class DockGadgets {
 
     func resetPomodoro() {
         pomodoroTask?.cancel()
+        focus.end()
         phase = .focus
         phaseEnd = nil
         pausedLeft = nil
@@ -80,6 +84,7 @@ final class DockGadgets {
 
     private func run(for seconds: TimeInterval) {
         phaseEnd = Date().addingTimeInterval(seconds)
+        if phase == .focus { focus.begin() } else { focus.end() }
         pomodoroTask?.cancel()
         pomodoroTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(seconds))

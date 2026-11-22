@@ -40,6 +40,8 @@ public enum Transcript {
     /// The same word, or one letter apart in a longer word ("кошик", "кошика").
     static func similar(_ a: String, _ b: String) -> Bool {
         if a == b { return true }
+        // A word heard half-way and then in full: "Від" and "Відкрий", "Уві" and "Увімкни".
+        if min(a.count, b.count) >= 2, a.hasPrefix(b) || b.hasPrefix(a) { return true }
         guard min(a.count, b.count) >= 4 else { return false }
         let stemA = a.prefix(max(4, a.count - 2)), stemB = b.prefix(max(4, b.count - 2))
         return stemA.hasPrefix(stemB) || stemB.hasPrefix(stemA)

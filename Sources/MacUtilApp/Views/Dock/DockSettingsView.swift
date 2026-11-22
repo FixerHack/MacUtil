@@ -235,6 +235,10 @@ struct DockSettingsView: View {
             } footer: {
                 Text("Clock and system sit at the start of the Dock; music, calendar and weather at the end. While the music widget is on, Music and Spotify keep out of the Dock: a click on the cover opens the one playing. The weather comes from Open-Meteo, which needs no account: only the town, then its coordinates, are sent, at most every half hour. The calendar asks for access the first time, for the Dock's own part of UniMacHub.")
             }
+
+            if model.widgets.contains(.pomodoro) {
+                PomodoroFocusSection()
+            }
         }
         .formStyle(.grouped)
         .navigationTitle("Dock & Widgets")
@@ -424,5 +428,88 @@ enum MinimizeEffect: String {
         Task.detached {
             SystemDock.apply([["write", SystemDock.domain, "mineffect", "-string", effect.rawValue]])
         }
+    }
+}
+
+/// What a pomodoro's focus shuts out, set here and applied by the Dock.
+private struct PomodoroFocusSection: View {
+    @AppStorage(PomodoroFocus.Keys.doNotDisturb, store: PomodoroFocus.defaults) private var doNotDisturb = false
+    @AppStorage(PomodoroFocus.Keys.mutes, store: PomodoroFocus.defaults) private var mutes = false
+    @AppStorage(PomodoroFocus.Keys.appsAction, store: PomodoroFocus.defaults) private var appsAction = PomodoroFocus.AppsAction.none.rawValue
+    @State private var apps = PomodoroFocus.apps
+    @State private var shortcutsReady: Bool?
+
+    var body: some View {
+        Section {
+            Toggle("Turn on Do Not Disturb", isOn: $doNotDisturb)
+            if doNotDisturb {
+                if shortcutsReady == true {
+                    Label("The two shortcuts are there.", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.callout)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("macOS lets apps switch Do Not Disturb only through Shortcuts. Make two shortcuts once:")
+                        Text("1. In Shortcuts, File → New Shortcut, add the action “Set Focus”, choose Do Not Disturb, Turn On, and name the shortcut “UniMacHub Focus On”.")
+                        Text("2. Make one more the same way with Turn Off, named “UniMacHub Focus Off”.")
+                        Text("Do Not Disturb silences notifications and calls; who may still reach you is set in System Settings → Focus.")
+                            .foregroundStyle(.secondary)
+                        HStack {
+                            Button("Open Shortcuts") {
+                                NSWorkspace.shared.open(URL(filePath: "/System/Applications/Shortcuts.app"))
+                            }
+                            Button("Check Again") { Task { shortcutsReady = await PomodoroFocus.shortcutsReady() } }
+                        }
+                    }
+                    .font(.callout)
+                }
+            }
+            Toggle("Mute the sound", isOn: $mutes)
+            Picker("Distracting apps", selection: $appsAction) {
+                Text("Leave them").tag(PomodoroFocus.AppsAction.none.rawValue)
+                Text("Hide them").tag(PomodoroFocus.AppsAction.hide.rawValue)
+                Text("Quit them, open again after").tag(PomodoroFocus.AppsAction.quit.rawValue)
+            }
+            if appsAction != PomodoroFocus.AppsAction.none.rawValue {
+                ForEach(apps, id: \.self) { id in
+                    HStack {
+                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 20, height: 20)
+                            Text(verbatim: FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: ""))
+                        } else {
+                            Text(verbatim: id).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            apps.removeAll { $0 == id }
+                            PomodoroFocus.apps = apps
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                Button("Add App…") { addApps() }
+            }
+        } header: {
+            Text("Pomodoro focus")
+        } footer: {
+            Text("While a focus runs, UniMacHub keeps these out of your way; at the rest, a pause or a stop, everything is as it was.")
+        }
+        .task { if doNotDisturb { shortcutsReady = await PomodoroFocus.shortcutsReady() } }
+        .onChange(of: doNotDisturb) { _, on in
+            if on { Task { shortcutsReady = await PomodoroFocus.shortcutsReady() } }
+        }
+    }
+
+    private func addApps() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = true
+        panel.directoryURL = URL(filePath: "/Applications")
+        guard panel.runModal() == .OK else { return }
+        let added = panel.urls.compactMap { Bundle(url: $0)?.bundleIdentifier }
+        apps = Array(Set(apps + added)).sorted()
+        PomodoroFocus.apps = apps
     }
 }

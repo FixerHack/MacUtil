@@ -1706,7 +1706,6 @@
 "Switches on with:" = "Вмикається з:";
 "Use This Profile" = "Увімкнути цей профіль";
 "%lld min" = "%lld хв";
-"12 × (3 + 4) ÷ 2" = "12 × (3 + 4) ÷ 2";
 "Break" = "Перерва";
 "Calculator" = "Калькулятор";
 "Clipboard history" = "Історія буфера обміну";
@@ -1715,7 +1714,6 @@
 "Focus" = "Фокус";
 "Pomodoro: 25 minutes of focus, 5 of rest" = "Помодоро: 25 хвилин фокусу, 5 відпочинку";
 "Reset" = "Скинути";
-"Return copies the answer" = "Return копіює відповідь";
 "Skip to the Next Part" = "Перейти до наступної частини";
 "Stop Timer" = "Зупинити таймер";
 "Time's up" = "Час вийшов";
@@ -1924,3 +1922,20 @@
 "The model did not answer in two minutes. Try again, or pick another model in the settings." = "Модель не відповіла за дві хвилини. Спробуйте ще раз або виберіть іншу модель у налаштуваннях.";
 "Click one to copy it again. What looks like a password or a key stays hidden until clicked." = "Клікніть, щоб скопіювати знову. Те, що схоже на пароль чи ключ, сховане, доки не клікнете.";
 "Looks like a password or a key: click to show it" = "Схоже на пароль чи ключ: клікніть, щоб показати";
+"1. In Shortcuts, File → New Shortcut, add the action “Set Focus”, choose Do Not Disturb, Turn On, and name the shortcut “UniMacHub Focus On”." = "1. У «Швидких командах» виберіть Файл → Нова швидка команда, додайте дію «Встановити фокус», виберіть «Не турбувати» та «Увімкнути» і назвіть команду «UniMacHub Focus On» (саме так, англійською).";
+"2. Make one more the same way with Turn Off, named “UniMacHub Focus Off”." = "2. Так само зробіть ще одну з «Вимкнути» і назвіть її «UniMacHub Focus Off».";
+"Copy the answer" = "Скопіювати відповідь";
+"Distracting apps" = "Програми, що відволікають";
+"Do Not Disturb silences notifications and calls; who may still reach you is set in System Settings → Focus." = "«Не турбувати» вимикає сповіщення й дзвінки; хто все ж може до вас достукатися, налаштовується в Системних параметрах → Фокус.";
+"Error" = "Помилка";
+"Hide them" = "Ховати";
+"Leave them" = "Не чіпати";
+"Mute the sound" = "Вимикати звук";
+"Open Shortcuts" = "Відкрити «Швидкі команди»";
+"Open the Task Manager" = "Відкрити Диспетчер завдань";
+"Pomodoro focus" = "Фокус помодоро";
+"Quit them, open again after" = "Закривати й відкривати знову після";
+"The two shortcuts are there." = "Обидві швидкі команди на місці.";
+"Turn on Do Not Disturb" = "Вмикати «Не турбувати»";
+"While a focus runs, UniMacHub keeps these out of your way; at the rest, a pause or a stop, everything is as it was." = "Поки йде фокус, UniMacHub прибирає це з вашого шляху; на перерві, паузі чи зупинці все повертається як було.";
+"macOS lets apps switch Do Not Disturb only through Shortcuts. Make two shortcuts once:" = "macOS дозволяє програмам вмикати «Не турбувати» лише через «Швидкі команди». Зробіть один раз дві команди:";
