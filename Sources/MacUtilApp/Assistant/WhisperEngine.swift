@@ -34,6 +34,10 @@ final class WhisperEngine {
 
     func refresh() {
         isInstalled = Self.files() != nil && FileManager.default.isExecutableFile(atPath: Self.tool.path)
+        Task.detached(priority: .utility) {
+            let bytes = LocalVoices.size(of: WhisperEngine.modelFolder)
+            await MainActor.run { WhisperEngine.shared.usedBytes = bytes }
+        }
     }
 
     /// The model's three files, smaller int8 ones where there are both.
@@ -50,14 +54,8 @@ final class WhisperEngine {
         return (encoder, decoder, tokens)
     }
 
-    var usedBytes: Int64 {
-        let enumerator = FileManager.default.enumerator(at: Self.modelFolder, includingPropertiesForKeys: [.fileSizeKey])
-        var total: Int64 = 0
-        while let file = enumerator?.nextObject() as? URL {
-            total += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-        }
-        return total
-    }
+    /// What the model takes on disk, counted away from the screen.
+    private(set) var usedBytes: Int64 = 0
 
     func install() {
         guard progress == nil else { return }

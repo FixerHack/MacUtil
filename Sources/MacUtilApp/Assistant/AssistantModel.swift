@@ -383,7 +383,11 @@ final class AssistantModel {
 
     /// Whisper's turn: the whole request once more, on this Mac, and its words used when it
     /// heard any. Kept as a recording too, when the person asked for that.
+    /// What macOS heard of the last request, for a goodbye Whisper blurs ("можеш почивати").
+    @ObservationIgnored private var appleHeard = ""
+
     private func listenAgain(_ sound: [AVAudioPCMBuffer], heard: String) async -> String {
+        appleHeard = ""
         // Listening for the wake word alone: nothing is kept and nothing more runs.
         if isWaking, !woken { return heard }
         let whisper = usesWhisper && WhisperEngine.shared.isInstalled
@@ -395,6 +399,7 @@ final class AssistantModel {
             trace("the recording could not be written for Whisper")
             return heard
         }
+        appleHeard = heard
         var better: String?
         if whisper {
             if let result = await WhisperEngine.transcribe(wave, language: language) {
@@ -477,7 +482,10 @@ final class AssistantModel {
         let request = dictionary.isEmpty ? said : Dictation.clean(said, language: language, dictionary: dictionary)
         trace("heard: \(said)\(request == said ? "" : " → \(request)")")
         // "Thanks", "rest", "bye": a short goodbye ends it without asking the model.
-        if Goodbye.isGoodbye(said) {
+        // macOS's words count too, when the whole request is as short as a goodbye.
+        let apple = appleHeard
+        appleHeard = ""
+        if Goodbye.isGoodbye(said) || (Transcript.words(said).count <= 5 && Goodbye.isGoodbye(apple)) {
             endConversation()
             say(language == "uk" ? "Добре, відпочиваю." : "Okay, I'll rest.", kind: .assistant)
             return

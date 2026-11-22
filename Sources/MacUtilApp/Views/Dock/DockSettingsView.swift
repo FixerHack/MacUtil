@@ -13,234 +13,271 @@ struct DockSettingsView: View {
     @State private var problem: DockService.Problem?
     @State private var namingProfile = false
     @State private var newProfileName = ""
+    /// One part of the page at a time, so it opens at once.
+    @AppStorage("dockSettingsTab") private var tab = Tab.dock
+
+    enum Tab: String, CaseIterable, Identifiable {
+        case dock, apps, widgets
+        var id: Self { self }
+        var title: LocalizedStringKey {
+            switch self {
+            case .dock: "Dock"
+            case .apps: "Apps, Profiles and Folders"
+            case .widgets: "Widgets"
+            }
+        }
+    }
 
     var body: some View {
         Form {
-            Section {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("UniMacHub's Dock")
-                        Text(model.isEnabled ? "On: it stays when UniMacHub is closed, and starts at login" : "Off: the system Dock works as usual")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if model.isEnabled {
-                        Button("Turn Off") { DockService.turnOff(model) }
-                    } else {
-                        Button("Turn On…") { confirmsEnabling = true }
-                            .buttonStyle(.borderedProminent)
-                    }
-                }
-                if let problem {
-                    problemView(problem)
-                }
-            } footer: {
-                Text("The Dock runs on its own, as a small background part of UniMacHub, so quitting UniMacHub leaves it in place. The system Dock comes back exactly as it was when you turn this off. Should it ever be stuck hidden, in Terminal: defaults delete com.apple.dock autohide-delay; killall Dock")
-                    .textSelection(.enabled)
-            }
-
-            Section {
-                LabeledContent("Icon size") {
+            if tab == .dock {
+                Section {
                     HStack {
-                        Slider(value: $model.iconSize, in: DockModel.iconSizes, step: 2)
-                        Text(verbatim: "\(Int(model.iconSize))").monospacedDigit().frame(width: 34, alignment: .trailing)
-                    }
-                }
-                Toggle("Magnify icons under the pointer", isOn: $model.magnifies)
-                if model.magnifies {
-                    LabeledContent("Magnification") {
-                        HStack {
-                            Slider(value: $model.magnification, in: 1.05 ... 2, step: 0.005)
-                            Text(verbatim: String(format: "%.3f×", model.magnification)).monospacedDigit().frame(width: 54, alignment: .trailing)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("UniMacHub's Dock")
+                            Text(model.isEnabled ? "On: it stays when UniMacHub is closed, and starts at login" : "Off: the system Dock works as usual")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if model.isEnabled {
+                            Button("Turn Off") { DockService.turnOff(model) }
+                        } else {
+                            Button("Turn On…") { confirmsEnabling = true }
+                                .buttonStyle(.borderedProminent)
                         }
                     }
+                    if let problem {
+                        problemView(problem)
+                    }
+                } footer: {
+                    Text("The Dock runs on its own, as a small background part of UniMacHub, so quitting UniMacHub leaves it in place. The system Dock comes back exactly as it was when you turn this off. Should it ever be stuck hidden, in Terminal: defaults delete com.apple.dock autohide-delay; killall Dock")
+                        .textSelection(.enabled)
                 }
-                Toggle("Hide and show automatically", isOn: $model.autohides)
-                Picker("Position on screen", selection: $model.position) {
-                    Text("Bottom").tag(DockModel.Position.bottom)
-                    Text("Left").tag(DockModel.Position.left)
-                    Text("Right").tag(DockModel.Position.right)
+            }
+
+            if tab == .dock {
+                Section {
+                    LabeledContent("Icon size") {
+                        HStack {
+                            Slider(value: Binding(
+                                get: { model.iconSize },
+                                set: { model.iconSize = ($0 / 2).rounded() * 2 }
+                            ), in: DockModel.iconSizes)
+                            Text(verbatim: "\(Int(model.iconSize))").monospacedDigit().frame(width: 34, alignment: .trailing)
+                        }
+                    }
+                    Toggle("Magnify icons under the pointer", isOn: $model.magnifies)
+                    if model.magnifies {
+                        LabeledContent("Magnification") {
+                            HStack {
+                                // Rounded here rather than with a step: a step this small gave the slider 190 tick
+                                // marks, which macOS lays out one by one, and the page took a second to open.
+                                Slider(value: Binding(
+                                    get: { model.magnification },
+                                    set: { model.magnification = ($0 * 200).rounded() / 200 }
+                                ), in: 1.05 ... 2)
+                                Text(verbatim: String(format: "%.3f×", model.magnification)).monospacedDigit().frame(width: 54, alignment: .trailing)
+                            }
+                        }
+                    }
+                    Toggle("Hide and show automatically", isOn: $model.autohides)
+                    Picker("Position on screen", selection: $model.position) {
+                        Text("Bottom").tag(DockModel.Position.bottom)
+                        Text("Left").tag(DockModel.Position.left)
+                        Text("Right").tag(DockModel.Position.right)
+                    }
+                    if NSScreen.screens.count > 1 {
+                        ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in
+                            let id = DockModel.displayID(of: screen)
+                            Toggle(isOn: Binding(
+                                get: { model.shows(onDisplay: id, isMain: index == 0) },
+                                set: { model.setShows($0, onDisplay: id) }
+                            )) {
+                                Text("On \(screen.localizedName)")
+                            }
+                        }
+                    }
+                    Toggle("Dots under open apps", isOn: $model.showsIndicators)
+                    Picker("Minimising windows", selection: Binding(get: { MinimizeEffect.current }, set: { MinimizeEffect.set($0) })) {
+                        Text("Genie").tag(MinimizeEffect.genie)
+                        Text("Scale").tag(MinimizeEffect.scale)
+                    }
+                } header: {
+                    Text("Look")
+                } footer: {
+                    Text("When everything does not fit along the edge, the whole Dock shrinks to fit, as the system one does. Windows that fill the screen go under the Dock when it stays out, as there is no way for another app to keep them clear of it; hiding it automatically avoids that. The minimising effect is macOS's own and applies at once.")
                 }
-                if NSScreen.screens.count > 1 {
-                    ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in
-                        let id = DockModel.displayID(of: screen)
+            }
+
+            if tab == .apps {
+                Section {
+                    Toggle("Apps that are open but not kept in the Dock", isOn: $model.showsRunningApps)
+                    Toggle("Window previews while pointing at an app", isOn: $model.showsPreviews)
+                    if model.showsPreviews, model.isEnabled, !model.screenRecordingGranted {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Pictures of the windows need Screen Recording", systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text("Without it the previews still list the windows by name. “Allow…” brings up macOS's request; turn UniMacHub on under Screen & System Audio Recording, then press “Restart the Dock”, as macOS lets a running app see the change only once it starts again. The pictures are taken only while the previews are on screen and never leave this Mac.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            HStack {
+                                Button("Allow…") {
+                                    DistributedNotificationCenter.default().postNotificationName(
+                                        DockModel.askScreenRecordingNotification, object: nil, userInfo: nil, deliverImmediately: true
+                                    )
+                                }
+                                Button("Open Screen Recording Settings") {
+                                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                                        NSWorkspace.shared.open(url)
+                                    }
+                                }
+                                Button("Restart the Dock") { DockService.kickstart(restart: true) }
+                            }
+                        }
+                    }
+                    Toggle("Minimised windows, before the Trash", isOn: $model.showsMinimized)
+                    if model.showsMinimized || model.showsPreviews, model.isEnabled, !model.accessibilityGranted {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("The Dock needs Accessibility for minimised windows and window previews", systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text("With the system Dock hidden, windows minimised with the yellow button go here instead. “Allow…” brings up macOS's request: open System Settings from it and turn UniMacHub on under Accessibility (macOS may list the Dock as UniMacHub Dock). The Dock only reads its windows' titles and places, and brings one forward when you click it.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            HStack {
+                                Button("Allow…") {
+                                    DistributedNotificationCenter.default().postNotificationName(
+                                        DockModel.askAccessibilityNotification, object: nil, userInfo: nil, deliverImmediately: true
+                                    )
+                                }
+                                Button("Open Accessibility Settings") {
+                                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                                        NSWorkspace.shared.open(url)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ForEach(model.pinned, id: \.self) { url in
+                        HStack {
+                            Image(nsImage: model.icon(for: url)).resizable().frame(width: 20, height: 20)
+                            Text(verbatim: FileManager.default.displayName(atPath: url.path))
+                            Spacer()
+                            Button {
+                                model.unpin(url)
+                            } label: {
+                                Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help(Text("Remove from Dock"))
+                        }
+                    }
+                    HStack {
+                        Button("Add App…") { addApp() }
+                        Button("Take the Apps from the System Dock") { model.useSystemDockApps() }
+                    }
+                } header: {
+                    Text("Apps")
+                } footer: {
+                    Text("Drag an app from Finder onto the Dock to keep it there, or one icon onto another to reorder. Files dropped on an app open in it; dropped on the Trash, they go to the Trash. UniMacHub's tools are in the menu of its icon: click it with the right button.")
+                }
+            }
+
+            if tab == .apps {
+                Section {
+                    if model.profiles.isEmpty {
+                        Text("One Dock for everything. A profile keeps its own apps, folders and widgets, for work, study or games, and can switch itself on when one of its apps comes to the front.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(model.profiles) { profile in
+                        ProfileRow(profile: profile, model: model)
+                    }
+                    Button("New Profile from This Dock…") {
+                        newProfileName = ""
+                        namingProfile = true
+                    }
+                } header: {
+                    Text("Profiles")
+                } footer: {
+                    if !model.profiles.isEmpty {
+                        Text("Changes to the Dock go into the profile in use. Switch from here, from the island or with a right click on the Dock. When an app that switched it leaves the front, the Dock goes back to the profile chosen by hand.")
+                    }
+                }
+            }
+
+            if tab == .apps {
+                Section {
+                    ForEach(model.folders, id: \.self) { url in
+                        HStack {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 20, height: 20)
+                            Text(verbatim: FileManager.default.displayName(atPath: url.path))
+                            Spacer()
+                            Button {
+                                model.unpinFolder(url)
+                            } label: {
+                                Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help(Text("Remove from Dock"))
+                        }
+                    }
+                    Picker("Open as", selection: $model.folderStyle) {
+                        Text("Fan out").tag(DockModel.FolderStyle.fan)
+                        Text("Grid").tag(DockModel.FolderStyle.grid)
+                        Text("List").tag(DockModel.FolderStyle.list)
+                    }
+                    Button("Add Folder…") { addFolder() }
+                } header: {
+                    Text("Folders")
+                } footer: {
+                    Text("Folders sit by the Trash and open over the Dock, newest first. Drag a folder from Finder onto the Dock to add it; files dropped on a folder move into it.")
+                }
+            }
+
+            if tab == .widgets {
+                Section {
+                    ForEach(DockModel.Widget.allCases) { widget in
                         Toggle(isOn: Binding(
-                            get: { model.shows(onDisplay: id, isMain: index == 0) },
-                            set: { model.setShows($0, onDisplay: id) }
+                            get: { model.widgets.contains(widget) },
+                            set: { on in
+                                if on { model.widgets.insert(widget) } else { model.widgets.remove(widget) }
+                            }
                         )) {
-                            Text("On \(screen.localizedName)")
+                            Label { Text(widget.title) } icon: { Image(systemName: widget.symbol) }
                         }
                     }
-                }
-                Toggle("Dots under open apps", isOn: $model.showsIndicators)
-                Picker("Minimising windows", selection: Binding(get: { MinimizeEffect.current }, set: { MinimizeEffect.set($0) })) {
-                    Text("Genie").tag(MinimizeEffect.genie)
-                    Text("Scale").tag(MinimizeEffect.scale)
-                }
-            } header: {
-                Text("Look")
-            } footer: {
-                Text("When everything does not fit along the edge, the whole Dock shrinks to fit, as the system one does. Windows that fill the screen go under the Dock when it stays out, as there is no way for another app to keep them clear of it; hiding it automatically avoids that. The minimising effect is macOS's own and applies at once.")
-            }
-
-            Section {
-                Toggle("Apps that are open but not kept in the Dock", isOn: $model.showsRunningApps)
-                Toggle("Window previews while pointing at an app", isOn: $model.showsPreviews)
-                if model.showsPreviews, model.isEnabled, !model.screenRecordingGranted {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("Pictures of the windows need Screen Recording", systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                        Text("Without it the previews still list the windows by name. “Allow…” brings up macOS's request; turn UniMacHub on under Screen & System Audio Recording, then press “Restart the Dock”, as macOS lets a running app see the change only once it starts again. The pictures are taken only while the previews are on screen and never leave this Mac.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    if model.widgets.contains(.weather) {
                         HStack {
-                            Button("Allow…") {
-                                DistributedNotificationCenter.default().postNotificationName(
-                                    DockModel.askScreenRecordingNotification, object: nil, userInfo: nil, deliverImmediately: true
-                                )
+                            TextField("Town for the weather", text: $town)
+                                .onSubmit { saveTown() }
+                            if model.isLookingUpTown {
+                                ProgressView().controlSize(.small)
                             }
-                            Button("Open Screen Recording Settings") {
-                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                            Button("Restart the Dock") { DockService.kickstart(restart: true) }
+                            Button("Save") { saveTown() }
+                                .disabled(town.trimmingCharacters(in: .whitespaces).isEmpty || model.isLookingUpTown)
+                        }
+                        if model.weatherError {
+                            Text("Open-Meteo did not answer, or does not know this town.")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
                         }
                     }
-                }
-                Toggle("Minimised windows, before the Trash", isOn: $model.showsMinimized)
-                if model.showsMinimized || model.showsPreviews, model.isEnabled, !model.accessibilityGranted {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("The Dock needs Accessibility for minimised windows and window previews", systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                        Text("With the system Dock hidden, windows minimised with the yellow button go here instead. “Allow…” brings up macOS's request: open System Settings from it and turn UniMacHub on under Accessibility (macOS may list the Dock as UniMacHub Dock). The Dock only reads its windows' titles and places, and brings one forward when you click it.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Button("Allow…") {
-                                DistributedNotificationCenter.default().postNotificationName(
-                                    DockModel.askAccessibilityNotification, object: nil, userInfo: nil, deliverImmediately: true
-                                )
-                            }
-                            Button("Open Accessibility Settings") {
-                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                        }
-                    }
-                }
-                ForEach(model.pinned, id: \.self) { url in
-                    HStack {
-                        Image(nsImage: model.icon(for: url)).resizable().frame(width: 20, height: 20)
-                        Text(verbatim: FileManager.default.displayName(atPath: url.path))
-                        Spacer()
-                        Button {
-                            model.unpin(url)
-                        } label: {
-                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(Text("Remove from Dock"))
-                    }
-                }
-                HStack {
-                    Button("Add App…") { addApp() }
-                    Button("Take the Apps from the System Dock") { model.useSystemDockApps() }
-                }
-            } header: {
-                Text("Apps")
-            } footer: {
-                Text("Drag an app from Finder onto the Dock to keep it there, or one icon onto another to reorder. Files dropped on an app open in it; dropped on the Trash, they go to the Trash. UniMacHub's tools are in the menu of its icon: click it with the right button.")
-            }
-
-            Section {
-                if model.profiles.isEmpty {
-                    Text("One Dock for everything. A profile keeps its own apps, folders and widgets, for work, study or games, and can switch itself on when one of its apps comes to the front.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(model.profiles) { profile in
-                    ProfileRow(profile: profile, model: model)
-                }
-                Button("New Profile from This Dock…") {
-                    newProfileName = ""
-                    namingProfile = true
-                }
-            } header: {
-                Text("Profiles")
-            } footer: {
-                if !model.profiles.isEmpty {
-                    Text("Changes to the Dock go into the profile in use. Switch from here, from the island or with a right click on the Dock. When an app that switched it leaves the front, the Dock goes back to the profile chosen by hand.")
+                } header: {
+                    Text("Widgets")
+                } footer: {
+                    Text("Clock and system sit at the start of the Dock; music, calendar and weather at the end. While the music widget is on, Music and Spotify keep out of the Dock: a click on the cover opens the one playing. The weather comes from Open-Meteo, which needs no account: only the town, then its coordinates, are sent, at most every half hour. The calendar asks for access the first time, for the Dock's own part of UniMacHub.")
                 }
             }
 
-            Section {
-                ForEach(model.folders, id: \.self) { url in
-                    HStack {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 20, height: 20)
-                        Text(verbatim: FileManager.default.displayName(atPath: url.path))
-                        Spacer()
-                        Button {
-                            model.unpinFolder(url)
-                        } label: {
-                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(Text("Remove from Dock"))
-                    }
+            if tab == .widgets {
+                if model.widgets.contains(.pomodoro) {
+                    PomodoroFocusSection()
                 }
-                Picker("Open as", selection: $model.folderStyle) {
-                    Text("Fan out").tag(DockModel.FolderStyle.fan)
-                    Text("Grid").tag(DockModel.FolderStyle.grid)
-                    Text("List").tag(DockModel.FolderStyle.list)
-                }
-                Button("Add Folder…") { addFolder() }
-            } header: {
-                Text("Folders")
-            } footer: {
-                Text("Folders sit by the Trash and open over the Dock, newest first. Drag a folder from Finder onto the Dock to add it; files dropped on a folder move into it.")
-            }
-
-            Section {
-                ForEach(DockModel.Widget.allCases) { widget in
-                    Toggle(isOn: Binding(
-                        get: { model.widgets.contains(widget) },
-                        set: { on in
-                            if on { model.widgets.insert(widget) } else { model.widgets.remove(widget) }
-                        }
-                    )) {
-                        Label { Text(widget.title) } icon: { Image(systemName: widget.symbol) }
-                    }
-                }
-                if model.widgets.contains(.weather) {
-                    HStack {
-                        TextField("Town for the weather", text: $town)
-                            .onSubmit { saveTown() }
-                        if model.isLookingUpTown {
-                            ProgressView().controlSize(.small)
-                        }
-                        Button("Save") { saveTown() }
-                            .disabled(town.trimmingCharacters(in: .whitespaces).isEmpty || model.isLookingUpTown)
-                    }
-                    if model.weatherError {
-                        Text("Open-Meteo did not answer, or does not know this town.")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                }
-            } header: {
-                Text("Widgets")
-            } footer: {
-                Text("Clock and system sit at the start of the Dock; music, calendar and weather at the end. While the music widget is on, Music and Spotify keep out of the Dock: a click on the cover opens the one playing. The weather comes from Open-Meteo, which needs no account: only the town, then its coordinates, are sent, at most every half hour. The calendar asks for access the first time, for the Dock's own part of UniMacHub.")
-            }
-
-            if model.widgets.contains(.pomodoro) {
-                PomodoroFocusSection()
             }
         }
         .formStyle(.grouped)
+        .safeAreaInset(edge: .top) { PageTabs(selection: $tab, title: \.title) }
         .navigationTitle("Dock & Widgets")
         .onAppear { town = model.weatherTown }
         .onChange(of: model.weatherTown) { _, name in town = name }

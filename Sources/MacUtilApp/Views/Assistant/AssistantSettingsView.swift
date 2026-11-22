@@ -15,404 +15,436 @@ struct AssistantSettingsView: View {
     @State private var testing = false
     @State private var testResult: String?
     @State private var testFailed = false
+    /// One part of the page at a time: laid out all at once, the whole page took a second to open.
+    @AppStorage("assistantSettingsTab") private var tab = Tab.general
+
+    enum Tab: String, CaseIterable, Identifiable {
+        case general, model, voice, memory
+        var id: Self { self }
+        var title: LocalizedStringKey {
+            switch self {
+            case .general: "General"
+            case .model: "Model and Actions"
+            case .voice: "Voice and Hearing"
+            case .memory: "Memory and Log"
+            }
+        }
+    }
 
     var body: some View {
         Form {
-            Section {
-                Toggle("Assistant", isOn: $model.isEnabled)
-                Toggle("A shortcut that listens at once, from anywhere", isOn: $model.usesHotKey)
-                    .disabled(!model.isEnabled)
-                Toggle("Keep the conversation going: after answering, it listens again", isOn: $model.keepsListening)
-                Toggle("Keep the island and the assistant running when UniMacHub is closed", isOn: $keepsRunning)
-                Toggle("Wake it with a word, without pressing anything", isOn: $model.usesWakeWord)
-                if model.usesWakeWord {
-                    TextField("Wake word", text: $model.wakeWord)
-                    Text(model.wakeProblem ?? String(localized: "While on, the microphone listens for this word only, on this Mac: nothing leaves it, and macOS shows its orange microphone dot. Say the word and the request in one go (“\(model.wakeWord), open YouTube”), or the word, then the request. A short, unusual word works best."))
-                        .font(.caption)
-                        .foregroundStyle(model.wakeProblem == nil ? Color.secondary : .orange)
-                }
-                if model.usesHotKey {
-                    LabeledContent("Shortcut") {
-                        ShortcutRecorder(shortcut: $model.shortcut, fallback: .assistant, model: model)
+            if tab == .general {
+                Section {
+                    Toggle("Assistant", isOn: $model.isEnabled)
+                    Toggle("A shortcut that listens at once, from anywhere", isOn: $model.usesHotKey)
+                        .disabled(!model.isEnabled)
+                    Toggle("Keep the conversation going: after answering, it listens again", isOn: $model.keepsListening)
+                    Toggle("Keep the island and the assistant running when UniMacHub is closed", isOn: $keepsRunning)
+                    Toggle("Wake it with a word, without pressing anything", isOn: $model.usesWakeWord)
+                    if model.usesWakeWord {
+                        TextField("Wake word", text: $model.wakeWord)
+                        Text(model.wakeProblem ?? String(localized: "While on, the microphone listens for this word only, on this Mac: nothing leaves it, and macOS shows its orange microphone dot. Say the word and the request in one go (“\(model.wakeWord), open YouTube”), or the word, then the request. A short, unusual word works best."))
+                            .font(.caption)
+                            .foregroundStyle(model.wakeProblem == nil ? Color.secondary : .orange)
                     }
+                    if model.usesHotKey {
+                        LabeledContent("Shortcut") {
+                            ShortcutRecorder(shortcut: $model.shortcut, fallback: .assistant, model: model)
+                        }
+                    }
+                } footer: {
+                    Text("Press \(model.hotKeyLabel) and speak: it listens at once, and acts when you pause. Or hold it while you speak and let go to send. Press it again to stop listening, or while it talks to interrupt. It also lives in the island's waveform tab, to type.")
                 }
-            } footer: {
-                Text("Press \(model.hotKeyLabel) and speak: it listens at once, and acts when you pause. Or hold it while you speak and let go to send. Press it again to stop listening, or while it talks to interrupt. It also lives in the island's waveform tab, to type.")
             }
 
-            Section {
-                Picker("Provider", selection: Binding(
-                    get: { model.provider.kind },
-                    set: { kind in
-                        // Keeps the model when the new provider knows it, as opus, sonnet and haiku.
-                        let model = kind.models.contains(self.model.provider.model) ? self.model.provider.model : nil
-                        self.model.provider = ProviderSettings(kind: kind, model: model)
-                        loadSecret()
-                    }
-                )) {
-                    Text("Claude Code on this Mac").tag(ProviderKind.claudeCode)
-                    Text("claude-gateway").tag(ProviderKind.gateway)
-                    Text("Anthropic API").tag(ProviderKind.anthropic)
-                    Text("OpenAI-compatible (OpenAI, OpenRouter)").tag(ProviderKind.openAI)
-                    Text("On this Mac (Ollama, LM Studio)").tag(ProviderKind.local)
-                }
-                if model.provider.kind == .claudeCode {
-                    LabeledContent("Claude Code") {
-                        if FileManager.default.isExecutableFile(atPath: model.provider.url) {
-                            Text(verbatim: (model.provider.url as NSString).abbreviatingWithTildeInPath).foregroundStyle(.secondary)
-                        } else {
-                            Text("Not found").foregroundStyle(.orange)
-                        }
-                    }
-                } else {
-                    TextField("Address", text: $model.provider.url)
-                }
-                HStack {
-                    TextField("Model", text: $model.provider.model)
-                    if !model.provider.kind.models.isEmpty {
-                        Menu {
-                            ForEach(model.provider.kind.models, id: \.self) { name in
-                                Button(name) { model.provider.model = name }
-                            }
-                        } label: {
-                            Image(systemName: "chevron.down.circle")
-                        }
-                        .menuStyle(.borderlessButton)
-                        .fixedSize()
-                    }
-                }
-                if model.provider.kind.needsSecret {
-                    HStack {
-                        SecureField(model.provider.kind == .gateway ? "Token" : "API key", text: $secret)
-                        Button(hasSecret ? "Replace" : "Save") {
-                            AssistantSecrets.save(secret.trimmingCharacters(in: .whitespacesAndNewlines), for: model.provider.kind)
-                            secret = ""
+            if tab == .model {
+                Section {
+                    Picker("Provider", selection: Binding(
+                        get: { model.provider.kind },
+                        set: { kind in
+                            // Keeps the model when the new provider knows it, as opus, sonnet and haiku.
+                            let model = kind.models.contains(self.model.provider.model) ? self.model.provider.model : nil
+                            self.model.provider = ProviderSettings(kind: kind, model: model)
                             loadSecret()
                         }
-                        .disabled(secret.trimmingCharacters(in: .whitespaces).isEmpty)
-                        if hasSecret {
-                            Button("Remove", role: .destructive) {
-                                AssistantSecrets.delete(model.provider.kind)
-                                loadSecret()
-                            }
-                        }
+                    )) {
+                        Text("Claude Code on this Mac").tag(ProviderKind.claudeCode)
+                        Text("claude-gateway").tag(ProviderKind.gateway)
+                        Text("Anthropic API").tag(ProviderKind.anthropic)
+                        Text("OpenAI-compatible (OpenAI, OpenRouter)").tag(ProviderKind.openAI)
+                        Text("On this Mac (Ollama, LM Studio)").tag(ProviderKind.local)
                     }
-                    if hasSecret {
-                        Label("Kept in your Keychain", systemImage: "key.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                HStack {
-                    Button("Test Connection") { test() }
-                        .disabled(testing)
-                    if testing { ProgressView().controlSize(.small) }
-                    if let testResult {
-                        Text(verbatim: testResult)
-                            .font(.caption)
-                            .foregroundStyle(testFailed ? Color.orange : .green)
-                            .lineLimit(2)
-                    }
-                }
-            } header: {
-                Text("Who answers")
-            } footer: {
-                Text(providerNote)
-            }
-
-            Section {
-                Picker("Language", selection: $model.language) {
-                    Text("Українська").tag("uk")
-                    Text("English").tag("en")
-                }
-                Toggle("Speak the answers", isOn: $model.speaksAnswers)
-                if model.speaksAnswers {
-                    Picker("Voices", selection: $model.voiceEngine) {
-                        Text("macOS").tag(VoiceEngine.system)
-                        Text("Downloaded").tag(VoiceEngine.local)
-                    }
-                    .pickerStyle(.segmented)
-                    if model.voiceEngine == .system {
-                        Picker("Voice", selection: $model.voiceID) {
-                            Text("Automatic").tag("")
-                            ForEach(SpeechOutput.voices(for: model.language), id: \.identifier) { voice in
-                                Text(verbatim: voice.name + (voice.quality == .enhanced || voice.quality == .premium ? " ★" : "")).tag(voice.identifier)
-                            }
-                        }
-                        HStack {
-                            Text("macOS has more voices to download, the better ones marked ★.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Button("Get More Voices…") {
-                                let pane = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension?SpokenContent")
-                                if let pane { NSWorkspace.shared.open(pane) }
+                    if model.provider.kind == .claudeCode {
+                        LabeledContent("Claude Code") {
+                            if FileManager.default.isExecutableFile(atPath: model.provider.url) {
+                                Text(verbatim: (model.provider.url as NSString).abbreviatingWithTildeInPath).foregroundStyle(.secondary)
+                            } else {
+                                Text("Not found").foregroundStyle(.orange)
                             }
                         }
                     } else {
-                        LocalVoicesList(voices: LocalVoices.shared, chosen: $model.localVoice, language: model.language, rate: model.rate, preview: { model.preview() })
+                        TextField("Address", text: $model.provider.url)
                     }
-                    LabeledContent("Speed") {
-                        Slider(value: $model.rate, in: 0.6 ... 1.6)
-                    }
-                    LabeledContent("Pitch") {
-                        HStack {
-                            Slider(value: $model.pitch, in: -4 ... 8, step: 0.5)
-                            Text(verbatim: model.pitch == 0 ? "0" : String(format: "%+.1f", model.pitch))
-                                .monospacedDigit()
-                                .frame(width: 36, alignment: .trailing)
+                    HStack {
+                        TextField("Model", text: $model.provider.model)
+                        if !model.provider.kind.models.isEmpty {
+                            Menu {
+                                ForEach(model.provider.kind.models, id: \.self) { name in
+                                    Button(name) { model.provider.model = name }
+                                }
+                            } label: {
+                                Image(systemName: "chevron.down.circle")
+                            }
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
                         }
                     }
-                    Text("A few steps up make a voice lighter and brighter, the anime way; together with the Anime girl character, it talks like one too.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Button("Listen") { model.preview() }
-                }
-                Picker("Character", selection: $model.persona) {
-                    Text("Plain").tag(Persona.plain)
-                    Text("Strict butler").tag(Persona.butler)
-                    Text("Comedian").tag(Persona.comedian)
-                    Text("Anime girl").tag(Persona.anime)
-                    Text("Gangster").tag(Persona.gangster)
-                    Text("Commander").tag(Persona.commander)
-                    Text("My own").tag(Persona.custom)
-                }
-                if model.persona == .custom {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("How it should talk")
-                        TextField("How it should talk", text: $model.customManner,
-                                  prompt: Text("For example: calm and brief, calls me boss, jokes now and then"), axis: .vertical)
-                            .labelsHidden()
-                            .textFieldStyle(.roundedBorder)
-                            .lineLimit(3 ... 6)
+                    if model.provider.kind.needsSecret {
+                        HStack {
+                            SecureField(model.provider.kind == .gateway ? "Token" : "API key", text: $secret)
+                            Button(hasSecret ? "Replace" : "Save") {
+                                AssistantSecrets.save(secret.trimmingCharacters(in: .whitespacesAndNewlines), for: model.provider.kind)
+                                secret = ""
+                                loadSecret()
+                            }
+                            .disabled(secret.trimmingCharacters(in: .whitespaces).isEmpty)
+                            if hasSecret {
+                                Button("Remove", role: .destructive) {
+                                    AssistantSecrets.delete(model.provider.kind)
+                                    loadSecret()
+                                }
+                            }
+                        }
+                        if hasSecret {
+                            Label("Kept in your Keychain", systemImage: "key.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    HStack {
+                        Button("Test Connection") { test() }
+                            .disabled(testing)
+                        if testing { ProgressView().controlSize(.small) }
+                        if let testResult {
+                            Text(verbatim: testResult)
+                                .font(.caption)
+                                .foregroundStyle(testFailed ? Color.orange : .green)
+                                .lineLimit(2)
+                        }
+                    }
+                } header: {
+                    Text("Who answers")
+                } footer: {
+                    Text(providerNote)
                 }
-                WhisperRow(model: model)
-                Toggle("Let Apple's servers hear me when this Mac cannot recognise the language itself", isOn: $model.allowsServerRecognition)
-                Text(SpeechInput.worksOnDevice(model.language)
-                     ? "This Mac recognises this language by itself: nothing you say leaves it."
-                     : "This Mac cannot recognise this language by itself. Without Apple's servers, type instead of speaking.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Voice and character")
-            } footer: {
-                Text("The character changes only how it talks, never what it may do.")
             }
 
-            Section {
-                Picker("Mode", selection: $model.mode) {
-                    Text("Basic").tag(AssistantMode.basic)
-                    Text("Custom").tag(AssistantMode.custom)
-                    Text("Fully free").tag(AssistantMode.free)
+            if tab == .voice {
+                Section {
+                    Picker("Language", selection: $model.language) {
+                        Text("Українська").tag("uk")
+                        Text("English").tag("en")
+                    }
+                    Toggle("Speak the answers", isOn: $model.speaksAnswers)
+                    if model.speaksAnswers {
+                        Picker("Voices", selection: $model.voiceEngine) {
+                            Text("macOS").tag(VoiceEngine.system)
+                            Text("Downloaded").tag(VoiceEngine.local)
+                        }
+                        .pickerStyle(.segmented)
+                        if model.voiceEngine == .system {
+                            Picker("Voice", selection: $model.voiceID) {
+                                Text("Automatic").tag("")
+                                ForEach(SpeechOutput.voices(for: model.language), id: \.identifier) { voice in
+                                    Text(verbatim: voice.name + (voice.quality == .enhanced || voice.quality == .premium ? " ★" : "")).tag(voice.identifier)
+                                }
+                            }
+                            HStack {
+                                Text("macOS has more voices to download, the better ones marked ★.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Get More Voices…") {
+                                    let pane = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension?SpokenContent")
+                                    if let pane { NSWorkspace.shared.open(pane) }
+                                }
+                            }
+                        } else {
+                            LocalVoicesList(voices: LocalVoices.shared, chosen: $model.localVoice, language: model.language, rate: model.rate, preview: { model.preview() })
+                        }
+                        LabeledContent("Speed") {
+                            Slider(value: $model.rate, in: 0.6 ... 1.6)
+                        }
+                        LabeledContent("Pitch") {
+                            HStack {
+                                Slider(value: $model.pitch, in: -4 ... 8, step: 0.5)
+                                Text(verbatim: model.pitch == 0 ? "0" : String(format: "%+.1f", model.pitch))
+                                    .monospacedDigit()
+                                    .frame(width: 36, alignment: .trailing)
+                            }
+                        }
+                        Text("A few steps up make a voice lighter and brighter, the anime way; together with the Anime girl character, it talks like one too.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Listen") { model.preview() }
+                    }
+                    Picker("Character", selection: $model.persona) {
+                        Text("Plain").tag(Persona.plain)
+                        Text("Strict butler").tag(Persona.butler)
+                        Text("Comedian").tag(Persona.comedian)
+                        Text("Anime girl").tag(Persona.anime)
+                        Text("Gangster").tag(Persona.gangster)
+                        Text("Commander").tag(Persona.commander)
+                        Text("My own").tag(Persona.custom)
+                    }
+                    if model.persona == .custom {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("How it should talk")
+                            TextField("How it should talk", text: $model.customManner,
+                                      prompt: Text("For example: calm and brief, calls me boss, jokes now and then"), axis: .vertical)
+                                .labelsHidden()
+                                .textFieldStyle(.roundedBorder)
+                                .lineLimit(3 ... 6)
+                        }
+                    }
+                    WhisperRow(model: model)
+                    Toggle("Let Apple's servers hear me when this Mac cannot recognise the language itself", isOn: $model.allowsServerRecognition)
+                    Text(SpeechInput.worksOnDevice(model.language)
+                         ? "This Mac recognises this language by itself: nothing you say leaves it."
+                         : "This Mac cannot recognise this language by itself. Without Apple's servers, type instead of speaking.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Voice and character")
+                } footer: {
+                    Text("The character changes only how it talks, never what it may do.")
                 }
-                .pickerStyle(.segmented)
-                Text(modeNote)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if model.mode == .custom {
+            }
+
+            if tab == .model {
+                Section {
+                    Picker("Mode", selection: $model.mode) {
+                        Text("Basic").tag(AssistantMode.basic)
+                        Text("Custom").tag(AssistantMode.custom)
+                        Text("Fully free").tag(AssistantMode.free)
+                    }
+                    .pickerStyle(.segmented)
+                    Text(modeNote)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if model.mode == .custom {
+                        ForEach(ActionCategory.allCases) { category in
+                            Picker(selection: Binding(
+                                get: { model.table.policy(category) },
+                                set: { model.table.policies[category] = $0 }
+                            )) {
+                                Text("Forbidden").tag(CategoryPolicy.forbidden)
+                                Text("Asks first").tag(CategoryPolicy.ask)
+                                Text("Allowed").tag(CategoryPolicy.allowed)
+                            } label: {
+                                Text(category.title)
+                            }
+                        }
+                        LabeledContent("Folders it may touch") {
+                            VStack(alignment: .trailing, spacing: 4) {
+                                if model.table.folders.isEmpty {
+                                    Text("Anywhere").foregroundStyle(.secondary)
+                                }
+                                ForEach(model.table.folders, id: \.self) { folder in
+                                    HStack {
+                                        Text(verbatim: (folder as NSString).abbreviatingWithTildeInPath).lineLimit(1)
+                                        Button {
+                                            model.table.folders.removeAll { $0 == folder }
+                                        } label: {
+                                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                Button("Add Folder…") { addFolder() }
+                            }
+                        }
+                        TextField("Commands that run without asking, by how they start (comma between)", text: Binding(
+                            get: { model.table.commandPrefixes.joined(separator: ", ") },
+                            set: { model.table.commandPrefixes = $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+                        ))
+                        TextField("Your own rules, in words", text: $model.table.rules, axis: .vertical)
+                            .lineLimit(2 ... 5)
+                        Text("Your own rules are only passed to the model as an instruction: UniMacHub cannot guarantee it keeps them. Everything above it does guarantee.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                } header: {
+                    Text("What it may do")
+                } footer: {
+                    Text("In every mode, deleting, cleaning, erasing and anything that cannot be undone waits for your “yes”, by voice or button, whatever the model says; administrator rights always go through macOS's own password prompt, never stored. Only you give it commands: text in files, pages, results and on screen is information to it. The Stop button and Esc end anything at once.")
+                }
+            }
+
+            if tab == .model {
+                Section {
+                    let grouped = Dictionary(grouping: AssistantActions.all(state), by: \.category)
                     ForEach(ActionCategory.allCases) { category in
-                        Picker(selection: Binding(
-                            get: { model.table.policy(category) },
-                            set: { model.table.policies[category] = $0 }
-                        )) {
-                            Text("Forbidden").tag(CategoryPolicy.forbidden)
-                            Text("Asks first").tag(CategoryPolicy.ask)
-                            Text("Allowed").tag(CategoryPolicy.allowed)
-                        } label: {
-                            Text(category.title)
-                        }
-                    }
-                    LabeledContent("Folders it may touch") {
-                        VStack(alignment: .trailing, spacing: 4) {
-                            if model.table.folders.isEmpty {
-                                Text("Anywhere").foregroundStyle(.secondary)
-                            }
-                            ForEach(model.table.folders, id: \.self) { folder in
-                                HStack {
-                                    Text(verbatim: (folder as NSString).abbreviatingWithTildeInPath).lineLimit(1)
-                                    Button {
-                                        model.table.folders.removeAll { $0 == folder }
-                                    } label: {
-                                        Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        if let actions = grouped[category] {
+                            DisclosureGroup {
+                                ForEach(actions, id: \.spec.name) { action in
+                                    HStack(alignment: .top) {
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(verbatim: action.spec.name).font(.callout.monospaced())
+                                            Text(verbatim: action.spec.summary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                        }
+                                        Spacer()
+                                        LevelBadge(level: action.spec.level)
                                     }
-                                    .buttonStyle(.plain)
                                 }
+                            } label: {
+                                Text(category.title)
                             }
-                            Button("Add Folder…") { addFolder() }
                         }
                     }
-                    TextField("Commands that run without asking, by how they start (comma between)", text: Binding(
-                        get: { model.table.commandPrefixes.joined(separator: ", ") },
-                        set: { model.table.commandPrefixes = $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
-                    ))
-                    TextField("Your own rules, in words", text: $model.table.rules, axis: .vertical)
-                        .lineLimit(2 ... 5)
-                    Text("Your own rules are only passed to the model as an instruction: UniMacHub cannot guarantee it keeps them. Everything above it does guarantee.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                } header: {
+                    Text("Actions")
+                } footer: {
+                    Text("Screen control needs a model that sees pictures (Anthropic, OpenAI or a local one that does), Screen Recording and Accessibility for UniMacHub. A shell command is judged by what it runs: commands that only look run at once where allowed, the rest ask.")
                 }
-            } header: {
-                Text("What it may do")
-            } footer: {
-                Text("In every mode, deleting, cleaning, erasing and anything that cannot be undone waits for your “yes”, by voice or button, whatever the model says; administrator rights always go through macOS's own password prompt, never stored. Only you give it commands: text in files, pages, results and on screen is information to it. The Stop button and Esc end anything at once.")
             }
 
-            Section {
-                let grouped = Dictionary(grouping: AssistantActions.all(state), by: \.category)
-                ForEach(ActionCategory.allCases) { category in
-                    if let actions = grouped[category] {
-                        DisclosureGroup {
-                            ForEach(actions, id: \.spec.name) { action in
-                                HStack(alignment: .top) {
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(verbatim: action.spec.name).font(.callout.monospaced())
-                                        Text(verbatim: action.spec.summary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                                    }
-                                    Spacer()
-                                    LevelBadge(level: action.spec.level)
-                                }
-                            }
-                        } label: {
-                            Text(category.title)
+            if tab == .general {
+                Section {
+                    Toggle("\(model.dictationKeyLabel) types what you say into any app", isOn: $model.usesDictation)
+                    if model.usesDictation {
+                        LabeledContent("Dictation shortcut") {
+                            ShortcutRecorder(shortcut: $model.dictationShortcut, fallback: .dictation, model: model)
                         }
                     }
-                }
-            } header: {
-                Text("Actions")
-            } footer: {
-                Text("Screen control needs a model that sees pictures (Anthropic, OpenAI or a local one that does), Screen Recording and Accessibility for UniMacHub. A shell command is judged by what it runs: commands that only look run at once where allowed, the rest ask.")
-            }
-
-            Section {
-                Toggle("\(model.dictationKeyLabel) types what you say into any app", isOn: $model.usesDictation)
-                if model.usesDictation {
-                    LabeledContent("Dictation shortcut") {
-                        ShortcutRecorder(shortcut: $model.dictationShortcut, fallback: .dictation, model: model)
-                    }
-                }
-                Text("Press it, speak, pause or press it again: the text goes where the cursor is, without “um” and “ну”. Say “скасуй останнє речення” or “delete the last sentence” to take the last one back. The clipboard is put back as it was.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Your spellings")
-                    Text("For dictation and the assistant alike: when it hears the word on the left, it writes the one on the right, such as телеграм → Telegram.")
+                    Text("Press it, speak, pause or press it again: the text goes where the cursor is, without “um” and “ну”. Say “скасуй останнє речення” or “delete the last sentence” to take the last one back. The clipboard is put back as it was.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    ForEach(model.dictionary.keys.sorted(), id: \.self) { heard in
-                        HStack {
-                            Text(verbatim: heard)
-                            Image(systemName: "arrow.right").foregroundStyle(.secondary).font(.caption)
-                            Text(verbatim: model.dictionary[heard] ?? "").fontWeight(.medium)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Your spellings")
+                        Text("For dictation and the assistant alike: when it hears the word on the left, it writes the one on the right, such as телеграм → Telegram.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ForEach(model.dictionary.keys.sorted(), id: \.self) { heard in
+                            HStack {
+                                Text(verbatim: heard)
+                                Image(systemName: "arrow.right").foregroundStyle(.secondary).font(.caption)
+                                Text(verbatim: model.dictionary[heard] ?? "").fontWeight(.medium)
+                                Spacer()
+                                Button {
+                                    model.dictionary[heard] = nil
+                                } label: {
+                                    Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        HStack(spacing: 8) {
+                            TextField("Heard", text: $heard, prompt: Text("Heard"))
+                                .labelsHidden()
+                                .textFieldStyle(.roundedBorder)
+                            Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                            TextField("Written", text: $written, prompt: Text("Written"))
+                                .labelsHidden()
+                                .textFieldStyle(.roundedBorder)
+                            Button("Add") {
+                                model.dictionary[heard.trimmingCharacters(in: .whitespaces)] = written.trimmingCharacters(in: .whitespaces)
+                                heard = ""
+                                written = ""
+                            }
+                            .disabled(heard.trimmingCharacters(in: .whitespaces).isEmpty || written.isEmpty)
+                        }
+                    }
+                    if !model.dictated.isEmpty {
+                        DisclosureGroup("Said lately") {
+                            ForEach(Array(model.dictated.enumerated()), id: \.offset) { _, text in
+                                Text(verbatim: text).font(.caption).textSelection(.enabled)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Dictation")
+                }
+            }
+
+            if tab == .memory {
+                Section {
+                    if model.notes.isEmpty {
+                        Text("Nothing yet. Say “remember…” or “remind me at 18:00…”.").foregroundStyle(.secondary)
+                    }
+                    ForEach(model.notes) { note in
+                        HStack(alignment: .top) {
+                            Image(systemName: note.due == nil ? "note.text" : "bell")
+                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(verbatim: note.text)
+                                Text(note.due.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? note.saved.formatted(date: .abbreviated, time: .omitted))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Spacer()
                             Button {
-                                model.dictionary[heard] = nil
+                                model.forget(note.id)
                             } label: {
                                 Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    HStack(spacing: 8) {
-                        TextField("Heard", text: $heard, prompt: Text("Heard"))
-                            .labelsHidden()
-                            .textFieldStyle(.roundedBorder)
-                        Image(systemName: "arrow.right").foregroundStyle(.secondary)
-                        TextField("Written", text: $written, prompt: Text("Written"))
-                            .labelsHidden()
-                            .textFieldStyle(.roundedBorder)
-                        Button("Add") {
-                            model.dictionary[heard.trimmingCharacters(in: .whitespaces)] = written.trimmingCharacters(in: .whitespaces)
-                            heard = ""
-                            written = ""
-                        }
-                        .disabled(heard.trimmingCharacters(in: .whitespaces).isEmpty || written.isEmpty)
-                    }
-                }
-                if !model.dictated.isEmpty {
-                    DisclosureGroup("Said lately") {
-                        ForEach(Array(model.dictated.enumerated()), id: \.offset) { _, text in
-                            Text(verbatim: text).font(.caption).textSelection(.enabled)
+                    HStack {
+                        Button("New Conversation") { model.clearConversation() }
+                        if !model.notes.isEmpty {
+                            Button("Forget Everything", role: .destructive) { model.forgetEverything() }
                         }
                     }
+                } header: {
+                    Text("Memory")
+                } footer: {
+                    Text("One conversation carries on, across launches too, until it fills the model's context; then it starts afresh on its own. What you ask it to remember or to remind you of is kept here apart from the conversation, and it always knows it. Reminders come as a notification and are said aloud if UniMacHub is open.")
                 }
-            } header: {
-                Text("Dictation")
             }
 
-            Section {
-                if model.notes.isEmpty {
-                    Text("Nothing yet. Say “remember…” or “remind me at 18:00…”.").foregroundStyle(.secondary)
-                }
-                ForEach(model.notes) { note in
-                    HStack(alignment: .top) {
-                        Image(systemName: note.due == nil ? "note.text" : "bell")
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(verbatim: note.text)
-                            Text(note.due.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? note.saved.formatted(date: .abbreviated, time: .omitted))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button {
-                            model.forget(note.id)
-                        } label: {
-                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
+            if tab == .memory {
+                Section {
+                    if model.log.isEmpty {
+                        Text("Nothing yet.").foregroundStyle(.secondary)
                     }
-                }
-                HStack {
-                    Button("New Conversation") { model.clearConversation() }
-                    if !model.notes.isEmpty {
-                        Button("Forget Everything", role: .destructive) { model.forgetEverything() }
-                    }
-                }
-            } header: {
-                Text("Memory")
-            } footer: {
-                Text("One conversation carries on, across launches too, until it fills the model's context; then it starts afresh on its own. What you ask it to remember or to remind you of is kept here apart from the conversation, and it always knows it. Reminders come as a notification and are said aloud if UniMacHub is open.")
-            }
-
-            Section {
-                if model.log.isEmpty {
-                    Text("Nothing yet.").foregroundStyle(.secondary)
-                }
-                ForEach(model.log.prefix(40)) { entry in
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            HStack(spacing: 6) {
-                                Text(verbatim: entry.action).font(.callout.monospaced())
-                                Text(entry.date, style: .relative).font(.caption).foregroundStyle(.secondary)
+                    ForEach(model.log.prefix(40)) { entry in
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                HStack(spacing: 6) {
+                                    Text(verbatim: entry.action).font(.callout.monospaced())
+                                    Text(entry.date, style: .relative).font(.caption).foregroundStyle(.secondary)
+                                }
+                                if entry.arguments.count > 2 {
+                                    Text(verbatim: entry.arguments).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
+                                }
+                                Text(verbatim: entry.result).font(.caption).foregroundStyle(entry.failed ? Color.orange : .secondary).lineLimit(3)
                             }
-                            if entry.arguments.count > 2 {
-                                Text(verbatim: entry.arguments).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2)
+                            Spacer()
+                            if model.undoable.contains(entry.id) {
+                                Button("Undo") { model.undo(entry) }
                             }
-                            Text(verbatim: entry.result).font(.caption).foregroundStyle(entry.failed ? Color.orange : .secondary).lineLimit(3)
-                        }
-                        Spacer()
-                        if model.undoable.contains(entry.id) {
-                            Button("Undo") { model.undo(entry) }
                         }
                     }
-                }
-                HStack {
-                    Button("Show the Detailed Logs") {
-                        let files = [AssistantModel.traceFile, SpeechInput.log].filter { FileManager.default.fileExists(atPath: $0.path) }
-                        NSWorkspace.shared.activateFileViewerSelecting(files)
+                    HStack {
+                        Button("Show the Detailed Logs") {
+                            let files = [AssistantModel.traceFile, SpeechInput.log].filter { FileManager.default.fileExists(atPath: $0.path) }
+                            NSWorkspace.shared.activateFileViewerSelecting(files)
+                        }
+                        if !model.log.isEmpty {
+                            Button("Clear the Log", role: .destructive) { model.clearLog() }
+                        }
                     }
-                    if !model.log.isEmpty {
-                        Button("Clear the Log", role: .destructive) { model.clearLog() }
-                    }
+                } header: {
+                    Text("Log")
+                } footer: {
+                    Text("Every action it runs, with what came of it. Undo works while UniMacHub stays open. The detailed logs record every step with its time: what was heard, what the model answered and how long it took, each action and its result. They stay on this Mac; send them yourself when something goes wrong.")
                 }
-            } header: {
-                Text("Log")
-            } footer: {
-                Text("Every action it runs, with what came of it. Undo works while UniMacHub stays open. The detailed logs record every step with its time: what was heard, what the model answered and how long it took, each action and its result. They stay on this Mac; send them yourself when something goes wrong.")
             }
         }
         .formStyle(.grouped)
+        .safeAreaInset(edge: .top) { PageTabs(selection: $tab, title: \.title) }
         .navigationTitle("Assistant")
         .onAppear(perform: loadSecret)
     }

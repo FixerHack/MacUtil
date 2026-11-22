@@ -208,6 +208,10 @@ final class LocalVoices {
     func refresh() {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: Self.folder.path)) ?? []
         installed = Set(names.filter { $0 != Self.engine.name && !$0.hasPrefix(".") })
+        Task.detached(priority: .utility) {
+            let bytes = LocalVoices.size(of: LocalVoices.folder)
+            await MainActor.run { LocalVoices.shared.usedBytes = bytes }
+        }
     }
 
     /// The package of the voice on disk, the full one when both are.
@@ -390,8 +394,13 @@ final class LocalVoices {
         return Self.catalogue.filter { $0.id != voice.id && $0.light == voice.light }.count
     }
 
-    var usedBytes: Int64 {
-        let walker = FileManager.default.enumerator(at: Self.folder, includingPropertiesForKeys: [.fileSizeKey])
+    /// What the voices take on disk, counted away from the screen: the folder holds tens of
+    /// thousands of files once the Ukrainian voice's tools are in, and counting them on every
+    /// redraw froze the Assistant's page.
+    private(set) var usedBytes: Int64 = 0
+
+    nonisolated static func size(of folder: URL) -> Int64 {
+        let walker = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.fileSizeKey])
         var total: Int64 = 0
         while let url = walker?.nextObject() as? URL {
             total += Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)

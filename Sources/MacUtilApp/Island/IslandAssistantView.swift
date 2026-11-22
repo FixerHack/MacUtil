@@ -184,7 +184,7 @@ private struct VoiceWave: View {
     let phase: AssistantModel.Phase
 
     var body: some View {
-        TimelineView(.animation) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
             HStack(alignment: .center, spacing: 4) {
                 ForEach(0 ..< 11, id: \.self) { index in

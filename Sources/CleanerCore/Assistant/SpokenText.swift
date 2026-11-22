@@ -3,7 +3,7 @@ import Foundation
 /// What macOS's recogniser hears, put together into what the person actually said.
 public enum Transcript {
     /// The words of a text, lower case, without punctuation, for comparing.
-    static func words(_ text: String) -> [String] {
+    public static func words(_ text: String) -> [String] {
         text.lowercased()
             .components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "'’-")).inverted)
             .filter { !$0.isEmpty }

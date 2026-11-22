@@ -652,7 +652,8 @@ struct IslandGlow: View {
 
     var body: some View {
         let edge = IslandEdge(shoulder: shape.shoulder, bottom: shape.bottom)
-        TimelineView(.animation) { context in
+        // Thirty frames a second, drawn by the graphics chip, as the top edge's glow is.
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 4) / 4 * 360
             let gradient = AngularGradient(colors: Self.colours, center: .center, angle: .degrees(turn))
             ZStack {
@@ -672,6 +673,7 @@ struct IslandGlow: View {
                     Color.black
                 }
             }
+            .drawingGroup()
         }
         .allowsHitTesting(false)
         .animation(.easeOut(duration: 0.12), value: level)

@@ -353,7 +353,9 @@ struct TopEdgeGlow: View {
 
     var body: some View {
         let level = model.assistant.map { $0.phase == .listening || $0.isDictating ? $0.level : 0.35 } ?? 0.35
-        TimelineView(.animation) { context in
+        // Thirty frames a second, drawn by the graphics chip: drawn by the processor at the
+        // screen's full rate, the turning colours took half of it.
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 4) / 4 * 360
             Capsule()
                 .fill(AngularGradient(colors: Self.colours, center: .center, angle: .degrees(turn)))
@@ -362,6 +364,7 @@ struct TopEdgeGlow: View {
                 .blur(radius: 10 + 6 * level)
                 .opacity(0.9)
                 .frame(maxHeight: .infinity, alignment: .top)
+                .drawingGroup()
         }
         .animation(.easeOut(duration: 0.12), value: level)
         .allowsHitTesting(false)

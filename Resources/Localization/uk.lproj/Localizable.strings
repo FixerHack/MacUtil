@@ -1949,3 +1949,11 @@
 "Whisper: hears names and mixed languages" = "Whisper: чує назви й змішані мови";
 "macOS switches Do Not Disturb for apps only through Shortcuts. UniMacHub makes the two shortcuts it needs; Shortcuts asks whether to add each: click Add Shortcut twice." = "macOS дозволяє програмам вмикати «Не турбувати» лише через «Швидкі команди». UniMacHub сам створить дві потрібні команди, а «Швидкі команди» спитають, чи додати кожну: двічі натисніть «Додати швидку команду».";
 "macOS's recogniser leaves out words it does not know, such as Telegram or FACEIT. Whisper, on this Mac and without any account, listens to each request once more and catches them; it adds a second or two." = "Розпізнавання macOS пропускає незнайомі слова, як-от Telegram чи FACEIT. Whisper на цьому Mac, без жодного акаунта, ще раз прослуховує кожен запит і чує їх; це додає секунду-дві.";
+
+/* Page tabs and the companions section */
+"Apps, Profiles and Folders" = "Програми, профілі й теки";
+"Companions" = "Супутники";
+"Memory and Log" = "Пам'ять і журнал";
+"Model and Actions" = "Модель і дії";
+"The island, the Dock and the assistant: UniMacHub outside its window." = "Острівець, Dock і асистент: UniMacHub поза своїм вікном.";
+"Voice and Hearing" = "Голос і слух";

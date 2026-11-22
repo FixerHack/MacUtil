@@ -381,11 +381,18 @@ final class SpeechOutput: NSObject, AVSpeechSynthesizerDelegate {
 
     var isSpeaking: Bool { synthesizer.isSpeaking || playing || making != nil }
 
+    /// macOS's voices for a language. Asking macOS takes half a second the first time and the
+    /// settings page asks on every redraw, so the answer is kept.
     static func voices(for language: String) -> [AVSpeechSynthesisVoice] {
-        AVSpeechSynthesisVoice.speechVoices()
+        if let known = knownVoices[language] { return known }
+        let found = AVSpeechSynthesisVoice.speechVoices()
             .filter { $0.language.hasPrefix(language) }
             .sorted { ($0.quality.rawValue, $0.name) > ($1.quality.rawValue, $1.name) }
+        knownVoices[language] = found
+        return found
     }
+
+    @MainActor private static var knownVoices: [String: [AVSpeechSynthesisVoice]] = [:]
 
     func speak(_ text: String, language: String, engine: VoiceEngine, voiceID: String?, rate: Float) {
         stop()

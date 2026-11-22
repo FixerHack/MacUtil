@@ -1,13 +1,14 @@
 import SwiftUI
 
 enum SidebarSection: CaseIterable, Identifiable {
-    case overview, cleanup, storage, applications, files, system, network, security
+    case overview, companions, cleanup, storage, applications, files, system, network, security
 
     var id: Self { self }
 
     var title: LocalizedStringKey {
         switch self {
         case .overview: "Overview"
+        case .companions: "Companions"
         case .cleanup: "Cleanup"
         case .storage: "Storage"
         case .applications: "Applications"
@@ -22,6 +23,7 @@ enum SidebarSection: CaseIterable, Identifiable {
     var summary: LocalizedStringKey {
         switch self {
         case .overview: "What your Mac looks like right now."
+        case .companions: "The island, the Dock and the assistant: UniMacHub outside its window."
         case .cleanup: "What can go, and why it is safe to let it."
         case .storage: "Where the space went, and how to get it back."
         case .applications: "What is installed, and what it left behind."
@@ -35,6 +37,7 @@ enum SidebarSection: CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .overview: "square.grid.2x2"
+        case .companions: "wand.and.stars"
         case .cleanup: "sparkles"
         case .storage: "internaldrive"
         case .applications: "app.badge"
@@ -110,10 +113,11 @@ enum Module: CaseIterable, Identifiable, Hashable {
 
     var section: SidebarSection {
         switch self {
-        case .hub, .smartScan, .dashboard, .history, .clipboard, .settings, .island, .assistant: .overview
+        case .hub, .smartScan, .dashboard, .history, .clipboard, .settings: .overview
+        case .island, .assistant, .dockWidgets: .companions
         case .systemJunk, .developerJunk, .projectBuilds, .messengers, .installers, .trash, .privacy: .cleanup
         case .spaceLens, .largeFiles, .duplicates, .disks, .fileRecovery, .vault, .timeMachine, .iCloudSync: .storage
-        case .uninstaller, .leftovers, .updater, .slimming, .addOns, .dockWidgets: .applications
+        case .uninstaller, .leftovers, .updater, .slimming, .addOns: .applications
         case .folderOrganizer, .deepSearch, .batchRename, .converter: .files
         case .taskManager, .loginItems, .maintenance, .hiddenSettings, .terminal,
              .terminalThemes, .menuBarTidy, .windowTiling, .audioSwitch, .displayControl, .batteryCare:
