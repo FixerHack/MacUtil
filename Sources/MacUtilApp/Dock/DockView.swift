@@ -896,7 +896,9 @@ private struct ClipboardWidget: View {
 
 private struct ClipboardList: View {
     let close: () -> Void
-    @State private var entries: [ClipboardEntry] = []
+    /// Read before the popover opens: content that grows after it opens leaves the popover
+    /// placed for the smaller size, running off the screen.
+    @State private var entries: [ClipboardEntry] = ClipboardHistory.load()
     @State private var search = ""
 
     /// The history is switched on in UniMacHub, whose setting this is.
@@ -941,7 +943,7 @@ private struct ClipboardList: View {
             }
         }
         .padding(12)
-        .onAppear { entries = ClipboardHistory.load() }
+        .frame(width: isOn && !entries.isEmpty ? 464 : nil)
     }
 }
 

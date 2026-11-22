@@ -107,8 +107,23 @@ final class DockController {
                 self?.pointerMoved()
             }
         })
+        observers.append(DistributedNotificationCenter.default().addObserver(
+            forName: DockModel.openWidgetNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let name = note.object as? String
+            Task { @MainActor in self?.openWidget(name) }
+        })
         follow()
         update()
+    }
+
+    /// Brings the Dock on the main display out with a widget's panel open.
+    private func openWidget(_ name: String?) {
+        guard let name, let widget = DockModel.Widget(rawValue: name), let main = NSScreen.screens.first,
+              let dock = docks[DockModel.displayID(of: main)] ?? docks.values.first
+        else { return }
+        setShown(true, dock.state)
+        dock.state.openWidget = widget
     }
 
     private func follow() {

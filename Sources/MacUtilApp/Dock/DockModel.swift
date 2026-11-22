@@ -135,6 +135,9 @@ final class DockModel {
     static let changedNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockChanged")
     /// Sent by the settings page for the Dock's process to ask macOS for Accessibility.
     static let askAccessibilityNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockAskAccessibility")
+    /// Opens a widget's own panel over the Dock on the main display, as a click on it would;
+    /// the object is the widget's name, such as "clipboard".
+    static let openWidgetNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockOpenWidget")
     /// The same for Screen Recording, which the window previews need.
     static let askScreenRecordingNotification = Notification.Name(MacUtilInfo.bundleIdentifier + ".dockAskScreenRecording")
     /// The players the music widget stands for: while it is on, their icons stay out of the Dock.
