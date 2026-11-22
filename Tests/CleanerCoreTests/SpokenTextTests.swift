@@ -102,13 +102,9 @@ struct ClipboardSecretTests {
     }
 }
 
-struct CombineTests {
-    @Test func addsOnlyWhatMacOSMissed() {
-        // From the log.
-        #expect(Transcript.combine(apple: "Тепер відкрий", whisper: "тепер вітрі телеграм") == "Тепер відкрий телеграм")
-        #expect(Transcript.combine(apple: "Можеш відпочивати", whisper: "Можуть відпочивати.") == "Можеш відпочивати")
-        #expect(Transcript.combine(apple: "Привіт відкрий Face", whisper: "Привіт, відкрий фейсіт. Фейсіт.") == "Привіт відкрий фейсіт Face")
-        #expect(Transcript.combine(apple: "", whisper: "Відкрий Телеграм") == "Відкрий Телеграм")
-        #expect(Transcript.combine(apple: "Відкрий ютуб", whisper: "Відкрий ютуб.") == "Відкрий ютуб")
+struct RepeatedWordTests {
+    @Test func aLongWordSaidTwiceIsOne() {
+        #expect(Transcript.collapseRepeats("Привіт, відкрий фейсіт. Фейсіт.") == "Привіт, відкрий фейсіт.")
+        #expect(Transcript.collapseRepeats("так так") == "так так")
     }
 }
