@@ -381,14 +381,7 @@ private struct FolderTile: View {
             }
     }
 
-    /// The popover points back at the Dock, from the side away from the edge.
-    private var arrowEdge: Edge {
-        switch position {
-        case .bottom: .bottom
-        case .left: .leading
-        case .right: .trailing
-        }
-    }
+    private var arrowEdge: Edge { position.popoverEdge }
 }
 
 /// What is in a folder: a fan rising from the Dock, a grid, or a list, newest first.
@@ -559,9 +552,9 @@ private struct DockWidgetView: View {
         case .weather: WeatherWidget(model: model, icon: icon, compact: compact)
         case .timer: TimerWidget(gadgets: sources.gadgets, icon: icon, compact: compact)
         case .pomodoro: PomodoroWidget(gadgets: sources.gadgets, icon: icon, compact: compact)
-        case .clipboard: ClipboardWidget(state: state, icon: icon)
+        case .clipboard: ClipboardWidget(state: state, icon: icon, edge: model.position.popoverEdge)
         case .colourPicker: ColourWidget(gadgets: sources.gadgets, icon: icon)
-        case .calculator: CalculatorWidget(state: state, icon: icon)
+        case .calculator: CalculatorWidget(state: state, icon: icon, edge: model.position.popoverEdge)
         }
     }
 }
@@ -880,6 +873,7 @@ private struct PomodoroWidget: View {
 private struct ClipboardWidget: View {
     let state: DockPanelState
     let icon: CGFloat
+    let edge: Edge
 
     var body: some View {
         Image(systemName: "list.clipboard")
@@ -890,7 +884,7 @@ private struct ClipboardWidget: View {
             .popover(isPresented: Binding(
                 get: { state.openWidget == .clipboard },
                 set: { if !$0, state.openWidget == .clipboard { state.openWidget = nil } }
-            )) {
+            ), arrowEdge: edge) {
                 ClipboardList { state.openWidget = nil }
             }
     }
@@ -1016,6 +1010,7 @@ private struct ColourWidget: View {
 private struct CalculatorWidget: View {
     let state: DockPanelState
     let icon: CGFloat
+    let edge: Edge
 
     var body: some View {
         Image(systemName: "plusminus.circle")
@@ -1026,7 +1021,7 @@ private struct CalculatorWidget: View {
             .popover(isPresented: Binding(
                 get: { state.openWidget == .calculator },
                 set: { if !$0, state.openWidget == .calculator { state.openWidget = nil } }
-            )) {
+            ), arrowEdge: edge) {
                 CalculatorPanel()
             }
     }
@@ -1067,3 +1062,14 @@ private struct CalculatorPanel: View {
     }
 }
 
+
+extension DockModel.Position {
+    /// Where a popover's arrow sits so it opens over the Dock, away from the screen's edge.
+    var popoverEdge: Edge {
+        switch self {
+        case .bottom: .bottom
+        case .left: .leading
+        case .right: .trailing
+        }
+    }
+}
